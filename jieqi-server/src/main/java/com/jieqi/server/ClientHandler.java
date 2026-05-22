@@ -30,25 +30,50 @@ public class ClientHandler implements Runnable {
     public void run() {
         try {
             out = new PrintWriter(socket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
 
-            String loginMsg = in.readLine();
-            if (loginMsg == null) {
+            // 读取 LOGIN 消息
+            String loginLine = in.readLine();
+            if (loginLine == null) {
                 return;
             }
-            int msgType = Integer.parseInt(loginMsg.split("\\|")[0]);
+            int msgType = Protocol.parseMsgType(loginLine);
             if (msgType != Protocol.MSG_LOGIN) {
-                sendMessage(Protocol.buildErrorMsg("请先登录"));
+                sendMessage(Protocol.buildErrorMsg(Protocol.ERR_UNKNOWN, "请先发送 LOGIN 消息"));
                 return;
             }
-            String data = Protocol.parseData(loginMsg);
+            String data = Protocol.parsePayload(loginLine);
+            if (data == null) {
+                sendMessage(Protocol.buildErrorMsg(Protocol.ERR_MALFORMED_MSG, "LOGIN 消息帧损坏"));
+                return;
+            }
             String[] loginData = data.split("\\|");
             color = Integer.parseInt(loginData[0]);
             playerName = loginData.length > 1 ? loginData[1] : "Player";
+            String requestedGameId = loginData.length > 2 ? loginData[2] : "";
 
-            Game game = server.findAvailableGame();
+            // 查找或创建游戏
+            Game game;
+            if (!requestedGameId.isEmpty()) {
+                game = server.getGame(requestedGameId);
+                if (game == null) {
+                    sendMessage(Protocol.buildErrorMsg(Protocol.ERR_ROOM_NOT_FOUND, "指定游戏不存在"));
+                    return;
+                }
+            } else {
+                game = server.findAvailableGame();
+            }
             gameId = game.getGameId();
-            game.connectPlayer(color);
+
+            boolean connected = game.connectPlayer(color);
+            if (!connected) {
+                if (color == ChessPiece.RED) {
+                    sendMessage(Protocol.buildErrorMsg(Protocol.ERR_COLOR_TAKEN, "红方已被占用"));
+                } else {
+                    sendMessage(Protocol.buildErrorMsg(Protocol.ERR_COLOR_TAKEN, "黑方已被占用"));
+                }
+                return;
+            }
             if (color == ChessPiece.RED) {
                 game.setRedPlayerName(playerName);
             } else {
@@ -57,25 +82,50 @@ public class ClientHandler implements Runnable {
 
             clientId = gameId + "-" + color;
             server.registerClient(clientId, this);
-            System.out.println("玩家 " + playerName + "(" + (color == ChessPiece.RED ? "红" : "黑") + ") 加入游戏 " + gameId);
+            System.out.println("玩家 " + playerName + "(" + Protocol.getColorName(color) + ") 加入游戏 " + gameId);
 
-            sendMessage(Protocol.buildMessage(Protocol.MSG_GAME_STATE,
-                    gameId + "|" + color + "|" + game.getStatus().name()));
+            // 回复 LOGIN_ACK
+            sendMessage(Protocol.buildLoginAck(gameId, color, game.getStatus().name()));
+            // 发送初始棋盘
             sendMessage(Protocol.buildBoardState(game.getBoard(), game.getCurrentTurn()));
 
+            // 若双方到齐，广播开局
             if (game.getStatus() == Game.GameStatus.PLAYING) {
-                server.broadcastToGame(gameId, Protocol.buildMessage(Protocol.MSG_GAME_STATE, "START|" + ChessPiece.RED));
+                server.broadcastToGame(gameId, Protocol.buildGameStart(ChessPiece.RED));
                 server.broadcastToGame(gameId, Protocol.buildBoardState(game.getBoard(), game.getCurrentTurn()));
+                server.broadcastToGame(gameId, Protocol.buildTurnChange(game.getCurrentTurn()));
             }
 
+            // 消息循环
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
-                msgType = Integer.parseInt(inputLine.split("\\|")[0]);
-                data = Protocol.parseData(inputLine);
-                if (msgType == Protocol.MSG_MOVE) {
-                    handleMove(game, data);
-                } else if (msgType == Protocol.MSG_QUIT) {
-                    break;
+                msgType = Protocol.parseMsgType(inputLine);
+                data = Protocol.parsePayload(inputLine);
+                if (data == null) {
+                    sendMessage(Protocol.buildErrorMsg(Protocol.ERR_MALFORMED_MSG, "消息帧损坏"));
+                    continue;
+                }
+                switch (msgType) {
+                    case Protocol.MSG_MOVE:
+                        handleMove(game, data);
+                        break;
+                    case Protocol.MSG_DRAW_REQUEST:
+                        handleDrawRequest(game, data);
+                        break;
+                    case Protocol.MSG_RESIGN:
+                        handleResign(game);
+                        break;
+                    case Protocol.MSG_CHAT:
+                        server.broadcastToGame(gameId,
+                                Protocol.buildMessage(Protocol.MSG_CHAT, data));
+                        break;
+                    case Protocol.MSG_QUIT:
+                        handleQuit(game);
+                        return;
+                    default:
+                        // 忽略未知消息类型，不崩溃
+                        System.out.println("未知消息类型: " + msgType);
+                        break;
                 }
             }
         } catch (IOException e) {
@@ -88,23 +138,95 @@ public class ClientHandler implements Runnable {
     private void handleMove(Game game, String data) {
         Move move = Protocol.deserializeMove(data);
         if (move == null) {
+            sendMessage(Protocol.buildErrorMsg(Protocol.ERR_MALFORMED_MSG, "MOVE 消息格式错误"));
             return;
         }
         String error = game.processMove(move, color);
         if (error != null) {
-            sendMessage(Protocol.buildErrorMsg(error));
+            sendMessage(Protocol.buildErrorMsg(Protocol.ERR_ILLEGAL_MOVE, error));
             return;
         }
+        // 广播确认后的走法
         String moveMsg = Protocol.buildMessage(Protocol.MSG_MOVE, Protocol.serializeMove(move));
         server.broadcastToGame(gameId, moveMsg);
+        // 同步棋盘
         server.broadcastToGame(gameId, Protocol.buildBoardState(game.getBoard(), game.getCurrentTurn()));
+
         Game.GameStatus status = game.getStatus();
         if (status != Game.GameStatus.PLAYING) {
-            int winner = (status == Game.GameStatus.RED_WIN) ? ChessPiece.RED
-                    : (status == Game.GameStatus.BLACK_WIN) ? ChessPiece.BLACK : -1;
-            server.broadcastToGame(gameId, Protocol.buildGameOverMsg(winner));
-            System.out.println("游戏 " + gameId + " 结束: " + status);
+            broadcastGameOver(game, status);
+        } else {
+            server.broadcastToGame(gameId, Protocol.buildTurnChange(game.getCurrentTurn()));
         }
+    }
+
+    private void handleDrawRequest(Game game, String data) {
+        if (data.equals("OFFER")) {
+            // 转发提和给对手
+            for (ClientHandler client : server.getClientsForGame(gameId)) {
+                if (client != this) {
+                    client.sendMessage(Protocol.buildDrawOffer());
+                }
+            }
+        } else if (data.equals("ACCEPT")) {
+            // 对方同意和棋
+            game.setStatus(Game.GameStatus.DRAW);
+            game.setGameOverReason(Protocol.REASON_AGREED_DRAW);
+            broadcastGameOver(game, Game.GameStatus.DRAW);
+        } else if (data.equals("DECLINE")) {
+            // 转发拒绝给提和方
+            for (ClientHandler client : server.getClientsForGame(gameId)) {
+                if (client != this) {
+                    client.sendMessage(Protocol.buildDrawResponse(false));
+                }
+            }
+        }
+    }
+
+    private void handleResign(Game game) {
+        Game.GameStatus result = (color == ChessPiece.RED)
+                ? Game.GameStatus.BLACK_WIN : Game.GameStatus.RED_WIN;
+        game.setStatus(result);
+        game.setGameOverReason(Protocol.REASON_RESIGN);
+        server.broadcastToGame(gameId, Protocol.buildResignNotify(color));
+        broadcastGameOver(game, result);
+    }
+
+    private void handleQuit(Game game) {
+        if (game.getStatus() == Game.GameStatus.PLAYING) {
+            int winner = (color == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
+            game.setStatus(winner == ChessPiece.RED ? Game.GameStatus.RED_WIN : Game.GameStatus.BLACK_WIN);
+            server.broadcastToGame(gameId,
+                    Protocol.buildGameOverMsg(winner, Protocol.REASON_DISCONNECT));
+        }
+    }
+
+    private void broadcastGameOver(Game game, Game.GameStatus status) {
+        int winner;
+        int reasonCode = game.getGameOverReason(); // 优先使用 Game 中已设置的原因码
+        switch (status) {
+            case RED_WIN:
+                winner = ChessPiece.RED;
+                if (reasonCode < 0) reasonCode = Protocol.REASON_CHECKMATE;
+                break;
+            case BLACK_WIN:
+                winner = ChessPiece.BLACK;
+                if (reasonCode < 0) reasonCode = Protocol.REASON_CHECKMATE;
+                break;
+            case DRAW:
+                winner = -1;
+                if (reasonCode < 0) reasonCode = Protocol.REASON_AGREED_DRAW;
+                break;
+            case TIMEOUT:
+                winner = game.getCurrentTurn() == ChessPiece.RED ? ChessPiece.BLACK : ChessPiece.RED;
+                reasonCode = Protocol.REASON_TIMEOUT;
+                break;
+            default:
+                return;
+        }
+        server.broadcastToGame(gameId, Protocol.buildGameOverMsg(winner, reasonCode));
+        System.out.println("游戏 " + gameId + " 结束: " + status
+                + " (" + Protocol.getReasonDescription(reasonCode) + ")");
     }
 
     public void sendMessage(String message) {
@@ -113,13 +235,8 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    public String getGameId() {
-        return gameId;
-    }
-
-    public int getColor() {
-        return color;
-    }
+    public String getGameId() { return gameId; }
+    public int getColor() { return color; }
 
     private void cleanup() {
         try {
@@ -130,15 +247,9 @@ public class ClientHandler implements Runnable {
                 }
                 server.unregisterClient(clientId);
             }
-            if (in != null) {
-                in.close();
-            }
-            if (out != null) {
-                out.close();
-            }
-            if (socket != null) {
-                socket.close();
-            }
+            if (in != null)  in.close();
+            if (out != null) out.close();
+            if (socket != null) socket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -7,6 +7,8 @@ import com.jieqi.protocol.Protocol;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,9 +32,12 @@ public class GameServer {
             serverSocket = new ServerSocket(port);
             running = true;
             System.out.println("揭棋服务器启动，监听端口: " + port);
+            System.out.println("默认超时阈值: " + Protocol.TIMEOUT_THRESHOLD + "ms ("
+                    + Protocol.STEP_TIME_LIMIT_MS + "ms + " + Protocol.NETWORK_GRACE_MS + "ms 网络裕量)");
             threadPool.execute(this::checkTimeout);
             while (running) {
                 Socket clientSocket = serverSocket.accept();
+                System.out.println("新客户端连接: " + clientSocket.getInetAddress());
                 ClientHandler handler = new ClientHandler(clientSocket, this);
                 threadPool.execute(handler);
             }
@@ -50,9 +55,12 @@ public class GameServer {
                 for (Game game : games.values()) {
                     if (game.getStatus() == Game.GameStatus.PLAYING && game.isTimeout()) {
                         int timeoutPlayer = game.getCurrentTurn();
-                        System.out.println("游戏 " + game.getGameId() + " 超时，玩家 " + timeoutPlayer);
-                        broadcastToGame(game.getGameId(), Protocol.buildGameOverMsg(
-                                timeoutPlayer == ChessPiece.RED ? ChessPiece.BLACK : ChessPiece.RED));
+                        int winner = (timeoutPlayer == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
+                        game.setStatus(Game.GameStatus.TIMEOUT);
+                        System.out.println("游戏 " + game.getGameId() + " 超时，"
+                                + Protocol.getColorName(timeoutPlayer) + " 判负");
+                        broadcastToGame(game.getGameId(),
+                                Protocol.buildGameOverMsg(winner, Protocol.REASON_TIMEOUT));
                     }
                 }
             } catch (InterruptedException e) {
@@ -68,6 +76,19 @@ public class GameServer {
                 client.sendMessage(message);
             }
         }
+    }
+
+    /**
+     * 获取某游戏的所有客户端连接（用于定向转发，如提和只发给对手）。
+     */
+    public List<ClientHandler> getClientsForGame(String gameId) {
+        List<ClientHandler> result = new ArrayList<>();
+        for (ClientHandler client : clients.values()) {
+            if (gameId.equals(client.getGameId())) {
+                result.add(client);
+            }
+        }
+        return result;
     }
 
     public synchronized Game createGame(String gameId) {
