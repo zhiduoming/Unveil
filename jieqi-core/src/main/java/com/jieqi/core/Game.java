@@ -5,6 +5,9 @@ import java.util.*;
 public class Game {
     public enum GameStatus { WAITING, PLAYING, RED_WIN, BLACK_WIN, DRAW, TIMEOUT }
 
+    // 游戏结束原因码（对齐 Protocol.reasonCode）
+    private int gameOverReason = -1;
+
     private String gameId;
     private Board board;
     private int currentTurn;
@@ -45,14 +48,22 @@ public class Game {
 
         if (captured != null && captured.isRevealed() && captured.getType() == ChessPiece.KING) {
             status = (playerColor == ChessPiece.RED) ? GameStatus.RED_WIN : GameStatus.BLACK_WIN;
+            gameOverReason = 5; // KING_CAPTURED
             return null;
         }
-        if (RuleValidator.isCheckmate(board, oppColor) || RuleValidator.isStalemate(board, oppColor)) {
+        if (RuleValidator.isCheckmate(board, oppColor)) {
             status = (playerColor == ChessPiece.RED) ? GameStatus.RED_WIN : GameStatus.BLACK_WIN;
+            gameOverReason = 0; // CHECKMATE
+            return null;
+        }
+        if (RuleValidator.isStalemate(board, oppColor)) {
+            status = (playerColor == ChessPiece.RED) ? GameStatus.RED_WIN : GameStatus.BLACK_WIN;
+            gameOverReason = 1; // STALEMATE
             return null;
         }
         if (board.getNoCaptureCount() >= 80) {
             status = GameStatus.DRAW;
+            gameOverReason = 6; // NO_CAPTURE_DRAW
             return null;
         }
 
@@ -60,6 +71,7 @@ public class Game {
         repetitionCount.put(boardHash, repetitionCount.getOrDefault(boardHash, 0) + 1);
         if (repetitionCount.get(boardHash) >= 6) {
             status = GameStatus.DRAW;
+            gameOverReason = 8; // REPETITION_DRAW (默认兵卒长捉和)
             return null;
         }
 
@@ -83,6 +95,10 @@ public class Game {
     public boolean isTimeout() {
         return System.currentTimeMillis() - turnStartTime > 65000;
     }
+
+    public void setStatus(GameStatus status) { this.status = status; }
+    public int getGameOverReason() { return gameOverReason; }
+    public void setGameOverReason(int reason) { this.gameOverReason = reason; }
 
     public boolean connectPlayer(int color) {
         if (color == ChessPiece.RED) {
