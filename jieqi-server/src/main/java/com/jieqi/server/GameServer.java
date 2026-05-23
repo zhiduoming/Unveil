@@ -158,6 +158,25 @@ public class GameServer {
         clients.remove(clientId);
     }
 
+    /** 已绑定端口；未启动时返回 -1。 */
+    public int getBoundPort() {
+        ServerSocket ss = serverSocket;
+        return ss != null && ss.isBound() ? ss.getLocalPort() : -1;
+    }
+
+    /** 停止监听并关闭线程池（测试/优雅退出）。 */
+    public void stop() {
+        running = false;
+        try {
+            if (serverSocket != null) {
+                serverSocket.close();
+            }
+        } catch (IOException ignored) {
+            // ignore
+        }
+        threadPool.shutdownNow();
+    }
+
     public static void main(String[] args) {
         int port = args.length > 0 ? Integer.parseInt(args[0]) : 8888;
         new GameServer(port).start();
