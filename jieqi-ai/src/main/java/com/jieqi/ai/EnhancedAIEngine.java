@@ -1,14 +1,21 @@
 package com.jieqi.ai;
 
-import com.jieqi.core.*;
+import com.jieqi.core.Board;
+import com.jieqi.core.ChessPiece;
+import com.jieqi.core.Move;
+import com.jieqi.protocol.FrameDecoder;
 import com.jieqi.protocol.Protocol;
-import java.io.*;
-import java.net.*;
+import com.jieqi.protocol.ProtocolReader;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.Socket;
 
 public class EnhancedAIEngine implements Runnable {
-    private String name;
-    private int color;
-    private OptimizedAlphaBeta search;
+    private final String name;
+    private final int color;
+    private final OptimizedAlphaBeta search;
+    private final JieqiAgent agent = new JieqiAgent();
     private Board board;
     private boolean running;
 
@@ -25,33 +32,41 @@ public class EnhancedAIEngine implements Runnable {
         System.out.println("[" + name + "] AI引擎启动，作为" + (color == ChessPiece.RED ? "红方" : "黑方"));
         try (Socket socket = new Socket("127.0.0.1", 8888);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+             ProtocolReader reader = new ProtocolReader(socket.getInputStream())) {
 
             out.println(Protocol.buildLoginMsg(color, name));
             System.out.println("[" + name + "] 已连接到服务器");
 
-            String line;
-            while ((line = in.readLine()) != null && running) {
-                int msgType = Integer.parseInt(line.split("\\|")[0]);
-                String data = Protocol.parseData(line);
-                switch (msgType) {
+            FrameDecoder.DecodedFrame frame;
+            while (running && (frame = reader.readFrame()) != null) {
+                switch (frame.msgType()) {
                     case Protocol.MSG_BOARD_STATE:
-                        // 简化处理，不完整解析棋盘，演示用
-                        // 实际应解析并更新board
-                        Move aiMove = calculateMove();
-                        if (aiMove != null) {
-                            out.println(Protocol.buildMessage(Protocol.MSG_MOVE, Protocol.serializeMove(aiMove)));
+                        Protocol.applyBoardState(board, frame.payload());
+                        if (Protocol.parseCurrentTurnFromBoardState(frame.payload()) == color) {
+                            Move aiMove = calculateMove();
+                            if (aiMove != null) {
+                                out.println(Protocol.buildMessage(Protocol.MSG_MOVE,
+                                        Protocol.serializeMove(aiMove)));
+                            }
+                        }
+                        break;
+                    case Protocol.MSG_MOVE:
+                        Move move = Protocol.deserializeMove(frame.payload());
+                        if (move != null) {
+                            board.executeMove(move);
                         }
                         break;
                     case Protocol.MSG_GAME_OVER:
                         running = false;
                         break;
+                    default:
+                        break;
                 }
             }
-        } catch (IOException e) { e.printStackTrace(); }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
-
-    private final JieqiAgent agent = new JieqiAgent();
 
     public Move calculateMove() {
         System.out.println("[" + name + "] 思考中...");
@@ -66,10 +81,15 @@ public class EnhancedAIEngine implements Runnable {
         return agent.selectMove(board, color, 5_000L);
     }
 
-    public void reset() { board = new Board(); search.clearHeuristics(); }
-    public OptimizedAlphaBeta getSearch() { return search; }
-    
-    // 新增：修复 getName() 报错的方法
+    public void reset() {
+        board = new Board();
+        search.clearHeuristics();
+    }
+
+    public OptimizedAlphaBeta getSearch() {
+        return search;
+    }
+
     public String getName() {
         return name;
     }
