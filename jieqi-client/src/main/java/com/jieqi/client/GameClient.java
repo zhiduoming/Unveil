@@ -135,10 +135,6 @@ public class GameClient {
             System.out.println("[本地校验] 非法着法，未发送");
             return false;
         }
-        if (!RuleValidator.isMoveLegal(board, move, color)) {
-            System.out.println("[本地校验] 走子后将被将军，未发送");
-            return false;
-        }
         out.println(Protocol.buildMessage(Protocol.MSG_MOVE, Protocol.serializeMove(move)));
         return true;
     }
