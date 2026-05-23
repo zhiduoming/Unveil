@@ -44,7 +44,7 @@ typst compile docs/INTERFACE.typ docs/INTERFACE.pdf
 
 ## 代码约定
 
-- Java 17+，源码编码 UTF-8
+- JDK **21**（与 `README.md`、CI 一致），源码编码 UTF-8
 - 包结构：`com.jieqi.core`（领域）、`com.jieqi.protocol`（协议）、`com.jieqi.record`（棋谱）、`com.jieqi.server`、`com.jieqi.client`、`com.jieqi.ai`、`com.jieqi.ai.agent`
 - 坐标系统：行号 9（顶/黑方）→ 0（底/红方），列号 a（左）→ i（右）
   - 内部数组：`row = 9 - displayRow`，`col = coord.charAt(0) - 'a'`
