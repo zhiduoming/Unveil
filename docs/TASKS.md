@@ -22,7 +22,7 @@
 | 3 | `5b88e6b` | test(record): import 往返 |
 | 4 | `a8aa468` | test(server): MOVE IT + 基类 |
 | 5 | `8def381` | ci: package jieqi-app |
-| 6 | — | docs: TASKS REPORT INTEROP |
+| 6 | `24f0b5b` | docs: TASKS REPORT INTEROP |
 
 ## 监工汇报（第八轮）
 
