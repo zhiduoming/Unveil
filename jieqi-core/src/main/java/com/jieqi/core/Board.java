@@ -283,6 +283,69 @@ public class Board {
         return false;
     }
 
+    /**
+     * 从 BOARD_STATE payload 重建棋盘（row0 顶行、row9 底行）。
+     *
+     * @return 当前走子方颜色；解析失败返回 -1
+     */
+    public int syncFromBoardStatePayload(String payload) {
+        String[] parts = payload.split("\\|", -1);
+        if (parts.length < 11) {
+            return -1;
+        }
+        try {
+            int turn = Integer.parseInt(parts[0]);
+            clearGridForSync();
+            for (int r = 0; r < 10; r++) {
+                String[] cells = parts[r + 1].split(",", -1);
+                if (cells.length != 9) {
+                    return -1;
+                }
+                for (int c = 0; c < 9; c++) {
+                    applyNetworkCell(r, c, cells[c]);
+                }
+            }
+            return turn;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private void clearGridForSync() {
+        for (int r = 0; r < 10; r++) {
+            for (int c = 0; c < 9; c++) {
+                grid[r][c] = null;
+            }
+        }
+        redPieces.clear();
+        blackPieces.clear();
+    }
+
+    private void applyNetworkCell(int row, int col, String cell) {
+        if (cell == null || cell.equals(".")) {
+            return;
+        }
+        if (cell.length() != 2) {
+            throw new IllegalArgumentException("非法 cell: " + cell);
+        }
+        int color = cell.charAt(0) - '0';
+        char typeChar = cell.charAt(1);
+        ChessPiece piece;
+        if (typeChar == '?') {
+            piece = new ChessPiece(ChessPiece.UNKNOWN, color, false, row, col);
+            piece.setVirtualType(POSITION_VIRTUAL_TYPES[row][col]);
+        } else {
+            int type = typeChar - '0';
+            piece = new ChessPiece(type, color, true, row, col);
+        }
+        grid[row][col] = piece;
+        if (color == ChessPiece.RED) {
+            redPieces.add(piece);
+        } else {
+            blackPieces.add(piece);
+        }
+    }
+
     public int getNoCaptureCount() { return noCaptureCount; }
     public List<Move> getMoveHistory() { return new ArrayList<>(moveHistory); }
     public int getMoveCount() { return moveCount; }
