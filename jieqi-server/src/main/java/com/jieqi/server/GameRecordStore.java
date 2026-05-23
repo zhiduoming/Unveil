@@ -1,12 +1,14 @@
 package com.jieqi.server;
 
 import com.jieqi.core.Game;
+import com.jieqi.record.GameRecord;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 /**
  * 对局结束后将棋谱写入本地目录（默认 {@code records/}）。
@@ -33,6 +35,11 @@ public class GameRecordStore {
         }
         Files.writeString(file, header + body, StandardCharsets.UTF_8);
         return file.toAbsolutePath();
+    }
+
+    public GameRecord load(Path file) throws IOException {
+        List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        return GameRecord.fromExportedLines(lines);
     }
 
     private static String nullToEmpty(String s) {
