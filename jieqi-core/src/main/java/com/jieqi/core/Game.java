@@ -38,7 +38,7 @@ public class Game {
             return "超时判负";
         }
         if (!RuleValidator.isValidMove(board, move, playerColor)) return "非法走法";
-        if (!RuleValidator.isMoveLegal(board, move, playerColor)) return "走子后将被将军";
+        // Q2：不考虑「不应将」——允许送将，对方下一步可吃将并以 KING_CAPTURED 结束
 
         move.setServerTimestamp(System.currentTimeMillis());
         move.setTurnStartTime(turnStartTime);
@@ -127,6 +127,16 @@ public class Game {
     // Getters
     public String getGameId() { return gameId; }
     public Board getBoard() { return board; }
+
+    /** 测试/残局：替换棋盘状态。 */
+    void replaceBoard(Board board) {
+        this.board = board;
+    }
+
+    void setCurrentTurn(int currentTurn) {
+        this.currentTurn = currentTurn;
+    }
+
     public int getCurrentTurn() { return currentTurn; }
     public GameStatus getStatus() { return status; }
     public long getTurnStartTime() { return turnStartTime; }
