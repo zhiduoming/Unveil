@@ -19,7 +19,7 @@
 | 1 | `e786cec` | test(server): illegal move + resign IT |
 | 2 | `0e9fdf4` | test(ai): EnhancedEvaluator |
 | 3 | `9e417e4` | chore(scripts): verify package |
-| 4 | — | docs: TASKS INTEROP REPORT |
+| 4 | `bfe5bf4` | docs: TASKS INTEROP REPORT |
 
 ## 监工汇报（第九轮）
 
