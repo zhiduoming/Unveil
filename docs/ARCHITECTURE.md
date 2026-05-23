@@ -95,7 +95,7 @@ Unveil/
 | `Move` | source/destination/type/turnStartTime |
 | `GameSession`（或 `Game`） | 回合、胜负、超时、重复局面 |
 | `GameRecord` | 服务器自动棋谱记录 |
-| `Coordinate` | 坐标解析与校验 |
+| `Coordinate` | 坐标解析与校验（a–i / 0–9，`ChessPiece` 委托） |
 | `PieceType` | 类型枚举与作业 type 编码 |
 
 网络层 `ClientHandler`、`MatchRoom` 为**应用/基础设施类**，不计入领域类，但属于 OOP 分层。
