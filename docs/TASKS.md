@@ -15,11 +15,17 @@
 | T17 | 多盘 `gameId` 匹配增强 | 待办 | 可选 |
 | T18 | 与他组实战联调记录 | 待办 | |
 
-## 第四轮提交记录（提交后填 hash）
+## 第四轮提交记录（`6e175d7` … `c0186e1`）
 
 | # | Commit | 说明 |
 |---|--------|------|
-| | | |
+| 1 | `6e175d7` | feat(core): EndgameJudge |
+| 2 | `fc1b80c` | test(core): EndgameJudge |
+| 3 | `bd88cac` | feat(client): 本地校验 + chat |
+| 4 | `10f5181` | feat(server): CHAT 限速 |
+| 5 | `b9ce33e` | docs: BOARD_STATE `\|` |
+| 6 | `6ad7ad2` | chore: verify.ps1 |
+| 7 | `c0186e1` | docs: TASKS 第四轮 |
 
 ## 监工汇报（第四轮 · 总监布置）
 
