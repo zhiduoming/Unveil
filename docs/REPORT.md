@@ -53,10 +53,14 @@ flowchart LR
 ## 5. 测试与联调
 
 ```bash
-mvn test -pl jieqi-core,jieqi-server
+powershell -File scripts/verify.ps1
+# 或
+mvn test -pl jieqi-core,jieqi-server,jieqi-ai
 mvn compile
 mvn package -pl jieqi-app -am
 ```
+
+当前单元/集成测试 **28** 项（含双客户端 LOGIN 集成测试）；CI 见 `.github/workflows/ci.yml`。
 
 组间自检见 [INTERFACE.md](./INTERFACE.md) 第 13 节（本组已实现项已勾选）。
 
@@ -68,4 +72,4 @@ mvn package -pl jieqi-app -am
 
 ## 7. 总结
 
-本组完成网络对弈主干、协议 v2.0 文档、粘包处理、棋谱落盘与多 Agent AI 雏形。开放问题 Q1–Q44 已提交老师裁定。后续可扩展 Redis 房间、Web 旁观与 LLM CHAT 演示（见协议第十章扩展项）。
+本组完成网络对弈主干、协议 v2.0 文档、粘包处理、棋谱落盘（含记法解析）、双端 TCP 登录集成测试与多 Agent AI 雏形。开放问题 Q1–Q44 已提交老师裁定。后续可扩展 Redis 房间、Web 旁观与 LLM CHAT 演示（见协议第十章扩展项）。

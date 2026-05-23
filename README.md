@@ -22,6 +22,12 @@ Unveil/
 - JDK **21**
 - Maven 3.9+
 
+## 自检（监工/联调前）
+
+```powershell
+powershell -File scripts/verify.ps1
+```
+
 ## 构建与运行
 
 ```bash
@@ -78,6 +84,7 @@ jieqi-server / jieqi-client / jieqi-ai → jieqi-core
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构与领域类 |
 | [TEAM.md](docs/TEAM.md) | 小组分工与贡献度 |
 | [TASKS.md](docs/TASKS.md) | 任务看板（监工同步） |
+| [INTEROP.md](docs/INTEROP.md) | 组间联调步骤与记录表 |
 | [REPORT.md](docs/REPORT.md) | 实验报告 |
 | [INTEROP.md](docs/INTEROP.md) | 组间联调步骤与记录表 |
 

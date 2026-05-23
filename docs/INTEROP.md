@@ -47,6 +47,7 @@ powershell -File scripts/verify.ps1
 | BOARD_STATE 重建 | 通过 |
 | 服务器权威翻子 type | 通过 |
 | 多盘 gameId 匹配 | 通过（`MatchmakingService`） |
+| 双端 TCP 登录集成测试 | 通过（`GameServerLoginIntegrationTest`） |
 | 双端本地对战（本仓库 client×2） | 待与他组交叉验证 |
 
 ## 6. 已知差异（开放问题）
