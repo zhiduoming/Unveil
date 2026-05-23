@@ -3,6 +3,7 @@ package com.jieqi.client;
 import com.jieqi.core.Board;
 import com.jieqi.core.ChessPiece;
 import com.jieqi.core.Move;
+import com.jieqi.core.RuleValidator;
 import com.jieqi.protocol.FrameDecoder;
 import com.jieqi.protocol.Protocol;
 import com.jieqi.protocol.ProtocolReader;
@@ -80,12 +81,22 @@ public class GameClient {
                     System.out.println("已发送提和请求");
                     continue;
                 }
+                if (input.startsWith("chat ") || input.startsWith("c ")) {
+                    int spaceIdx = input.indexOf(' ');
+                    String msg = input.substring(spaceIdx + 1).trim();
+                    if (!msg.isEmpty()) {
+                        out.println(Protocol.buildChatMsg(color, playerName, msg));
+                    }
+                    continue;
+                }
                 if (input.startsWith("flip ") || input.startsWith("f ")) {
                     int spaceIdx = input.indexOf(' ');
                     String coord = input.substring(spaceIdx + 1).trim();
                     Move move = new Move(coord, coord);
                     move.setFlipOnly(true);
-                    out.println(Protocol.buildMessage(Protocol.MSG_MOVE, Protocol.serializeMove(move)));
+                    if (!sendMoveIfLegal(move)) {
+                        continue;
+                    }
                     continue;
                 }
 
@@ -93,7 +104,9 @@ public class GameClient {
                 String[] parts = input.split("\\s+");
                 if (parts.length >= 2) {
                     Move move = new Move(parts[0], parts[1]);
-                    out.println(Protocol.buildMessage(Protocol.MSG_MOVE, Protocol.serializeMove(move)));
+                    if (!sendMoveIfLegal(move)) {
+                        continue;
+                    }
                 } else {
                     System.out.println("格式错误。用法: <source> <destination>  或 flip <coord>  或 draw/resign/board/help/quit");
                 }
@@ -112,8 +125,22 @@ public class GameClient {
         System.out.println("  draw / d       提和");
         System.out.println("  resign / r     认输");
         System.out.println("  board / b      显示棋盘");
+        System.out.println("  chat <msg>     发送聊天");
         System.out.println("  help / h       显示帮助");
         System.out.println("  quit / exit    退出游戏");
+    }
+
+    private boolean sendMoveIfLegal(Move move) {
+        if (!RuleValidator.isValidMove(board, move, color)) {
+            System.out.println("[本地校验] 非法着法，未发送");
+            return false;
+        }
+        if (!RuleValidator.isMoveLegal(board, move, color)) {
+            System.out.println("[本地校验] 走子后将被将军，未发送");
+            return false;
+        }
+        out.println(Protocol.buildMessage(Protocol.MSG_MOVE, Protocol.serializeMove(move)));
+        return true;
     }
 
     private void receiveMessages() {
