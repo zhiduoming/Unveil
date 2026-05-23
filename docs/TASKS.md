@@ -1,19 +1,35 @@
 # 任务看板（监工同步）
 
-> **最后更新**：2026-05-22（第八轮 T28–T32）
+> **最后更新**：2026-05-22（第九轮 T33–T36）
 
 ## 当前迭代
 
 | ID | 任务 | 状态 | 备注 |
 |----|------|------|------|
-| T1–T27 | 见历史轮次 | 已完成 | |
-| **T28** | 棋谱导入 `GameRecord.fromExportedLines` | 已完成 | 支持序号行与 `#` 头 |
-| **T29** | `GameRecordStore.load` 往返 | 已完成 | `GameRecordStoreTest` |
-| **T30** | 走子 MOVE 集成测试 | 已完成 | `GameServerMoveIntegrationTest` |
-| **T31** | 集成测试基类抽取 | 已完成 | `AbstractGameServerIntegrationTest` |
-| **T32** | CI 增加 `jieqi-app` 打包 | 已完成 | `.github/workflows/ci.yml` |
+| T1–T32 | 见历史轮次 | 已完成 | |
+| **T33** | 非法着法 ERROR 101 集成测试 | 已完成 | `GameServerIllegalMoveIntegrationTest` |
+| **T34** | 认输 GAME_OVER + 棋谱落盘 IT | 已完成 | `GameServerResignIntegrationTest` |
+| **T35** | `EnhancedEvaluator` 单元测试 | 已完成 | 评估反对称性 |
+| **T36** | `verify.ps1` 增加打包步骤 | 已完成 | 与 CI 对齐 |
 
-## 第八轮提交记录（`6325634` …）
+## 第九轮提交记录（`e786cec` …）
+
+| # | Commit | 说明 |
+|---|--------|------|
+| 1 | `e786cec` | test(server): illegal move + resign IT |
+| 2 | `0e9fdf4` | test(ai): EnhancedEvaluator |
+| 3 | `9e417e4` | chore(scripts): verify package |
+| 4 | — | docs: TASKS INTEROP REPORT |
+
+## 监工汇报（第九轮）
+
+- **T33**：黑方在红方回合走子 → 收到 `ERROR|101|…`。
+- **T34**：红方走一着后认输 → 黑方 `GAME_OVER` 原因码 `RESIGN(3)`，棋谱落盘含该着法。
+- **T35**：`EnhancedEvaluator` 红黑视角评估值互为相反数。
+- **T36**：`verify.ps1` 在 compile 后执行 `mvn package -pl jieqi-app -am -DskipTests`。
+- **验证**：35 tests · `scripts/verify.ps1`
+
+## 第八轮提交记录（`6325634` … `4bad26b`）
 
 | # | Commit | 说明 |
 |---|--------|------|
@@ -22,29 +38,10 @@
 | 3 | `5b88e6b` | test(record): import 往返 |
 | 4 | `a8aa468` | test(server): MOVE IT + 基类 |
 | 5 | `8def381` | ci: package jieqi-app |
-| 6 | `24f0b5b` | docs: TASKS REPORT INTEROP |
-
-## 监工汇报（第八轮）
-
-- **T28–T29**：`.jieqi` 文件可解析回 `GameRecord`（跳过注释与空着法占位）。
-- **T30**：红方首着合法走子后，黑方收到 `MSG_MOVE` 广播且坐标一致。
-- **T31**：LOGIN/MOVE 集成测试共用基类（起服、登录、帧等待、首着搜索）。
-- **T32**：CI 在 test+compile 后执行 `mvn package -pl jieqi-app -am -DskipTests`。
-- **验证**：32 tests · `scripts/verify.ps1`
-
-## 第七轮提交记录（`c718f2e` … `48dc332`）
-
-| # | Commit | 说明 |
-|---|--------|------|
-| 1 | `c718f2e` | feat(core): Coordinate |
-| 2 | `c5ec56d` | feat(record): MoveNotation.parse |
-| 3 | `6719ce0` | test(core): Coordinate / EV / notation parse |
-| 4 | `f009751` | test(server): LOGIN 集成测试 |
-| 5 | `aabeef0` | docs: REPORT README INTEROP TASKS |
-| 6 | `48dc332` | docs: round-7 hash |
+| 6 | `24f0b5b` | docs: round 8 |
 
 ## 监工留言区
 
 | 时间 | 任务 | 优先级 |
 |------|------|--------|
-| 2026-05-22 | T28–T32 | 高 |
+| 2026-05-22 | T33–T36 | 高 |

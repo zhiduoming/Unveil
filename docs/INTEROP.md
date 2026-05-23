@@ -50,6 +50,8 @@ powershell -File scripts/verify.ps1
 | 双端 TCP 登录集成测试 | 通过（`GameServerLoginIntegrationTest`） |
 | 双端 MOVE 广播集成测试 | 通过（`GameServerMoveIntegrationTest`） |
 | 棋谱 `.jieqi` 导入往返 | 通过（`GameRecordStore.load`） |
+| 非法着法 ERROR 101 | 通过（`GameServerIllegalMoveIntegrationTest`） |
+| 认输 GAME_OVER + 棋谱落盘 | 通过（`GameServerResignIntegrationTest`） |
 | 双端本地对战（本仓库 client×2） | 待与他组交叉验证 |
 
 ## 6. 已知差异（开放问题）
