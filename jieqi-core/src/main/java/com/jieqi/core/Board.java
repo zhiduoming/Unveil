@@ -258,6 +258,32 @@ public class Board {
         return color == ChessPiece.RED ? redPieces : blackPieces;
     }
 
+    /** 清空棋盘（测试/残局摆子）。 */
+    public void clearAllPieces() {
+        for (int r = 0; r < 10; r++) {
+            for (int c = 0; c < 9; c++) {
+                grid[r][c] = null;
+            }
+        }
+        redPieces.clear();
+        blackPieces.clear();
+        moveHistory.clear();
+        moveCount = 0;
+        noCaptureCount = 0;
+    }
+
+    /** 在指定格放置棋子（测试/残局）。 */
+    public void placePiece(ChessPiece piece, int row, int col) {
+        grid[row][col] = piece;
+        piece.setRow(row);
+        piece.setCol(col);
+        if (piece.getColor() == ChessPiece.RED) {
+            redPieces.add(piece);
+        } else {
+            blackPieces.add(piece);
+        }
+    }
+
     public List<ChessPiece> getUnrevealedPieces(int color) {
         List<ChessPiece> result = new ArrayList<>();
         for (ChessPiece p : getPieces(color)) {

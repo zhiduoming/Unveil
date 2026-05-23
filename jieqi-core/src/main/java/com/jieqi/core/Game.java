@@ -34,6 +34,7 @@ public class Game {
         if (playerColor != currentTurn) return "不是你的回合";
         if (isTimeout()) {
             status = (currentTurn == ChessPiece.RED) ? GameStatus.BLACK_WIN : GameStatus.RED_WIN;
+            gameOverReason = EndgameJudge.ProtocolReason.TIMEOUT;
             return "超时判负";
         }
         if (!RuleValidator.isValidMove(board, move, playerColor)) return "非法走法";
@@ -45,9 +46,10 @@ public class Game {
         ChessPiece captured = board.executeMove(move);
         record.append(move);
 
-        String boardHash = getBoardHash();
+        int nextTurn = (playerColor == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
+        String boardHash = getBoardHash(nextTurn);
         EndgameJudge.Verdict verdict = EndgameJudge.checkAfterMove(
-                board, playerColor, captured, repetitionCount, boardHash);
+                board, playerColor, captured, repetitionCount, boardHash, move);
         if (verdict != null) {
             status = verdict.status();
             gameOverReason = verdict.reasonCode();
@@ -60,7 +62,7 @@ public class Game {
         return null;
     }
 
-    private String getBoardHash() {
+    private String getBoardHash(int sideToMove) {
         StringBuilder sb = new StringBuilder();
         for (int r = 0; r < 10; r++) {
             for (int c = 0; c < 9; c++) {
@@ -69,7 +71,13 @@ public class Game {
                 else sb.append(p.getColor()).append(p.isRevealed() ? p.getType() : "?");
             }
         }
+        sb.append('|').append(sideToMove);
         return sb.toString();
+    }
+
+    /** 测试用：调整回合开始时间以触发超时。 */
+    void setTurnStartTime(long turnStartTime) {
+        this.turnStartTime = turnStartTime;
     }
 
     public boolean isTimeout() {
