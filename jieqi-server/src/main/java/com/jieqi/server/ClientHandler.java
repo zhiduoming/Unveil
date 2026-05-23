@@ -3,6 +3,7 @@ package com.jieqi.server;
 import com.jieqi.core.ChessPiece;
 import com.jieqi.core.Game;
 import com.jieqi.core.Move;
+import com.jieqi.core.RandomRevealService;
 import com.jieqi.protocol.Protocol;
 
 import com.jieqi.protocol.FrameDecoder;
@@ -21,6 +22,7 @@ public class ClientHandler implements Runnable {
     private int color = -1;
     private String playerName;
     private String clientId;
+    private final RandomRevealService revealService = new RandomRevealService();
 
     public ClientHandler(Socket socket, GameServer server) {
         this.socket = socket;
@@ -136,11 +138,13 @@ public class ClientHandler implements Runnable {
             sendMessage(Protocol.buildErrorMsg(Protocol.ERR_MALFORMED_MSG, "MOVE 消息格式错误"));
             return;
         }
+        revealService.sanitizeClientMove(move);
         String error = game.processMove(move, color);
         if (error != null) {
             sendMessage(Protocol.buildErrorMsg(Protocol.ERR_ILLEGAL_MOVE, error));
             return;
         }
+        revealService.stampServerRevealType(move, game.getBoard());
         // 广播确认后的走法
         String moveMsg = Protocol.buildMessage(Protocol.MSG_MOVE, Protocol.serializeMove(move));
         server.broadcastToGame(gameId, moveMsg);
@@ -150,6 +154,7 @@ public class ClientHandler implements Runnable {
         Game.GameStatus status = game.getStatus();
         if (status != Game.GameStatus.PLAYING) {
             broadcastGameOver(game, status);
+            server.persistGameRecord(game);
         } else {
             server.broadcastToGame(gameId, Protocol.buildTurnChange(game.getCurrentTurn()));
         }
@@ -168,6 +173,7 @@ public class ClientHandler implements Runnable {
             game.setStatus(Game.GameStatus.DRAW);
             game.setGameOverReason(Protocol.REASON_AGREED_DRAW);
             broadcastGameOver(game, Game.GameStatus.DRAW);
+            server.persistGameRecord(game);
         } else if (data.equals("DECLINE")) {
             // 转发拒绝给提和方
             for (ClientHandler client : server.getClientsForGame(gameId)) {
@@ -185,6 +191,7 @@ public class ClientHandler implements Runnable {
         game.setGameOverReason(Protocol.REASON_RESIGN);
         server.broadcastToGame(gameId, Protocol.buildResignNotify(color));
         broadcastGameOver(game, result);
+        server.persistGameRecord(game);
     }
 
     private void handleQuit(Game game) {
@@ -193,6 +200,7 @@ public class ClientHandler implements Runnable {
             game.setStatus(winner == ChessPiece.RED ? Game.GameStatus.RED_WIN : Game.GameStatus.BLACK_WIN);
             server.broadcastToGame(gameId,
                     Protocol.buildGameOverMsg(winner, Protocol.REASON_DISCONNECT));
+            server.persistGameRecord(game);
         }
     }
 
