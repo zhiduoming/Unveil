@@ -2,8 +2,8 @@
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path $PSScriptRoot -Parent)
 
-Write-Host "==> mvn test (jieqi-core, jieqi-server)"
-mvn -q test -pl jieqi-core,jieqi-server
+Write-Host "==> mvn test (jieqi-core, jieqi-server, jieqi-ai)"
+mvn -q test -pl jieqi-core,jieqi-server,jieqi-ai
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> mvn compile (all modules)"
