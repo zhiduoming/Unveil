@@ -82,6 +82,24 @@ abstract class AbstractGameServerIntegrationTest {
         return awaitFrame(reader, Protocol.MSG_MOVE, null);
     }
 
+    protected static FrameDecoder.DecodedFrame awaitError(ProtocolReader reader, int errorCode) throws IOException {
+        return awaitFrame(reader, Protocol.MSG_ERROR, errorCode + "|");
+    }
+
+    protected static FrameDecoder.DecodedFrame awaitGameOver(ProtocolReader reader) throws IOException {
+        return awaitFrame(reader, Protocol.MSG_GAME_OVER, null);
+    }
+
+    protected static String connectTwoPlayers(
+            ProtocolReader redReader, Socket redSocket,
+            ProtocolReader blackReader, Socket blackSocket) throws IOException {
+        String gameId = loginAndDrain(redReader, redSocket, 0, "Red", "");
+        loginAndDrain(blackReader, blackSocket, 1, "Black", gameId);
+        awaitGameStart(redReader);
+        awaitGameStart(blackReader);
+        return gameId;
+    }
+
     protected static FrameDecoder.DecodedFrame awaitFrame(
             ProtocolReader reader, int msgType, String payloadPrefix) throws IOException {
         long deadline = System.currentTimeMillis() + 5000;

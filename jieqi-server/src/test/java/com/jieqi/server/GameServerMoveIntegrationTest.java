@@ -30,10 +30,7 @@ class GameServerMoveIntegrationTest extends AbstractGameServerIntegrationTest {
             ProtocolReader redReader = new ProtocolReader(redSocket.getInputStream());
             ProtocolReader blackReader = new ProtocolReader(blackSocket.getInputStream());
 
-            String gameId = loginAndDrain(redReader, redSocket, 0, "Red", "");
-            loginAndDrain(blackReader, blackSocket, 1, "Black", gameId);
-            awaitGameStart(redReader);
-            awaitGameStart(blackReader);
+            connectTwoPlayers(redReader, redSocket, blackReader, blackSocket);
 
             legal.setTurnStartTime(System.currentTimeMillis());
             sendFrame(redSocket, Protocol.buildMessage(Protocol.MSG_MOVE, Protocol.serializeMove(legal)));
