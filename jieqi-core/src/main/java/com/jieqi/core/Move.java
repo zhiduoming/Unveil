@@ -1,5 +1,7 @@
 package com.jieqi.core;
 
+import com.jieqi.record.MoveNotation;
+
 public class Move {
     private String source;
     private String destination;
@@ -45,10 +47,6 @@ public class Move {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(source).append("-").append(destination);
-        if (type != null) sb.append("(").append(type).append(")");
-        if (isFlipOnly) sb.append("[翻]");
-        return sb.toString();
+        return MoveNotation.format(this);
     }
 }

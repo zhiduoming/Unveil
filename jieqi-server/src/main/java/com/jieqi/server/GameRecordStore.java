@@ -28,6 +28,9 @@ public class GameRecordStore {
                 + " status=" + game.getStatus()
                 + System.lineSeparator();
         String body = game.getRecord().exportText();
+        if (body.isEmpty()) {
+            body = "(无着法记录)\n";
+        }
         Files.writeString(file, header + body, StandardCharsets.UTF_8);
         return file.toAbsolutePath();
     }

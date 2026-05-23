@@ -14,7 +14,7 @@ public class GameRecord {
     private final List<String> lines = new ArrayList<>();
 
     public void append(Move move) {
-        lines.add(move.toString());
+        lines.add(MoveNotation.format(move));
     }
 
     public void appendLine(String line) {
