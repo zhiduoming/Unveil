@@ -13,4 +13,13 @@
     <artifactId>jieqi-core</artifactId>
     <name>Jieqi Core</name>
     <description>领域模型、规则、协议、控制台棋盘显示</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>
