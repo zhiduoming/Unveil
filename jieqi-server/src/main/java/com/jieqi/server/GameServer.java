@@ -23,6 +23,7 @@ public class GameServer {
     private final Map<String, ClientHandler> clients = new ConcurrentHashMap<>();
     private final ExecutorService threadPool = Executors.newCachedThreadPool();
     private final GameRecordStore recordStore = new GameRecordStore("records");
+    private final MatchmakingService matchmaking = new MatchmakingService();
     private boolean running;
 
     public GameServer(int port) {
@@ -77,6 +78,7 @@ public class GameServer {
                         broadcastToGame(game.getGameId(),
                                 Protocol.buildGameOverMsg(winner, Protocol.REASON_TIMEOUT));
                         persistGameRecord(game);
+                        removeFinishedGame(game.getGameId());
                     }
                 }
             } catch (InterruptedException e) {
@@ -117,13 +119,35 @@ public class GameServer {
         return games.get(gameId);
     }
 
-    public synchronized Game findAvailableGame() {
-        for (Game game : games.values()) {
-            if (game.getStatus() == Game.GameStatus.WAITING) {
-                return game;
-            }
+    /**
+     * 根据 LOGIN 的 gameId 解析目标对局（多盘匹配入口）。
+     */
+    public synchronized MatchmakingService.JoinResult resolveJoin(String requestedGameId) {
+        return matchmaking.resolveJoin(games, requestedGameId, () -> {
+            String id = MatchmakingService.newGameId();
+            return createGame(id);
+        });
+    }
+
+    /** 对局结束后从内存移除，避免 Map 无限增长。 */
+    public synchronized void removeFinishedGame(String gameId) {
+        Game game = games.get(gameId);
+        if (game != null && game.isFinished()) {
+            games.remove(gameId);
+            System.out.println("[Match] 已移除结束对局 gameId=" + gameId
+                    + " 活跃对局数=" + games.size());
         }
-        return createGame(UUID.randomUUID().toString().substring(0, 8));
+    }
+
+    public int activeGameCount() {
+        return games.size();
+    }
+
+    /** @deprecated 使用 {@link #resolveJoin(String)} */
+    @Deprecated
+    public synchronized Game findAvailableGame() {
+        MatchmakingService.JoinResult r = resolveJoin("");
+        return r.game();
     }
 
     public void registerClient(String clientId, ClientHandler handler) {

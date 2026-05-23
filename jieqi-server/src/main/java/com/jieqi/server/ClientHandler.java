@@ -57,17 +57,21 @@ public class ClientHandler implements Runnable {
             playerName = loginData.length > 1 ? loginData[1] : "Player";
             String requestedGameId = loginData.length > 2 ? loginData[2] : "";
 
-            // 查找或创建游戏
-            Game game;
-            if (!requestedGameId.isEmpty()) {
-                game = server.getGame(requestedGameId);
-                if (game == null) {
-                    sendMessage(Protocol.buildErrorMsg(Protocol.ERR_ROOM_NOT_FOUND, "指定游戏不存在"));
-                    return;
+            MatchmakingService.JoinResult join = server.resolveJoin(requestedGameId);
+            if (!join.ok()) {
+                switch (join.error()) {
+                    case NOT_FOUND ->
+                            sendMessage(Protocol.buildErrorMsg(Protocol.ERR_ROOM_NOT_FOUND, "指定游戏不存在"));
+                    case ROOM_FULL ->
+                            sendMessage(Protocol.buildErrorMsg(Protocol.ERR_ROOM_FULL, "房间已满"));
+                    case ALREADY_STARTED ->
+                            sendMessage(Protocol.buildErrorMsg(Protocol.ERR_ROOM_FULL, "对局已开始，无法加入"));
+                    default ->
+                            sendMessage(Protocol.buildErrorMsg(Protocol.ERR_UNKNOWN, "无法加入房间"));
                 }
-            } else {
-                game = server.findAvailableGame();
+                return;
             }
+            Game game = join.game();
             gameId = game.getGameId();
 
             boolean connected = game.connectPlayer(color);
@@ -174,7 +178,6 @@ public class ClientHandler implements Runnable {
         Game.GameStatus status = game.getStatus();
         if (status != Game.GameStatus.PLAYING) {
             broadcastGameOver(game, status);
-            server.persistGameRecord(game);
         } else {
             server.broadcastToGame(gameId, Protocol.buildTurnChange(game.getCurrentTurn()));
         }
@@ -193,7 +196,6 @@ public class ClientHandler implements Runnable {
             game.setStatus(Game.GameStatus.DRAW);
             game.setGameOverReason(Protocol.REASON_AGREED_DRAW);
             broadcastGameOver(game, Game.GameStatus.DRAW);
-            server.persistGameRecord(game);
         } else if (data.equals("DECLINE")) {
             // 转发拒绝给提和方
             for (ClientHandler client : server.getClientsForGame(gameId)) {
@@ -211,16 +213,14 @@ public class ClientHandler implements Runnable {
         game.setGameOverReason(Protocol.REASON_RESIGN);
         server.broadcastToGame(gameId, Protocol.buildResignNotify(color));
         broadcastGameOver(game, result);
-        server.persistGameRecord(game);
     }
 
     private void handleQuit(Game game) {
         if (game.getStatus() == Game.GameStatus.PLAYING) {
             int winner = (color == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
             game.setStatus(winner == ChessPiece.RED ? Game.GameStatus.RED_WIN : Game.GameStatus.BLACK_WIN);
-            server.broadcastToGame(gameId,
-                    Protocol.buildGameOverMsg(winner, Protocol.REASON_DISCONNECT));
-            server.persistGameRecord(game);
+            game.setGameOverReason(Protocol.REASON_DISCONNECT);
+            broadcastGameOver(game, game.getStatus());
         }
     }
 
@@ -250,6 +250,8 @@ public class ClientHandler implements Runnable {
         server.broadcastToGame(gameId, Protocol.buildGameOverMsg(winner, reasonCode));
         System.out.println("游戏 " + gameId + " 结束: " + status
                 + " (" + Protocol.getReasonDescription(reasonCode) + ")");
+        server.persistGameRecord(game);
+        server.removeFinishedGame(gameId);
     }
 
     public void sendMessage(String message) {
