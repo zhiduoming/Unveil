@@ -183,6 +183,9 @@ public class RuleValidator {
         return false;
     }
 
+    /**
+     * 走子后己方是否仍被将军。仅供 AI/可选提示；服务器与客户端不因本检查拒绝着法（见 Q2 / INTERFACE §11.1）。
+     */
     public static boolean isMoveLegal(Board board, Move move, int color) {
         ChessPiece captured = board.executeMove(move);
         boolean inCheck = isInCheck(board, color);
