@@ -20,7 +20,7 @@
 | 1 | `d52fe0b` | test(protocol): Move serialization |
 | 2 | `bc527e0` | test(server): turn/unknown/chat IT |
 | 3 | `27babb6` | test(ai): EndgameAgent |
-| 4 | — | docs + README |
+| 4 | `7b0d334` | docs + README |
 
 ## 监工汇报（第十一轮）
 
