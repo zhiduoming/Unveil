@@ -95,6 +95,17 @@ public class Game {
         return true;
     }
 
+    public boolean isRedConnected() { return redConnected; }
+    public boolean isBlackConnected() { return blackConnected; }
+
+    public int connectedPlayerCount() {
+        return (redConnected ? 1 : 0) + (blackConnected ? 1 : 0);
+    }
+
+    public boolean isFinished() {
+        return status != GameStatus.WAITING && status != GameStatus.PLAYING;
+    }
+
     public void disconnectPlayer(int color) {
         if (color == ChessPiece.RED) {
             redConnected = false;
