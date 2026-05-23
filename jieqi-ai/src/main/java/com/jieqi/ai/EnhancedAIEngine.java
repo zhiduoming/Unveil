@@ -51,19 +51,19 @@ public class EnhancedAIEngine implements Runnable {
         } catch (IOException e) { e.printStackTrace(); }
     }
 
+    private final JieqiAgent agent = new JieqiAgent();
+
     public Move calculateMove() {
         System.out.println("[" + name + "] 思考中...");
-        OptimizedAlphaBeta.SearchResult result = search.search(board, color, 55000);
-        if (result.bestMove != null) {
-            System.out.println("[" + name + "] 走: " + result.bestMove + " (分数=" + result.score + ")");
-            return result.bestMove;
+        Move move = agent.selectMove(board, color, 55_000L);
+        if (move != null) {
+            System.out.println("[" + name + "] 走: " + move);
         }
-        return null;
+        return move;
     }
 
     public Move calculateMoveFast() {
-        OptimizedAlphaBeta.SearchResult result = search.search(board, color, 5000);
-        return result.bestMove;
+        return agent.selectMove(board, color, 5_000L);
     }
 
     public void reset() { board = new Board(); search.clearHeuristics(); }
