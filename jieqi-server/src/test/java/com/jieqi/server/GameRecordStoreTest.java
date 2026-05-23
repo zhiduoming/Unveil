@@ -26,4 +26,14 @@ class GameRecordStoreTest {
         assertTrue(text.contains("test01"));
         assertTrue(text.contains("a3-a4"));
     }
+
+    @Test
+    void loadRoundTrip() throws Exception {
+        Game game = new Game("roundtrip");
+        game.getRecord().append(new Move("b1", "c3"));
+        GameRecordStore store = new GameRecordStore(tempDir.toString());
+        Path saved = store.save(game);
+        assertEquals(1, store.load(saved).getLines().size());
+        assertEquals("b1-c3", store.load(saved).getLines().get(0));
+    }
 }
