@@ -90,6 +90,14 @@ abstract class AbstractGameServerIntegrationTest {
         return awaitFrame(reader, Protocol.MSG_GAME_OVER, null);
     }
 
+    protected static FrameDecoder.DecodedFrame awaitTurnChange(ProtocolReader reader, int color) throws IOException {
+        return awaitFrame(reader, Protocol.MSG_GAME_STATE, "TURN_CHANGE|" + color);
+    }
+
+    protected static FrameDecoder.DecodedFrame awaitChat(ProtocolReader reader) throws IOException {
+        return awaitFrame(reader, Protocol.MSG_CHAT, null);
+    }
+
     protected static String connectTwoPlayers(
             ProtocolReader redReader, Socket redSocket,
             ProtocolReader blackReader, Socket blackSocket) throws IOException {
