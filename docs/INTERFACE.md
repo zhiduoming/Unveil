@@ -643,7 +643,7 @@ if (serverNow - serverTurnStartTime > stepTimeLimitMs + networkGraceMs) {
 | 103 | 同色吃子（目标位置为己方棋子） |
 | 104 | 蹩马腿 |
 | 105 | 塞象眼 |
-| 106 | 走子后己方被将军 |
+| 106 | （保留编号）走子后己方被将军；**本组不因送将返回此码** |
 | 107 | 不是你的回合 |
 | 108 | 游戏未在进行中（WAITING 或已结束） |
 | 109 | 暗子已翻开（不能重复翻子） |
@@ -662,7 +662,7 @@ if (serverNow - serverTurnStartTime > stepTimeLimitMs + networkGraceMs) {
 
 遵循老师要求：若一方被将军但走出未应将的着法（甚至送吃己方将/帅），**服务器不自动拒绝**。对方下一步可直接吃掉将/帅获胜（原因码 = `KING_CAPTURED`）。
 
-实现含义：`RuleValidator.isMoveLegal()` 检查走子后己方是否被将，仅作为**着法合法性**的判断，不处理对方上将的走法。
+实现含义：服务器与客户端**仅**调用 `RuleValidator.isValidMove()`（棋子规则、路径、蹩马腿等）；**不**因走子后己方被将而拒绝着法。`RuleValidator.isMoveLegal()` 仅保留供 AI 或可选本地提示，不触发 ERROR 106。对方在己方送将后，可通过合法吃将走子并以 `KING_CAPTURED`（5）结束对局。
 
 ### 11.2 吃暗子
 
