@@ -45,37 +45,16 @@ public class Game {
         ChessPiece captured = board.executeMove(move);
         record.append(move);
 
-        int oppColor = (playerColor == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
-
-        if (captured != null && captured.isRevealed() && captured.getType() == ChessPiece.KING) {
-            status = (playerColor == ChessPiece.RED) ? GameStatus.RED_WIN : GameStatus.BLACK_WIN;
-            gameOverReason = 5; // KING_CAPTURED
-            return null;
-        }
-        if (RuleValidator.isCheckmate(board, oppColor)) {
-            status = (playerColor == ChessPiece.RED) ? GameStatus.RED_WIN : GameStatus.BLACK_WIN;
-            gameOverReason = 0; // CHECKMATE
-            return null;
-        }
-        if (RuleValidator.isStalemate(board, oppColor)) {
-            status = (playerColor == ChessPiece.RED) ? GameStatus.RED_WIN : GameStatus.BLACK_WIN;
-            gameOverReason = 1; // STALEMATE
-            return null;
-        }
-        if (board.getNoCaptureCount() >= 80) {
-            status = GameStatus.DRAW;
-            gameOverReason = 6; // NO_CAPTURE_DRAW
-            return null;
-        }
-
         String boardHash = getBoardHash();
-        repetitionCount.put(boardHash, repetitionCount.getOrDefault(boardHash, 0) + 1);
-        if (repetitionCount.get(boardHash) >= 6) {
-            status = GameStatus.DRAW;
-            gameOverReason = 8; // REPETITION_DRAW (默认兵卒长捉和)
+        EndgameJudge.Verdict verdict = EndgameJudge.checkAfterMove(
+                board, playerColor, captured, repetitionCount, boardHash);
+        if (verdict != null) {
+            status = verdict.status();
+            gameOverReason = verdict.reasonCode();
             return null;
         }
 
+        int oppColor = (playerColor == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
         currentTurn = oppColor;
         turnStartTime = System.currentTimeMillis();
         return null;
