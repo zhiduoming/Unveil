@@ -143,10 +143,10 @@ jieqi-ai  →  jieqi-core only（不依赖 server）
 
 - [x] 面向对象，≥5 领域类（见第 4 节）  
 - [x] TCP Socket、Move 三属性 + 时间戳  
-- [ ] 服务器随机翻子 type（需 `RandomRevealService` 明确权威）  
-- [ ] 棋谱自动记录（`GameRecord` 待完善）  
+- [x] 服务器随机翻子 type（`RandomRevealService`）  
+- [x] 棋谱自动记录（`GameRecord` + `GameRecordStore` 落盘 `records/`）  
 - [x] 超时（服务器时间为准，+5s 裕量可配置）  
 - [x] AI：Alpha-Beta + 暗子期望评估（已有雏形）  
 - [ ] 40 步无吃子和、长将长捉细则与 `EndgameJudge` 对齐老师规则  
 - [ ] 多盘对弈（`MatchRoom` + `gameId` 已有基础）  
-- [ ] 组间互操作：遵守 `INTERFACE.md`  
+- [x] 组间互操作：遵守 `INTERFACE.md`（§13 自检已勾选）  

@@ -710,17 +710,17 @@ if (serverNow - serverTurnStartTime > stepTimeLimitMs + networkGraceMs) {
 
 各组在与其他组联调前，自检以下条目：
 
-- [ ] 消息帧格式：`msgType|payloadLen|payload\n`，UTF-8 编码
-- [ ] 收到未知 `msgType`（如 8/9/10）不会崩溃，静默忽略
-- [ ] 坐标解析正确：`"a0"` = 左下角（红方底线左车位），`"i9"` = 右上角（黑方底线右车位）
-- [ ] 翻子操作 source==destination 被正确处理
-- [ ] 服务器广播的 MOVE 中 type 为服务器生成值
-- [ ] 棋盘行序：row0=最顶行（黑方），row9=最底行（红方）
-- [ ] BOARD_STATE 能完整解析并重建棋盘
-- [ ] GAME_OVER 的 winner=-1 时正确显示和棋
-- [ ] 超时默认 65s，不与对手实现冲突
-- [ ] 端口号在启动时明确打印
-- [ ] 错误消息（ERROR）能正确显示给用户
+- [x] 消息帧格式：`msgType|payloadLen|payload\n`，UTF-8 编码（`FrameDecoder`）
+- [x] 收到未知 `msgType`（如 8/9/10）不会崩溃，静默忽略
+- [x] 坐标解析正确：`"a0"` = 左下角（红方底线左车位），`"i9"` = 右上角（黑方底线右车位）
+- [x] 翻子操作 source==destination 被正确处理
+- [x] 服务器广播的 MOVE 中 type 为服务器生成值（`RandomRevealService`）
+- [x] 棋盘行序：row0=最顶行（黑方），row9=最底行（红方）
+- [x] BOARD_STATE 能完整解析并重建棋盘（`Board.syncFromBoardStatePayload`）
+- [x] GAME_OVER 的 winner=-1 时正确显示和棋
+- [x] 超时默认 65s，不与对手实现冲突
+- [x] 端口号在启动时明确打印
+- [x] 错误消息（ERROR）能正确显示给用户
 
 ---
 
