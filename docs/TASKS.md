@@ -1,47 +1,44 @@
 # 任务看板（监工同步）
 
-> **最后更新**：2026-05-22（第九轮 T33–T36）
+> **最后更新**：2026-05-22（第十轮 T37–T40）
 
 ## 当前迭代
 
 | ID | 任务 | 状态 | 备注 |
 |----|------|------|------|
-| T1–T32 | 见历史轮次 | 已完成 | |
-| **T33** | 非法着法 ERROR 101 集成测试 | 已完成 | `GameServerIllegalMoveIntegrationTest` |
-| **T34** | 认输 GAME_OVER + 棋谱落盘 IT | 已完成 | `GameServerResignIntegrationTest` |
-| **T35** | `EnhancedEvaluator` 单元测试 | 已完成 | 评估反对称性 |
-| **T36** | `verify.ps1` 增加打包步骤 | 已完成 | 与 CI 对齐 |
+| T1–T36 | 见历史轮次 | 已完成 | |
+| **T37** | `FrameDecoder` payload/缓冲上限测试 | 已完成 | Q25/Q26 对齐 |
+| **T38** | 提和接受和棋集成测试 | 已完成 | `GameServerDrawIntegrationTest` |
+| **T39** | `ProbabilityAgent` 单元测试 | 已完成 | 期望值 bias |
+| **T40** | `AgentOrchestrator` 编排测试 | 已完成 | stub Agent 选着 |
 
-## 第九轮提交记录（`e786cec` …）
+## 第十轮提交记录（`befaee6` …）
+
+| # | Commit | 说明 |
+|---|--------|------|
+| 1 | `befaee6` | test(protocol): FrameDecoder limits |
+| 2 | `a94baca` | test(server+ai): draw IT + Agent tests |
+| 3 | — | docs: TASKS INTEROP REPORT |
+
+## 监工汇报（第十轮）
+
+- **T37**：超长声明长度与缓冲超限拒绝/抛错。
+- **T38**：红提和 → 黑收 OFFER → 黑 ACCEPT → `GAME_OVER` winner=-1、原因码 9。
+- **T39**：`ProbabilityAgent` 写入与棋盘 EV 差一致的 bias，不直接选着。
+- **T40**：自定义 stub Agent 优先返回走法，验证编排链。
+- **验证**：40 tests · `scripts/verify.ps1`
+
+## 第九轮提交记录（`e786cec` … `5593c1c`）
 
 | # | Commit | 说明 |
 |---|--------|------|
 | 1 | `e786cec` | test(server): illegal move + resign IT |
 | 2 | `0e9fdf4` | test(ai): EnhancedEvaluator |
 | 3 | `9e417e4` | chore(scripts): verify package |
-| 4 | `bfe5bf4` | docs: TASKS INTEROP REPORT |
-
-## 监工汇报（第九轮）
-
-- **T33**：黑方在红方回合走子 → 收到 `ERROR|101|…`。
-- **T34**：红方走一着后认输 → 黑方 `GAME_OVER` 原因码 `RESIGN(3)`，棋谱落盘含该着法。
-- **T35**：`EnhancedEvaluator` 红黑视角评估值互为相反数。
-- **T36**：`verify.ps1` 在 compile 后执行 `mvn package -pl jieqi-app -am -DskipTests`。
-- **验证**：35 tests · `scripts/verify.ps1`
-
-## 第八轮提交记录（`6325634` … `4bad26b`）
-
-| # | Commit | 说明 |
-|---|--------|------|
-| 1 | `6325634` | feat(record): GameRecord import |
-| 2 | `56cf33a` | feat(server): GameRecordStore.load |
-| 3 | `5b88e6b` | test(record): import 往返 |
-| 4 | `a8aa468` | test(server): MOVE IT + 基类 |
-| 5 | `8def381` | ci: package jieqi-app |
-| 6 | `24f0b5b` | docs: round 8 |
+| 4 | `bfe5bf4` | docs: round 9 |
 
 ## 监工留言区
 
 | 时间 | 任务 | 优先级 |
 |------|------|--------|
-| 2026-05-22 | T33–T36 | 高 |
+| 2026-05-22 | T37–T40 | 高 |

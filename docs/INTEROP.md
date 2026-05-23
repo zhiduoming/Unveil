@@ -52,6 +52,8 @@ powershell -File scripts/verify.ps1
 | 棋谱 `.jieqi` 导入往返 | 通过（`GameRecordStore.load`） |
 | 非法着法 ERROR 101 | 通过（`GameServerIllegalMoveIntegrationTest`） |
 | 认输 GAME_OVER + 棋谱落盘 | 通过（`GameServerResignIntegrationTest`） |
+| 提和接受和棋 | 通过（`GameServerDrawIntegrationTest`） |
+| 帧 payload 上限 | 通过（`FrameDecoderTest`） |
 | 双端本地对战（本仓库 client×2） | 待与他组交叉验证 |
 
 ## 6. 已知差异（开放问题）

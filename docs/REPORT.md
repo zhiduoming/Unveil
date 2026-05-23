@@ -60,7 +60,7 @@ mvn compile
 mvn package -pl jieqi-app -am
 ```
 
-当前单元/集成测试 **35** 项（含非法着法/认输集成测试）；CI 与 `scripts/verify.ps1` 均含 `jieqi-app` 打包。
+当前单元/集成测试 **40** 项（含和棋/提和、帧上限、多 Agent 编排）；CI 与 `scripts/verify.ps1` 均含 `jieqi-app` 打包。
 
 组间自检见 [INTERFACE.md](./INTERFACE.md) 第 13 节（本组已实现项已勾选）。
 
