@@ -15,9 +15,9 @@
 
 | # | Commit | 说明 |
 |---|--------|------|
-| 1 | — | feat(core): EndgameJudge 长将长捉 |
-| 2 | — | test(core): 终局五场景 |
-| 3 | — | docs: CLAUDE REQUIREMENTS TASKS |
+| 1 | `d3fb789` | feat(core): EndgameJudge 长将长捉 |
+| 2 | `8f2dd29` | test(core): 终局五场景 |
+| 3 | `036fb99` | docs: CLAUDE REQUIREMENTS TASKS |
 
 ## 监工汇报（总监任务）
 
