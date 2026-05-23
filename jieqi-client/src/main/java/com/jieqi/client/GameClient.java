@@ -3,7 +3,9 @@ package com.jieqi.client;
 import com.jieqi.core.Board;
 import com.jieqi.core.ChessPiece;
 import com.jieqi.core.Move;
+import com.jieqi.protocol.FrameDecoder;
 import com.jieqi.protocol.Protocol;
+import com.jieqi.protocol.ProtocolReader;
 import com.jieqi.ui.ConsoleUI;
 import java.io.*;
 import java.net.*;
@@ -11,7 +13,7 @@ import java.net.*;
 public class GameClient {
     private Socket socket;
     private PrintWriter out;
-    private BufferedReader in;
+    private ProtocolReader reader;
     private BufferedReader consoleReader;
     private int color;
     private String playerName;
@@ -24,7 +26,7 @@ public class GameClient {
         try {
             socket = new Socket(host, port);
             out = new PrintWriter(socket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
+            reader = new ProtocolReader(socket.getInputStream());
             consoleReader = new BufferedReader(new InputStreamReader(System.in));
             this.playerName = playerName;
             this.board = new Board();
@@ -116,14 +118,10 @@ public class GameClient {
 
     private void receiveMessages() {
         try {
-            String line;
-            while ((line = in.readLine()) != null && running) {
-                int msgType = Protocol.parseMsgType(line);
-                String data = Protocol.parsePayload(line);
-                if (data == null) {
-                    System.out.println("[警告] 收到损坏的消息帧，已忽略");
-                    continue;
-                }
+            FrameDecoder.DecodedFrame frame;
+            while (running && (frame = reader.readFrame()) != null) {
+                int msgType = frame.msgType();
+                String data = frame.payload();
                 switch (msgType) {
                     case Protocol.MSG_GAME_STATE:
                         handleGameState(data);
@@ -211,8 +209,11 @@ public class GameClient {
     }
 
     private void handleBoardState(String data) {
-        // 从 payload 重建棋盘（简化实现：仅刷新显示）
-        // 完整实现应解析 cell 编码并重建 Board 对象
+        int turn = Protocol.applyBoardState(board, data);
+        if (turn < 0) {
+            System.out.println("[警告] BOARD_STATE 解析失败");
+            return;
+        }
         ui.displayBoard(board, color);
     }
 
@@ -270,7 +271,7 @@ public class GameClient {
         running = false;
         try {
             if (out != null) out.close();
-            if (in != null) in.close();
+            if (reader != null) reader.close();
             if (socket != null) socket.close();
         } catch (IOException e) {
             e.printStackTrace();
