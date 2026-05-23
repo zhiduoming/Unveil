@@ -10,11 +10,16 @@
 | **T17** | 多盘 `gameId` 匹配增强 | 已完成 | `MatchmakingService` |
 | **T18** | 组间联调记录 | 已完成 | `docs/INTEROP.md` |
 
-## 第五轮提交记录（提交后填 hash）
+## 第五轮提交记录（`bf5bf17` … `5264567`）
 
 | # | Commit | 说明 |
 |---|--------|------|
-| | | |
+| 1 | `bf5bf17` | feat(core): Game 匹配辅助方法 |
+| 2 | `0b41364` | feat(server): MatchmakingService |
+| 3 | `c25a579` | feat(server): 接入匹配与终局清理 |
+| 4 | `c307f21` | test(server): MatchmakingService |
+| 5 | `636328e` | docs: INTEROP.md |
+| 6 | `5264567` | docs: TASKS 第五轮 |
 
 ## 监工汇报（第五轮）
 
