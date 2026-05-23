@@ -11,7 +11,7 @@
 |---|------|----------|
 | F1 | 两个客户端经 TCP 连接同一服务器真人对弈 | ✅ `GameServer` + `ClientHandler` |
 | F2 | 服务器与客户端均校验并拒绝非法着法 | ✅ `RuleValidator`（双端均调用） |
-| F3 | 不考虑"不应将"自动判负；走不出不自动判胜 | ✅ `INTERFACE.md` §11.1 + 原因码 `KING_CAPTURED` |
+| F3 | 不考虑"不应将"自动判负；走不出不自动判胜 | ✅ 仅 `isValidMove`；允许送将 → 对方 `KING_CAPTURED`（§11.1 / Q2） |
 | F4 | 棋谱：坐标 9-0 行、a-i 列；每步 source + destination；首翻带 type | ✅ `INTERFACE.md` §6-§8 |
 | F5 | 服务器随机决定翻开类型；自动记录棋谱 | ✅ Board 初始化随机排布；`GameRecord` |
 | F6 | Move 三属性 + 时间戳；以服务器时间为准 | ✅ `Move.java` + `INTERFACE.md` §7 |
