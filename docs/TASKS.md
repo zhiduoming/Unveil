@@ -11,11 +11,18 @@
 | T10 | 实验报告 + TEAM 分工 | 已完成 | `REPORT.md` + `TEAM.md` |
 | T11 | 暗子士象规则 + 坐标测试 | 已完成 | `RuleValidator` + JUnit |
 
-## 第三轮提交记录（提交后填 hash）
+## 第三轮提交记录（`2411a21` … `2a1501d`）
 
 | # | Commit | 说明 |
 |---|--------|------|
-| | | |
+| 1 | `2411a21` | fix(core): 暗子士象九宫/过河 |
+| 2 | `74e491a` | test(core): 坐标与暗子规则 |
+| 3 | `ea8bffe` | test(server): GameRecordStore |
+| 4 | `c1431d1` | feat(ai): EnhancedAIEngine 协议 v2 |
+| 5 | `ecfdb0a` | docs: TEAM 分工 |
+| 6 | `a675f87` | docs: REPORT 正文 |
+| 7 | `c693c6c` | docs: README |
+| 8 | `2a1501d` | docs: TASKS 第三轮 |
 
 ## 监工汇报（第三轮）
 
