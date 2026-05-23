@@ -21,7 +21,7 @@
 | 2 | `c5ec56d` | feat(record): MoveNotation.parse |
 | 3 | `6719ce0` | test(core): Coordinate / EV / notation parse |
 | 4 | `f009751` | test(server): LOGIN 集成测试 |
-| 5 | — | docs: REPORT README INTEROP TASKS |
+| 5 | `aabeef0` | docs: REPORT README INTEROP TASKS |
 
 ## 监工汇报（第七轮）
 
