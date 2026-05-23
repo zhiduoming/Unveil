@@ -87,11 +87,11 @@ public class ChessPiece {
     }
 
     public static String toCoord(int row, int col) {
-        return "" + (char)('a' + col) + (9 - row);
+        return Coordinate.format(row, col);
     }
 
     public static int[] fromCoord(String coord) {
-        return new int[]{9 - (coord.charAt(1) - '0'), coord.charAt(0) - 'a'};
+        return Coordinate.toRowCol(coord);
     }
 
     @Override
