@@ -789,11 +789,11 @@ public static String parsePayload(String line) {
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
   align: center + horizon,
   table.header([*msgType*], [*len*], [*currentTurn*], [*rows*]),
-  [`7`], [`<len>`], [`<currentTurn>`], [`<row0>;<row1>;...;<row9>`],
+  [`7`], [`<len>`], [`<currentTurn>`], [`<row0>|<row1>|...|<row9>`],
 )
 
 *棋盘行编码*：
-- 共 10 行，以 `;` 分隔
+- 共 10 行，以 `|` 分隔（与 `currentTurn` 组成 11 段，以 `|` 切分 payload）
 - *row0* = 棋盘最顶行（显示行号 9，黑方底线）
 - *row9* = 棋盘最底行（显示行号 0，红方底线）
 - 每行 9 个 cell，以 `,` 分隔
@@ -812,7 +812,7 @@ public static String parsePayload(String line) {
   [`1?`], [黑方暗子（未翻开）],
 )
 
-*完整示例*（开局棋盘，`currentTurn=0` 红方行棋。帧格式：`7|211|0|<row0>;...;<row9>`）：
+*完整示例*（开局棋盘，`currentTurn=0` 红方行棋。帧格式：`7|len|0|<row0>|...|<row9>`）：
 
 #v(0.3cm)
 #figure(
