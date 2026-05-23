@@ -5,6 +5,7 @@ import com.jieqi.core.Game;
 import com.jieqi.protocol.Protocol;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -21,10 +22,24 @@ public class GameServer {
     private final Map<String, Game> games = new ConcurrentHashMap<>();
     private final Map<String, ClientHandler> clients = new ConcurrentHashMap<>();
     private final ExecutorService threadPool = Executors.newCachedThreadPool();
+    private final GameRecordStore recordStore = new GameRecordStore("records");
     private boolean running;
 
     public GameServer(int port) {
         this.port = port;
+    }
+
+    /** 对局结束时持久化棋谱（失败仅打日志，不影响协议）。 */
+    public void persistGameRecord(Game game) {
+        if (game == null || game.getRecord().getLines().isEmpty()) {
+            return;
+        }
+        try {
+            Path path = recordStore.save(game);
+            System.out.println("棋谱已保存: " + path);
+        } catch (IOException e) {
+            System.err.println("棋谱保存失败: " + game.getGameId() + " — " + e.getMessage());
+        }
     }
 
     public void start() {
@@ -61,6 +76,7 @@ public class GameServer {
                                 + Protocol.getColorName(timeoutPlayer) + " 判负");
                         broadcastToGame(game.getGameId(),
                                 Protocol.buildGameOverMsg(winner, Protocol.REASON_TIMEOUT));
+                        persistGameRecord(game);
                     }
                 }
             } catch (InterruptedException e) {
