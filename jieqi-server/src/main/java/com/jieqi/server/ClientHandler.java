@@ -5,9 +5,10 @@ import com.jieqi.core.Game;
 import com.jieqi.core.Move;
 import com.jieqi.protocol.Protocol;
 
-import java.io.BufferedReader;
+import com.jieqi.protocol.FrameDecoder;
+import com.jieqi.protocol.ProtocolReader;
+
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
@@ -15,7 +16,7 @@ public class ClientHandler implements Runnable {
     private final Socket socket;
     private final GameServer server;
     private PrintWriter out;
-    private BufferedReader in;
+    private ProtocolReader reader;
     private String gameId;
     private int color = -1;
     private String playerName;
@@ -30,19 +31,18 @@ public class ClientHandler implements Runnable {
     public void run() {
         try {
             out = new PrintWriter(socket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
+            reader = new ProtocolReader(socket.getInputStream());
 
-            // 读取 LOGIN 消息
-            String loginLine = in.readLine();
-            if (loginLine == null) {
+            FrameDecoder.DecodedFrame loginFrame = reader.readFrame();
+            if (loginFrame == null) {
                 return;
             }
-            int msgType = Protocol.parseMsgType(loginLine);
+            int msgType = loginFrame.msgType();
             if (msgType != Protocol.MSG_LOGIN) {
                 sendMessage(Protocol.buildErrorMsg(Protocol.ERR_UNKNOWN, "请先发送 LOGIN 消息"));
                 return;
             }
-            String data = Protocol.parsePayload(loginLine);
+            String data = loginFrame.payload();
             if (data == null) {
                 sendMessage(Protocol.buildErrorMsg(Protocol.ERR_MALFORMED_MSG, "LOGIN 消息帧损坏"));
                 return;
@@ -96,15 +96,10 @@ public class ClientHandler implements Runnable {
                 server.broadcastToGame(gameId, Protocol.buildTurnChange(game.getCurrentTurn()));
             }
 
-            // 消息循环
-            String inputLine;
-            while ((inputLine = in.readLine()) != null) {
-                msgType = Protocol.parseMsgType(inputLine);
-                data = Protocol.parsePayload(inputLine);
-                if (data == null) {
-                    sendMessage(Protocol.buildErrorMsg(Protocol.ERR_MALFORMED_MSG, "消息帧损坏"));
-                    continue;
-                }
+            FrameDecoder.DecodedFrame frame;
+            while ((frame = reader.readFrame()) != null) {
+                msgType = frame.msgType();
+                data = frame.payload();
                 switch (msgType) {
                     case Protocol.MSG_MOVE:
                         handleMove(game, data);
@@ -247,7 +242,7 @@ public class ClientHandler implements Runnable {
                 }
                 server.unregisterClient(clientId);
             }
-            if (in != null)  in.close();
+            if (reader != null) reader.close();
             if (out != null) out.close();
             if (socket != null) socket.close();
         } catch (IOException e) {
