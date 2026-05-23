@@ -56,4 +56,21 @@ class FrameDecoderTest {
         decoder.feed(bad.getBytes(StandardCharsets.UTF_8), 0, bad.length());
         assertNull(decoder.poll());
     }
+
+    @Test
+    void rejectsDeclaredLengthAboveMaxPayload() {
+        FrameDecoder decoder = new FrameDecoder();
+        int over = FrameDecoder.MAX_PAYLOAD_BYTES + 1;
+        String bad = "7|" + over + "|\n";
+        decoder.feed(bad.getBytes(StandardCharsets.UTF_8), 0, bad.length());
+        assertNull(decoder.poll());
+    }
+
+    @Test
+    void throwsWhenBufferExceedsLimit() {
+        FrameDecoder decoder = new FrameDecoder();
+        byte[] chunk = new byte[FrameDecoder.MAX_BUFFER_BYTES + 1];
+        assertThrows(IllegalStateException.class,
+                () -> decoder.feed(chunk, 0, chunk.length));
+    }
 }
