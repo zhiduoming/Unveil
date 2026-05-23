@@ -1,46 +1,37 @@
 # 任务看板（监工同步）
 
-> **最后更新**：2026-05-22（第十一轮 T41–T45）
+> **最后更新**：2026-05-22（总监任务 #2/#9/#10/#6）
 
-## 当前迭代
+## 当前迭代（总监布置）
 
 | ID | 任务 | 状态 | 备注 |
 |----|------|------|------|
-| T1–T40 | 见历史轮次 | 已完成 | |
-| **T41** | `Protocol` Move 序列化往返测试 | 已完成 | `ProtocolMoveSerializationTest` |
-| **T42** | `TURN_CHANGE` 集成测试 | 已完成 | 走子后广播 |
-| **T43** | 未知 msgType 忽略 + 仍可走子 | 已完成 | `GameServerUnknownMsgIntegrationTest` |
-| **T44** | CHAT 广播与 10s 限速 | 已完成 | `GameServerChatIntegrationTest` |
-| **T45** | `EndgameAgent` 开局不激活 | 已完成 | 子力阈值 |
+| **#2** | 长将/长捉 vs 兵卒长捉和 | 已完成 | `REPETITION_LOSS=7`，将军方判负 |
+| **#9** | Game/EndgameJudge 终局场景测试 | 已完成 | 将死/困毙/超时/吃将/长将 5 类 |
+| **#10** | 集成收尾 | 已完成 | 全模块 `mvn test` + `CLAUDE.md` 包说明 |
+| **#6** | commit 规范 | 已写入 | 仅 feat/fix/docs/refactor/test |
 
-## 第十一轮提交记录（`d52fe0b` …）
+## 提交记录（本轮）
 
 | # | Commit | 说明 |
 |---|--------|------|
-| 1 | `d52fe0b` | test(protocol): Move serialization |
-| 2 | `bc527e0` | test(server): turn/unknown/chat IT |
-| 3 | `27babb6` | test(ai): EndgameAgent |
-| 4 | `7b0d334` | docs + README |
+| 1 | — | feat(core): EndgameJudge 长将长捉 |
+| 2 | — | test(core): 终局五场景 |
+| 3 | — | docs: CLAUDE REQUIREMENTS TASKS |
 
-## 监工汇报（第十一轮）
+## 监工汇报（总监任务）
 
-- **T41**：`serializeMove` / `deserializeMove` 往返含 type、时间戳、翻子标志。
-- **T42**：红方合法走子后双方收到 `TURN_CHANGE|1`（黑方回合）。
-- **T43**：发送 msgType=99 不崩溃，后续 MOVE 仍广播。
-- **T44**：CHAT 转发对手；10 秒内第二条返回 ERROR 限速提示。
-- **T45**：满盘时 `EndgameAgent.supports` 为 false。
-- **验证**：46 tests · `scripts/verify.ps1`
+- **#2**：同局面第 6 次重复时：将军 → 走子方（将军方）`REPETITION_LOSS`；非兵卒长捉 → 走子方判负；兵卒长捉 → `REPETITION_DRAW`；无将无捉重复不自动终局。吃子清空重复计数；局面哈希含轮到谁走。
+- **#9**：`EndgameJudgeTest` + `GameEndgameTest` 覆盖五类终局。
+- **#10**：全仓库测试通过；`CLAUDE.md` 补充 `com.jieqi.record`、`com.jieqi.ai.agent`。
+- **#6**：`CLAUDE.md` Git 规范明确禁用 chore/ci。
 
-## 第十轮提交记录（`befaee6` … `0d6a475`）
+## 第十一轮提交记录（`d52fe0b` … `a30c04a`）
 
-| # | Commit | 说明 |
-|---|--------|------|
-| 1 | `befaee6` | test(protocol): FrameDecoder limits |
-| 2 | `a94baca` | test(server+ai): draw IT + Agent tests |
-| 3 | `90e7e3e` | docs: round 10 |
+见历史轮次。
 
 ## 监工留言区
 
 | 时间 | 任务 | 优先级 |
 |------|------|--------|
-| 2026-05-22 | T41–T45 | 高 |
+| 2026-05-22 | 总监 #2/#9/#10/#6 | 高 |

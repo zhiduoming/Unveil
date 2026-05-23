@@ -38,7 +38,7 @@
 | 塞象眼、蹩马腿不变 | `isValidKnightMove()` / `isValidBishopMove()` | ✅ |
 | 胜负：将死、困毙、认输、超时 | `EndgameJudge` + `Game` 状态机 | ✅ |
 | 和棋：40 步无吃子 | `noCaptureCount >= 80` | ✅ |
-| 长将/长捉判负（6 次），兵卒长捉和 | 重复局面哈希计数，≥6 次触发 | ✅ |
+| 长将/长捉判负（6 次），兵卒长捉和 | `EndgameJudge`：将军/捉子分类，≥6 次 REPETITION_LOSS(7) 或兵卒 REPETITION_DRAW(8) | ✅ |
 
 ## 3. 非功能需求
 

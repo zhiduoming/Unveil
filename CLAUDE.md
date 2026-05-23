@@ -6,10 +6,12 @@
 
 ```
 Unveil/
-├── jieqi-core/       # 核心领域类（Board, Game, Move, ChessPiece, RuleValidator）
-├── jieqi-server/     # TCP 服务器（GameServer, ClientHandler）
+├── jieqi-core/       # 领域、规则、协议（Board, Game, EndgameJudge, RuleValidator）
+│   └── com.jieqi.record/   # 棋谱记法与导入（GameRecord, MoveNotation）
+├── jieqi-server/     # TCP 服务器（GameServer, ClientHandler, GameRecordStore）
 ├── jieqi-client/     # TCP 客户端（GameClient, ConsoleUI）
-├── jieqi-ai/         # AI 博弈引擎（Alpha-Beta 剪枝 + 暗子期望评估）
+├── jieqi-ai/         # AI 博弈（JieqiAgent, Alpha-Beta, 期望值评估）
+│   └── com.jieqi.ai.agent/ # 多 Agent 编排（Probability / Endgame / Search）
 ├── jieqi-app/        # 可选 GUI 启动器
 ├── docs/             # 接口文档与实验报告
 │   ├── INTERFACE.typ # 权威协议规范（Typst，编译为 PDF）
@@ -43,7 +45,7 @@ typst compile docs/INTERFACE.typ docs/INTERFACE.pdf
 ## 代码约定
 
 - Java 17+，源码编码 UTF-8
-- 包结构：`com.jieqi.core`（领域）、`com.jieqi.protocol`（协议）、`com.jieqi.server`、`com.jieqi.client`
+- 包结构：`com.jieqi.core`（领域）、`com.jieqi.protocol`（协议）、`com.jieqi.record`（棋谱）、`com.jieqi.server`、`com.jieqi.client`、`com.jieqi.ai`、`com.jieqi.ai.agent`
 - 坐标系统：行号 9（顶/黑方）→ 0（底/红方），列号 a（左）→ i（右）
   - 内部数组：`row = 9 - displayRow`，`col = coord.charAt(0) - 'a'`
   - BOARD_STATE 序列化：row0 = 顶行（黑方），row9 = 底行（红方）
@@ -73,7 +75,7 @@ typst compile docs/INTERFACE.typ docs/INTERFACE.pdf
 type: 简要描述
 ```
 
-`type` 取值范围：
+`type` 取值范围（**仅**使用以下五种，勿用 `chore` / `ci` 等）：
 - `feat`：新增功能
 - `fix`：修复 Bug
 - `docs`：文档/协议规范更新
