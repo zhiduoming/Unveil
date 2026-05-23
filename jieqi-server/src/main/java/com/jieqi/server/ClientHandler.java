@@ -23,6 +23,9 @@ public class ClientHandler implements Runnable {
     private String playerName;
     private String clientId;
     private final RandomRevealService revealService = new RandomRevealService();
+    private static final long CHAT_MIN_INTERVAL_MS = 10_000L;
+    private static final int CHAT_MAX_LEN = 200;
+    private long lastChatAtMs = 0;
 
     public ClientHandler(Socket socket, GameServer server) {
         this.socket = socket;
@@ -112,10 +115,14 @@ public class ClientHandler implements Runnable {
                     case Protocol.MSG_RESIGN:
                         handleResign(game);
                         break;
-                    case Protocol.MSG_CHAT:
-                        server.broadcastToGame(gameId,
-                                Protocol.buildMessage(Protocol.MSG_CHAT, data));
+                    case Protocol.MSG_CHAT: {
+                        String chatPayload = sanitizeChatPayload(data);
+                        if (chatPayload != null) {
+                            server.broadcastToGame(gameId,
+                                    Protocol.buildMessage(Protocol.MSG_CHAT, chatPayload));
+                        }
                         break;
+                    }
                     case Protocol.MSG_QUIT:
                         handleQuit(game);
                         return;
@@ -130,6 +137,19 @@ public class ClientHandler implements Runnable {
         } finally {
             cleanup();
         }
+    }
+
+    private String sanitizeChatPayload(String data) {
+        long now = System.currentTimeMillis();
+        if (now - lastChatAtMs < CHAT_MIN_INTERVAL_MS) {
+            sendMessage(Protocol.buildErrorMsg(Protocol.ERR_UNKNOWN, "聊天过于频繁（10秒内仅可一条）"));
+            return null;
+        }
+        lastChatAtMs = now;
+        if (data.length() > CHAT_MAX_LEN) {
+            return data.substring(0, CHAT_MAX_LEN);
+        }
+        return data;
     }
 
     private void handleMove(Game game, String data) {
