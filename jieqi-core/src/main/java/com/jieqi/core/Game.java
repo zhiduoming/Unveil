@@ -1,5 +1,7 @@
 package com.jieqi.core;
 
+import com.jieqi.record.GameRecord;
+
 import java.util.*;
 
 public class Game {
@@ -15,7 +17,7 @@ public class Game {
     private String redPlayerName, blackPlayerName;
     private long turnStartTime;
     private boolean redConnected, blackConnected;
-    private List<String> moveNotation;
+    private final GameRecord record = new GameRecord();
     private Map<String, Integer> repetitionCount;
 
     public Game(String gameId) {
@@ -24,7 +26,6 @@ public class Game {
         this.currentTurn = ChessPiece.RED;
         this.status = GameStatus.WAITING;
         this.turnStartTime = System.currentTimeMillis();
-        this.moveNotation = new ArrayList<>();
         this.repetitionCount = new HashMap<>();
     }
 
@@ -42,7 +43,7 @@ public class Game {
         move.setTurnStartTime(turnStartTime);
 
         ChessPiece captured = board.executeMove(move);
-        moveNotation.add(move.toString());
+        record.append(move);
 
         int oppColor = (playerColor == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
 
@@ -133,7 +134,11 @@ public class Game {
     public long getTurnStartTime() { return turnStartTime; }
     public String getRedPlayerName() { return redPlayerName; }
     public String getBlackPlayerName() { return blackPlayerName; }
-    public List<String> getMoveNotation() { return new ArrayList<>(moveNotation); }
+    public GameRecord getRecord() { return record; }
+
+    /** @deprecated 使用 {@link #getRecord()} */
+    @Deprecated
+    public List<String> getMoveNotation() { return record.getLines(); }
     public void setRedPlayerName(String name) { this.redPlayerName = name; }
     public void setBlackPlayerName(String name) { this.blackPlayerName = name; }
 }
