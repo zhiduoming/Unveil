@@ -1,0 +1,7 @@
+services:
+  jieqi-server:
+    build: .
+    ports:
+      - "${JIEQI_PORT:-8888}:8888"
+    environment:
+      JIEQI_PORT: "8888"
