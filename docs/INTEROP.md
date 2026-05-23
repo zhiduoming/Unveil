@@ -54,6 +54,9 @@ powershell -File scripts/verify.ps1
 | 认输 GAME_OVER + 棋谱落盘 | 通过（`GameServerResignIntegrationTest`） |
 | 提和接受和棋 | 通过（`GameServerDrawIntegrationTest`） |
 | 帧 payload 上限 | 通过（`FrameDecoderTest`） |
+| TURN_CHANGE 广播 | 通过（`GameServerTurnChangeIntegrationTest`） |
+| 未知 msgType 忽略 | 通过（`GameServerUnknownMsgIntegrationTest`） |
+| CHAT 广播与 10s 限速 | 通过（`GameServerChatIntegrationTest`） |
 | 双端本地对战（本仓库 client×2） | 待与他组交叉验证 |
 
 ## 6. 已知差异（开放问题）

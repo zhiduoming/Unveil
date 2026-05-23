@@ -86,7 +86,6 @@ jieqi-server / jieqi-client / jieqi-ai → jieqi-core
 | [TASKS.md](docs/TASKS.md) | 任务看板（监工同步） |
 | [INTEROP.md](docs/INTEROP.md) | 组间联调步骤与记录表 |
 | [REPORT.md](docs/REPORT.md) | 实验报告 |
-| [INTEROP.md](docs/INTEROP.md) | 组间联调步骤与记录表 |
 
 ## 包名约定（组间互操作）
 
