@@ -148,5 +148,5 @@ jieqi-ai  →  jieqi-core only（不依赖 server）
 - [x] 超时（服务器时间为准，+5s 裕量可配置）  
 - [x] AI：Alpha-Beta + 暗子期望评估（已有雏形）  
 - [x] 40 步无吃子和、重复局面等由 `EndgameJudge` 统一判定  
-- [ ] 多盘对弈（`MatchRoom` + `gameId` 已有基础）  
+- [x] 多盘对弈（`MatchmakingService` + `gameId`）  
 - [x] 组间互操作：遵守 `INTERFACE.md`（§13 自检已勾选）  

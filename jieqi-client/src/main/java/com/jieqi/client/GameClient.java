@@ -44,7 +44,7 @@ public class GameClient {
             System.out.print("请选择颜色 (0=红方/先手, 1=黑方/后手): ");
             String colorChoice = consoleReader.readLine();
             color = Integer.parseInt(colorChoice);
-            System.out.print("输入游戏ID (留空自动匹配): ");
+            System.out.print("输入游戏ID (留空自动匹配, new=新建房间): ");
             String inputGameId = consoleReader.readLine();
             out.println(Protocol.buildLoginMsg(color, playerName, inputGameId));
 
