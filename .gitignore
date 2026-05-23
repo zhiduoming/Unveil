@@ -7,3 +7,22 @@ bin/
 .settings/
 *.class
 *.log
+
+# AI assistant local config
+.claude/
+.cursor/
+
+# Build artifacts
+*.jar
+*.war
+docs/INTERFACE.pdf
+dependency-reduced-pom.xml
+
+# Secrets & environment
+.env
+*.env
+*.env.local
+
+# OS
+.DS_Store
+Thumbs.db
