@@ -18,7 +18,7 @@
 |---|--------|------|
 | 1 | `befaee6` | test(protocol): FrameDecoder limits |
 | 2 | `a94baca` | test(server+ai): draw IT + Agent tests |
-| 3 | — | docs: TASKS INTEROP REPORT |
+| 3 | `90e7e3e` | docs: TASKS INTEROP REPORT |
 
 ## 监工汇报（第十轮）
 
