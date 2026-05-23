@@ -209,7 +209,7 @@ public class Protocol {
     /**
      * 按 INTERFACE.md §4.7 格式序列化棋盘。
      * 格式：currentTurn|row0|row1|...|row9
-     * 行内 cell 以 , 分隔，行间以 ; 分隔。
+     * 行内 cell 以 {@code ,} 分隔，行间以 {@code |} 分隔（共 11 段：turn + 10 行）。
      */
     public static String buildBoardState(Board board, int currentTurn) {
         StringBuilder sb = new StringBuilder();
@@ -229,17 +229,23 @@ public class Protocol {
                 }
                 if (c < 8) sb.append(",");
             }
-            if (r < 9) sb.append(";");
+            if (r < 9) sb.append("|");
         }
         return buildMessage(MSG_BOARD_STATE, sb.toString());
     }
 
     /**
      * 从 BOARD_STATE payload 解析 currentTurn。
-     * 完整 Board 重建由调用方根据 cell 编码自行实现。
      */
     public static int parseCurrentTurnFromBoardState(String payload) {
         return Integer.parseInt(payload.split("\\|")[0]);
+    }
+
+    /**
+     * 将 BOARD_STATE payload 应用到棋盘，返回当前走子方；失败返回 -1。
+     */
+    public static int applyBoardState(Board board, String payload) {
+        return board.syncFromBoardStatePayload(payload);
     }
 
     // ── 辅助 ────────────────────────────────────────────────
