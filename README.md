@@ -54,6 +54,14 @@ mvn exec:java -pl jieqi-client -Dexec.mainClass=com.jieqi.client.GameClient
 
 默认端口：`8888`。
 
+### Docker 启动服务端
+
+```bash
+docker compose up --build
+```
+
+对局棋谱默认写入服务端工作目录下的 `records/`（已加入 `.gitignore`）。
+
 ## 模块依赖
 
 ```
@@ -68,7 +76,9 @@ jieqi-server / jieqi-client / jieqi-ai → jieqi-core
 | [REQUIREMENTS.md](docs/REQUIREMENTS.md) | 功能与非功能需求 |
 | [INTERFACE.md](docs/INTERFACE.md) | TCP / Move 组间协议 |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构与领域类 |
-| [TEAM.md](docs/TEAM.md) | 小组分工模板 |
+| [TEAM.md](docs/TEAM.md) | 小组分工与贡献度 |
+| [TASKS.md](docs/TASKS.md) | 任务看板（监工同步） |
+| [REPORT.md](docs/REPORT.md) | 实验报告 |
 
 ## 包名约定（组间互操作）
 
