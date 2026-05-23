@@ -24,3 +24,6 @@ jobs:
 
       - name: Compile all modules
         run: mvn -B compile
+
+      - name: Package app (skip tests)
+        run: mvn -B package -pl jieqi-app -am -DskipTests
