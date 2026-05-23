@@ -10,4 +10,8 @@ Write-Host "==> mvn compile (all modules)"
 mvn -q compile
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "==> mvn package (jieqi-app, skip tests)"
+mvn -q package -pl jieqi-app -am -DskipTests
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "OK: verify passed"
