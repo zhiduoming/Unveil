@@ -103,7 +103,19 @@ public class RuleValidator {
     }
 
     private static boolean isValidAdvisorMove(Board board, ChessPiece piece, int[] src, int[] dst) {
-        return Math.abs(dst[0] - src[0]) == 1 && Math.abs(dst[1] - src[1]) == 1;
+        if (Math.abs(dst[0] - src[0]) != 1 || Math.abs(dst[1] - src[1]) != 1) {
+            return false;
+        }
+        // 暗子按原始象棋规则：士限九宫；明士可全场斜走（强化）
+        if (!piece.isRevealed()) {
+            if (dst[1] < 3 || dst[1] > 5) {
+                return false;
+            }
+            return piece.getColor() == ChessPiece.RED
+                    ? (dst[0] >= 7 && dst[0] <= 9)
+                    : (dst[0] >= 0 && dst[0] <= 2);
+        }
+        return true;
     }
 
     private static boolean isValidBishopMove(Board board, ChessPiece piece, int[] src, int[] dst) {
@@ -112,7 +124,14 @@ public class RuleValidator {
         if (dr != 2 || dc != 2) return false;
         int eyeR = (src[0] + dst[0]) / 2;
         int eyeC = (src[1] + dst[1]) / 2;
-        return board.getPiece(eyeR, eyeC) == null;
+        if (board.getPiece(eyeR, eyeC) != null) {
+            return false;
+        }
+        // 暗象不过河；明象可过河
+        if (!piece.isRevealed()) {
+            return piece.getColor() == ChessPiece.RED ? (dst[0] >= 5) : (dst[0] <= 4);
+        }
+        return true;
     }
 
     public static List<Move> generateAllMoves(Board board, int color) {
