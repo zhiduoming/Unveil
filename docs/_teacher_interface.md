@@ -166,11 +166,11 @@ startMatch
 C→S
 开始匹配
 无额外字段
-cancelMatch（可选）
+cancelMatch
 C→S
 取消匹配
 无额外字段
-requestFirstHand（可选，如果10s内双方都不选择服务器随机设置先后手）
+requestFirstHand（如果10s内双方都不选择服务器随机设置先后手）
 C→S
 请求先手（红方）
 wannaFirst: true/false
@@ -178,7 +178,7 @@ move
 C→S
 走子（第一步带有翻子）
 fromX, fromY, toX, toY, isFlip: true/false
-ping（可选）
+ping
 C→S
 心跳
 timestamp: 长整型（毫秒）
@@ -219,11 +219,11 @@ gameOver
 S→C
 游戏正常结束（广播）
 winner: "red"/"black"reason: "checkmate"/"resign"winnerId: 字符串
-pong（可选）
+pong
 S→C
 心跳回复
 timestamp: 长整型（原样返回）
-error（可选）
+error
 S→C
 错误信息
 code: 整数message: 字符串
@@ -272,7 +272,7 @@ json
   "opponentId": "user456",
   "opponentNickname": "象棋高手"
 }
-// C→S 请求先手（可选）
+// C→S 请求先手
 { "messageType": "requestFirstHand", "wannaFirst": true }
 // S→C 游戏开始
 {

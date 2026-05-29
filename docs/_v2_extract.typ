@@ -150,7 +150,7 @@
       stroke: (top: 2.5pt + rgb("#1a365d"), bottom: 0.75pt + rgb("#cbd5e1")),
     )[
       #align(center)[
-        #text(size: 10.5pt, tracking: 0.35em, fill: rgb("#475569"))[大 作 业 · 第 一 组]
+        #text(size: 10.5pt, tracking: 0.35em, fill: rgb("#475569"))[大 作 业]
         #v(0.55cm)
         #text(size: 26pt, weight: "bold", fill: rgb("#0f172a"))[揭棋对弈程序设计]
         #v(0.65cm)
@@ -279,7 +279,7 @@
   ),
   [传输协议], [TCP Socket], [],
   [默认端口], [8888], [可配置，启动时打印实际端口],
-  [字符编码], [*UTF-8*（强制）], [所有字符串均为 UTF-8 编码],
+  [字符编码], [*UTF-8*], [所有字符串均为 UTF-8 编码],
   [行尾], [LF（`\n`，0x0A）], [每条消息以单个换行符结尾],
   [超时阈值], [65 秒（60 秒思考 + 5 秒网络裕量）], [服务器可配置],
   [时间戳单位], [毫秒], [`System.currentTimeMillis()` 风格],
@@ -340,7 +340,7 @@
 
 == 坐标转换公式
 
-坐标字符串与内部棋盘数组索引的转换（Java 参考实现）：
+坐标字符串与内部棋盘数组索引的转换，本组提供参考：
 
 ```java
 // 坐标字符串 → 内部数组索引
@@ -403,7 +403,7 @@ public class Move {
     private String  destination;     // 终点坐标，如 "a1"
     private Integer type;            // 翻出的棋子类型（0–6），非翻子步为 null
     private long    turnStartTime;   // 回合开始时间戳（毫秒），以服务器记录值为准
-    private long    clientTimestamp; // 客户端发送时间戳（可选，服务器忽略防伪造）
+    private long    clientTimestamp; // 客户端发送时间戳（服务器忽略防伪造）
     private long    serverTimestamp; // 服务器处理时间戳（服务器写入）
     private boolean isFlipOnly;      // 是否原地翻子操作
 }
@@ -507,7 +507,7 @@ public static String parsePayload(String line) {
   [7], [`MSG_BOARD_STATE`], [S → C], [完整棋盘同步（含当前走子方）],
   [8], [`MSG_DRAW_REQUEST`], [C ↔ S], [提和 / 和棋响应],
   [9], [`MSG_RESIGN`], [C ↔ S], [认输],
-  [10], [`MSG_CHAT`], [C ↔ S], [文本聊天（可选实现）],
+  [10], [`MSG_CHAT`], [C ↔ S], [文本聊天],
 )
 
 *实现要求*：
@@ -908,7 +908,7 @@ public static String parsePayload(String line) {
 
 === MSG_CHAT（10）— 聊天
 
-*双向*（可选实现）
+*双向*
 
 #table(
   columns: (1.7cm, 1.2cm, 2.4cm, 3cm, 3.5cm),
@@ -1197,7 +1197,7 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
 
 服务器必须按时间顺序保存每局棋的所有走法。建议格式：
 - *内存*：`List<Move>` 或 `List<String>`，实时追记
-- *持久化*（可选）：对局结束时写入文件，文件名为 `"<gameId>_<时间戳>.pgn"` 或 `".txt"`
+- *持久化*：对局结束时写入文件，文件名为 `"<gameId>_<时间戳>.pgn"` 或 `".txt"`
 - 棋谱内容应包含对局元信息（双方昵称、起始时间、终局原因）
 
 // ============================================================

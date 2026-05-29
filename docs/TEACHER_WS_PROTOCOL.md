@@ -3,7 +3,7 @@
 本文件内容已并入权威协议文档，请优先阅读：
 
 - **[INTERFACE.typ](./INTERFACE.typ)** / **[INTERFACE.md](./INTERFACE.md)** — v3.0 正文（WebSocket + JSON）
-- **附录 B** — 本组可选 TCP v2.0 扩展
+- **附录 B** — Unveil TCP v2.0 扩展
 
 ## 快速启动
 
