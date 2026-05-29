@@ -120,9 +120,13 @@ public class Main {
                 currentColor = ChessPiece.BLACK;
             } else {
                 System.out.println("AI思考中...");
-                Move aiMove = ai.calculateMove();
+                Move aiMove = ai.calculateMove(board);
                 if (aiMove == null) {
                     System.out.println("AI无步，你获胜");
+                    break;
+                }
+                if (!RuleValidator.isValidMove(board, aiMove, ChessPiece.BLACK)) {
+                    System.out.println("AI非法走法，你获胜");
                     break;
                 }
                 ChessPiece captured = board.executeMove(aiMove);
