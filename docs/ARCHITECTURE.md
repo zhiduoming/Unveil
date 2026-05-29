@@ -9,9 +9,9 @@
 |------|------|----------|
 | 业务规则 | 明暗子、翻子、强化士象、40步无吃子和、长将长捉 | `RuleValidator` + `EndgameJudge` |
 | 对弈核心 | 棋盘、走子、棋谱、随机翻子 | `Board`、`Move`、`GameRecord` |
-| 网络对弈 | WebSocket JSON（主）+ TCP v2.0（可选） | `WsGameServer`、`JsonMessages` |
+| 网络对弈 | WebSocket JSON（主）+ TCP v2.0 | `WsGameServer`、`JsonMessages` |
 | AI 博弈 | 期望值评估、Alpha-Beta、Agent | `JieqiAgent`、`ExpectedValueEvaluator` |
-| 非功能 | 多盘对弈（可选）、组间互操作协议 | `MatchRoom`、`docs/INTERFACE.md` |
+| 非功能 | 多盘对弈、组间互操作协议 | `MatchRoom`、`docs/INTERFACE.md` |
 
 ## 2. 系统架构（Mermaid）
 

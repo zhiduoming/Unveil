@@ -41,7 +41,7 @@ mvn exec:java -f jieqi-app/pom.xml -am -Dexec.args="server-ws 8887"
 - 组间互操作以 `docs/INTERFACE.typ` **v3.0** 为唯一权威格式（WebSocket + JSON）。
 - 每次修改协议必须先更新 Typst 文档，再改代码。
 - 正文：`messageType` JSON over WebSocket，默认端口 **8887**。
-- 附录 B：TCP `msgType|payloadByteLength|payload\n`（本组可选，端口 8888）。
+- 附录 B：TCP `msgType|payloadByteLength|payload\n`（端口 8888）。
 - JSON 实现见 `com.jieqi.protocol.json.*`；TCP 见 `Protocol.java`。
 
 ## 代码约定

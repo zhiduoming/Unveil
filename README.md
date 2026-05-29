@@ -89,5 +89,5 @@ typst compile docs/INTERFACE.typ docs/INTERFACE.pdf
 ## 协议说明
 
 - **正文（组间互操作）**：WebSocket + JSON，`messageType` 字段，端口 **8887**
-- **附录 B（可选）**：TCP `msgType|len|payload\n`，端口 **8888**
+- **附录 B**：TCP `msgType|len|payload\n`，端口 **8888**
 - 联调前与对方约定使用哪一种，不可混用
