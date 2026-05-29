@@ -16,7 +16,7 @@
 6. [揭棋规则要点](#6-揭棋规则要点)
 7. [胜负与和棋](#7-胜负与和棋)
 8. [组间联调清单](#8-组间联调清单)
-9. [附录 B：TCP v2.0（可选）](#附录-btcp-v20可选)
+9. [附录 B：TCP v2.0](#附录-btcp-v20可选)
 
 ---
 
@@ -42,11 +42,11 @@
 | `Login` | `userId`, `password` |
 | `register` | `userId`, `password`, `nickname` |
 | `startMatch` | — |
-| `cancelMatch` | —（可选） |
-| `requestFirstHand` | `wannaFirst`: boolean（可选，10s 内） |
+| `cancelMatch` | — |
+| `requestFirstHand` | `wannaFirst`: boolean（10s 内） |
 | `Ready` | — |
 | `move` | `fromX`, `fromY`, `toX`, `toY`, `isFlip` |
-| `ping` | `timestamp`（可选） |
+| `ping` | `timestamp` |
 | `Resign` | — |
 
 ### 2.2 服务器 → 客户端
@@ -187,16 +187,16 @@ typst compile docs/INTERFACE.typ docs/INTERFACE.pdf
 
 ---
 
-## 附录 B：TCP v2.0（可选）
+## 附录 B：TCP v2.0
 
-本组保留 TCP `msgType|payloadLen|payload\n`（端口 **8888**），实现类 `Protocol.java`、`GameServer`、`GameClient`。
+Unveil 保留 TCP `msgType|payloadLen|payload\n`（端口 **8888**），实现类 `Protocol.java`、`GameServer`、`GameClient`。
 
 | msgType | 名称 |
 |---------|------|
 | 1–7 | LOGIN, MOVE, GAME_STATE, ERROR, QUIT, GAME_OVER, BOARD_STATE |
-| 8–10 | DRAW_REQUEST, RESIGN, CHAT（可选） |
+| 8–10 | DRAW_REQUEST, RESIGN, CHAT |
 
-**联调前须与对方约定使用 WebSocket JSON（正文）或 TCP v2.0（附录），不可混用。**
+**联调前须与对方约定使用 WebSocket JSON 或 TCP v2.0，不可混用。**
 
 ---
 
