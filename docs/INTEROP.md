@@ -1,64 +1,67 @@
 # 组间联调记录（T18）
 
-> 协议版本：**v2.0** · 默认端口 **8888** · 帧格式 `msgType|payloadLen|payload\n`
+> 协议版本：**v3.0** · 主协议 **WebSocket JSON** · 默认端口 **8887**  
+> 可选附录：**TCP v2.0** · 端口 **8888**
 
 ## 1. 联调前自检
-
-在本组环境执行：
 
 ```powershell
 powershell -File scripts/verify.ps1
 ```
 
-对照 [INTERFACE.md](./INTERFACE.md) 第 13 节（本组实现项已勾选）。
+对照 [INTERFACE.md](./INTERFACE.md) §8 组间联调清单。
 
-## 2. 多盘对弈（gameId）约定
+## 2. WebSocket 联调步骤（推荐）
 
-| LOGIN 第三段 `gameId` | 行为 |
-|----------------------|------|
-| （空） | 优先加入已有 1 人的 `WAITING` 房间，否则新建 |
-| 具体 ID（如 `a1b2c3d4`） | 加入该房间；不存在 → ERROR 200 |
-| `new` 或 `*` | 强制新建房间 |
+1. 约定使用 **WebSocket JSON**（INTERFACE v3.0 正文）与端口 **8887**。  
+2. A 组起 server：  
+   `mvn exec:java -f jieqi-app/pom.xml -am -Dexec.args="server-ws 8887"`  
+3. B 组起 client：  
+   `mvn exec:java -f jieqi-app/pom.xml -am -Dexec.args="client-ws ws://<A组IP>:8887 userB pass"`  
+4. 双方：`match` → `ready` → 走子 3～5 步，验证 `moveResult` / `gameStart.initialBoard`。  
+5. 测试非法着法（`valid=false`）、认输（`gameOver`）、可选 `ping`。
 
-对局结束后服务器从内存移除该 `gameId`，可复用 ID 与别组合联调（需重新 LOGIN）。
+## 3. TCP 扩展联调（附录 B，可选）
 
-服务器日志前缀：`[Match]`。
+若对方仍使用本组 v2.0 TCP 协议：
 
-## 3. 与他组联调步骤
+| 项目 | 约定 |
+|------|------|
+| 端口 | 8888 |
+| 帧格式 | `msgType\|payloadLen\|payload\n` |
+| 多盘 | LOGIN 第三段 `gameId`（空=匹配） |
 
-1. 约定统一端口（默认 8888）与协议 PDF/`INTERFACE.md`。  
-2. A 组起 server：`mvn exec:java -pl jieqi-app -Dexec.args="server 8888"`  
-3. B 组起 client 连 A 组 IP，或双方均用本仓库 client。  
-4. 一方 LOGIN 留空 `gameId`，另一方留空或填对方 `LOGIN_ACK` 中的 `gameId`。  
-5. 走子 3～5 步，验证 MOVE / BOARD_STATE / TURN_CHANGE。  
-6. 测试 ERROR（非法着）、CHAT、认输、和棋（可选）。
+步骤见历史记录；实现类 `GameServer` / `GameClient`。
 
-## 4. 联调记录表（填写）
+## 4. 联调记录表
 
-| 日期 | 对方小组 | 对方 server/client | 结果 | 问题与处理 |
-|------|----------|-------------------|------|------------|
+| 日期 | 对方小组 | 协议 (WS/TCP) | 结果 | 问题与处理 |
+|------|----------|---------------|------|------------|
 | | | | ☐ 通过 ☐ 失败 | |
 
-## 5. 本组自检结果（2026-05-23）
+## 5. 本组自检结果
+
+### WebSocket JSON（v3.0）
 
 | 项目 | 结果 |
 |------|------|
-| 帧格式与 payloadLen | 通过（`FrameDecoder`） |
-| BOARD_STATE 重建 | 通过 |
-| 服务器权威翻子 type | 通过 |
-| 多盘 gameId 匹配 | 通过（`MatchmakingService`） |
-| 双端 TCP 登录集成测试 | 通过（`GameServerLoginIntegrationTest`） |
-| 双端 MOVE 广播集成测试 | 通过（`GameServerMoveIntegrationTest`） |
-| 棋谱 `.jieqi` 导入往返 | 通过（`GameRecordStore.load`） |
-| 非法着法 ERROR 101 | 通过（`GameServerIllegalMoveIntegrationTest`） |
-| 认输 GAME_OVER + 棋谱落盘 | 通过（`GameServerResignIntegrationTest`） |
-| 提和接受和棋 | 通过（`GameServerDrawIntegrationTest`） |
-| 帧 payload 上限 | 通过（`FrameDecoderTest`） |
-| TURN_CHANGE 广播 | 通过（`GameServerTurnChangeIntegrationTest`） |
-| 未知 msgType 忽略 | 通过（`GameServerUnknownMsgIntegrationTest`） |
-| CHAT 广播与 10s 限速 | 通过（`GameServerChatIntegrationTest`） |
-| 双端本地对战（本仓库 client×2） | 待与他组交叉验证 |
+| Login / loginResult | 通过 |
+| startMatch / matchSuccess | 通过 |
+| Ready / gameStart | 通过 |
+| move / moveResult + flipResult | 通过 |
+| ping / pong | 通过 |
+| 非法着法 error 2001 | 通过（逻辑层） |
+| 集成测试 | 通过（`WsGameServerIntegrationTest`） |
+| 与他组交叉验证 | 待填 |
 
-## 6. 已知差异（开放问题）
+### TCP v2.0（附录 B，2026-05-23）
 
-见 `INTERFACE.typ` 第十章 Q1–Q44，裁定前以本组方案为准。
+| 项目 | 结果 |
+|------|------|
+| FrameDecoder / BOARD_STATE | 通过 |
+| 9 项 GameServer 集成测试 | 通过 |
+| 与他组交叉验证 | 待填 |
+
+## 6. 已知差异
+
+见 `INTERFACE.typ` 第十章 Q1–Q44。v3.0 正文对齐课程公共接口；本组扩展 `gameOver.reason` 字符串（如 `king_captured`）需在联调时说明。

@@ -48,8 +48,8 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>3.5.0</version>
                 <configuration>
+                    <skip>false</skip>
                     <mainClass>com.jieqi.app.Main</mainClass>
                 </configuration>
             </plugin>

@@ -2,7 +2,7 @@
 
 **项目代号**：Unveil  
 **课程**：揭棋对弈程序设计（大作业）  
-**协议版本**：公共通信协议 v2.0  
+**协议版本**：公共通信协议 **v3.0**（WebSocket JSON 正文 + TCP 附录 B）  
 
 ## 1. 小组与分工
 
@@ -12,11 +12,11 @@
 
 | 类别 | 内容 | 实现位置 |
 |------|------|----------|
-| 网络对弈 | 双客户端 TCP、非法着法拒绝、服务器计时 | `jieqi-server` / `jieqi-client` |
+| 网络对弈 | WebSocket JSON 双客户端、非法着法拒绝、服务器计时 | `WsGameServer` / `WsGameClient` |
 | 棋谱 | source/destination/type、服务器记录 | `GameRecord`、`GameRecordStore` |
-| 翻子 | 服务器权威 type | `RandomRevealService` |
+| 翻子 | 服务器权威 flipResult / type | `RandomRevealService` |
 | AI | 期望值 + Alpha-Beta + 多 Agent | `jieqi-ai` |
-| 互操作 | 帧格式、消息类型、原因码 | `docs/INTERFACE.md` / `.typ` |
+| 互操作 | 课程 WebSocket JSON v3.0 + TCP 附录 B | `docs/INTERFACE.typ` |
 
 ## 3. 系统架构
 
@@ -25,7 +25,8 @@
 
 ```mermaid
 flowchart LR
-  Client -->|TCP v2| Server
+  Client -->|WebSocket JSON v3| Server
+  Client -.->|TCP v2 可选| Server
   Server --> Core[Board / Game / RuleValidator]
   AI --> Core
   AI -->|可选 TCP| Server
@@ -33,7 +34,11 @@ flowchart LR
 
 ## 4. 关键技术
 
-### 4.1 TCP 粘包与半包
+### 4.1 WebSocket + JSON（课程公共接口）
+
+每条消息为 JSON 对象，必含 `messageType`。实现 `com.jieqi.protocol.json.JsonMessages`，服务器 `WsGameServer`（端口 8887）。
+
+### 4.2 TCP 粘包与半包（附录 B，可选）
 
 协议帧：`msgType|payloadByteLength|payload\n`。  
 实现 `FrameDecoder` 累积字节缓冲，按 `\n` 切行并校验 UTF-8 字节长度；`ProtocolReader` 供 server/client/AI 阻塞读帧。避免仅用 `readLine()` 在分包场景下解析错误。

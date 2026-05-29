@@ -1,11 +1,11 @@
-// 揭棋对弈 — 公共通信协议 v2.0
+// 揭棋对弈 — 公共通信协议 v3.1（对齐课程 2026 大作业公共接口）
 // Typst 文档，可直接编译为 PDF
-// 编译: typst compile docs/INTERFACE.typ
+// 编译: typst compile docs/INTERFACE.typ docs/INTERFACE.pdf
 
 #set document(
   title: "揭棋对弈 — 公共通信协议规范",
   author: ("张恒基", "秦博宇", "陈艺博", "陈雨飞"),
-  date: datetime(year: 2026, month: 5, day: 22),
+  date: datetime(year: 2026, month: 5, day: 30),
 )
 
 #let page-footer = context place(
@@ -36,6 +36,11 @@
 #let payload-size = 9pt
 #let caption-size = 11pt
 #let hint-size = 11pt
+
+// 本组实现状态标记（Task 0）
+#let ok = text(fill: rgb("#15803d"))[✅]
+#let warn = text(fill: rgb("#c2410c"))[⚠️]
+#let no = text(fill: rgb("#b91c1c"))[❌]
 
 #show heading: set text(font: main-font)
 
@@ -156,7 +161,7 @@
         #v(0.65cm)
         #text(size: 19pt, weight: "medium", fill: rgb("#1e40af"))[公共通信协议规范]
         #v(0.35cm)
-        #text(size: 13pt, fill: rgb("#64748b"))[Interface Protocol Specification · v2.0]
+        #text(size: 13pt, fill: rgb("#64748b"))[Interface Protocol Specification · v3.1]
       ]
     ]
 
@@ -218,14 +223,14 @@
     #align(center)[
       #text(size: 11pt, fill: rgb("#64748b"))[项目代号：Unveil]
       #v(0.25cm)
-      #text(size: 11pt, fill: rgb("#64748b"))[2026 年 5 月 22 日]
+      #text(size: 11pt, fill: rgb("#64748b"))[2026 年 5 月 30 日]
     ]
   ]
 
   #v(1fr)
   #align(center)[
     #text(size: caption-size, fill: rgb(148, 163, 184))[
-      本文档为 Unveil 操作的唯一权威格式
+      正文以课程 WebSocket+JSON 公共接口为准；附录 B 为本组可选 TCP 扩展
     ]
   ]
 ]
@@ -277,10 +282,12 @@
   table.header(
     [*项目*], [*约定*], [*备注*],
   ),
-  [传输协议], [TCP Socket], [],
-  [默认端口], [8888], [可配置，启动时打印实际端口],
-  [字符编码], [*UTF-8*（强制）], [所有字符串均为 UTF-8 编码],
-  [行尾], [LF（`\n`，0x0A）], [每条消息以单个换行符结尾],
+  [传输协议（正文）], [*WebSocket* + *JSON*], [课程公共接口；默认端口 *8887*；见第 6 章],
+  [TCP 扩展（附录）], [文本帧 `msgType|len|payload\n`], [本组保留；默认端口 *8888*；见附录 B],
+  [字符编码], [*UTF-8*（强制）], [JSON 与 TCP payload 均为 UTF-8],
+  [TCP 行尾], [LF（`\n`，0x0A）], [附录 B 每条 TCP 消息以单个换行符结尾],
+  [WS 消息识别], [`messageType` 字符串], [每条 JSON 对象必含此字段],
+  [心跳（可选）], [`ping` / `pong`，建议 10s], [未实现心跳的客户端应被兼容],
   [超时阈值], [65 秒（60 秒思考 + 5 秒网络裕量）], [服务器可配置],
   [时间戳单位], [毫秒], [`System.currentTimeMillis()` 风格],
   [时间戳权威方], [*服务器*], [客户端时间戳仅供参考，超时判定以服务器为准],
@@ -378,6 +385,43 @@ public static String toCoord(int row, int col) {
 )
 
 *注意*：基准价值仅作为 AI 评估函数的参考，组间互操作不依赖此值。
+== 老师 JSON piece 枚举映射（§3.2）
+
+老师文档 `piece` 枚举首字母大写（Rook/Knight/…），JSON 示例使用全小写。本组统一 *全小写*（`PieceJsonMapper`），组间互操作以联调为准。
+
+#table(
+  columns: (auto, auto, auto, auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (center + horizon, left, left, center, center, center),
+  table.header(
+    [*内部编码*], [*中文名*], [*JSON piece*], [*红方*], [*黑方*], [*本组*],
+  ),
+  [0], [将/帅], [`king`], [帅], [将], [#ok],
+  [1], [车], [`rook`], [车], [車], [#ok],
+  [2], [马], [`knight`], [马], [馬], [#ok],
+  [3], [炮], [`cannon`], [炮], [砲], [#ok],
+  [4], [兵/卒], [`pawn`], [兵], [卒], [#ok],
+  [5], [士/仕], [`guard`], [仕], [士], [#ok],
+  [6], [象/相], [`bishop`], [相], [象], [#ok],
+)
+
+== 内部编码 ↔ JSON ↔ 中文三向对照（§3.3）
+
+#table(
+  columns: (auto, auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  table.header([*内部编码*], [*JSON piece*], [*红方中文*], [*黑方中文*]),
+  [0], [`king`], [帅], [将],
+  [1], [`rook`], [车], [车],
+  [2], [`knight`], [马], [马],
+  [3], [`cannon`], [炮], [炮],
+  [4], [`pawn`], [兵], [卒],
+  [5], [`guard`], [仕], [士],
+  [6], [`bishop`], [相], [象],
+)
+
+*注意*：内部编码 0–6 用于领域层、棋谱记法与附录 B BOARD_STATE；JSON 层仅使用 `piece` 英文字符串。
+
 
 = 颜色编码
 
@@ -429,554 +473,346 @@ public class Move {
 + 客户端走子/翻子时，服务器仅*揭示*已预置的真实类型
 + 翻子后该棋子类型永久固定
 + *安全性*：客户端无法通过伪造 type 值改变翻子结果
+== JSON move 对象格式（§5.4）
 
-// ============================================================
-// 第三章：网络通信协议
-// ============================================================
-
-= 网络通信协议
-
-== 消息帧格式
-
-每条消息为*一行文本*（以 `\n` 结尾）：
-
-```
-<msgType>|<payloadByteLength>|<payload>\n
-```
+与老师文档一致，坐标拆分为列字母与行数字：
 
 #table(
   columns: (auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*字段*], [*类型*], [*说明*]),
-  [`msgType`], [`int`], [消息类型编号（见 §3.2）],
-  [`payloadByteLength`], [`int`], [`payload` 字段的 *UTF-8 字节数*（不含 `|` 和 `\n`）],
-  [`payload`], [`String`], [实际负载数据，内部可含 `|` 分隔符],
+  table.header([*JSON 字段*], [*类型*], [*说明*]),
+  [`fromX` / `toX`], [String], [列 `a`–`i`],
+  [`fromY` / `toY`], [int], [行 `0`–`9`（0=红方底线，9=黑方底线）],
+  [`isFlip`], [boolean], [true=本步翻子；`from==to` 时为原地翻子],
 )
 
-*示例*：
-```
-2|17|a0|a1||12345678|0
-```
+*映射*：`"b"+1` → `source="b1"`；`JsonMessages.parseMove` / `toMoveJson` 负责与 Java `Move` 互转。
 
-== 消息帧解析规则
-
-#enum[
-  从 TCP 流中读取直到 `\n`，得到一行文本
-  以 `|` 分割，取第 1 段为 `msgType`
-  以 `|` 分割，取第 2 段为 `payloadByteLength`
-  剩余部分（第 3 段起，用 `|` 连接还原）为 `payload`
-  *校验*：`payload` 的 UTF-8 字节数必须等于 `payloadByteLength`，否则丢弃并返回 ERROR
-]
-
-解析参考实现（Java）：
-
-```java
-public static int parseMsgType(String line) {
-    return Integer.parseInt(line.split("\\|")[0]);
-}
-
-public static String parsePayload(String line) {
-    String[] parts = line.split("\\|", 3);
-    if (parts.length < 3) return "";
-    int declaredLen = Integer.parseInt(parts[1]);
-    String payload = parts[2];
-    if (payload.getBytes("UTF-8").length != declaredLen) {
-        return null;  // 帧损坏
-    }
-    return payload;
-}
-```
-
-*设计理由*：采用换行分隔而非纯长度前缀，是因为课程场景下可用 telnet 手动调试，且 payload 内 `|` 无需转义。`payloadByteLength` 的首要作用是校验帧完整性，次要作用是允许 payload 包含换行符（当前未使用此特性）。
-
-== 消息类型目录
+== JSON moveResult 对象（§5.5）
 
 #table(
   columns: (auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: (center + horizon, left, center + horizon, left),
-  table.header(
-    [*编号*], [*常量名*], [*方向*], [*说明*],
-  ),
-  [1], [`MSG_LOGIN`], [C → S], [客户端登录 / 加入游戏],
-  [2], [`MSG_MOVE`], [C ↔ S], [走子提交与广播确认],
-  [3], [`MSG_GAME_STATE`], [S → C], [游戏状态变更通知],
-  [4], [`MSG_ERROR`], [S → C], [错误消息（含错误码）],
-  [5], [`MSG_QUIT`], [C → S], [客户端主动退出],
-  [6], [`MSG_GAME_OVER`], [S → C], [游戏结束通知（含结果与原因码）],
-  [7], [`MSG_BOARD_STATE`], [S → C], [完整棋盘同步（含当前走子方）],
-  [8], [`MSG_DRAW_REQUEST`], [C ↔ S], [提和 / 和棋响应],
-  [9], [`MSG_RESIGN`], [C ↔ S], [认输],
-  [10], [`MSG_CHAT`], [C ↔ S], [文本聊天（可选实现）],
+  table.header([*字段*], [*类型*], [*说明*], [*本组*]),
+  [`success`], [boolean], [消息处理是否成功], [#ok],
+  [`valid`], [boolean], [走子是否符合规则], [#ok],
+  [`move`], [object], [同客户端 move 结构], [#ok],
+  [`flipResult`], [String?], [isFlip 为真时，翻出棋子 `piece` 枚举], [#ok],
 )
 
-*实现要求*：
-- 1–7 为*必须实现*的核心消息
-- 8–10 为*可选扩展*，但必须能收到未知消息不崩溃（静默忽略）
-- 各组可在本地协议中使用 100+ 的私有消息号，组间通信时不得发送
+完整 WS 消息定义见第 6 章。
 
-== 各消息详细格式
 
-=== MSG_LOGIN（1）— 客户端登录
+// ============================================================
 
-*客户端 → 服务器*
+// ============================================================
+// 第六章：WebSocket + JSON（老师公共接口）
+// ============================================================
 
-#table(
-  columns: (1.7cm, 1.2cm, 2.4cm, 3.2cm, 3.2cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*color*], [*playerName*], [*gameId*]),
-  [`1`], [`<len>`], [`<color>`], [`<playerName>`], [`<gameId>`],
-)
+= WebSocket + JSON 通信协议
 
-#v(0.2cm)
+== 传输层约定（§6.1）
+
+客户端与服务器通过 *WebSocket* 交换 *JSON 文本*。每条消息为一个 JSON 对象，必须包含 `messageType` 字段：
+
+#payload-block("{\"messageType\": \"move\", \"fromX\": \"b\", \"fromY\": 1, \"toX\": \"b\", \"toY\": 3, \"isFlip\": false}")
+
 #table(
   columns: (auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*字段*], [*类型*], [*必填*], [*说明*]),
-  [`color`], [`int`], [是], [`0` = 红方，`1` = 黑方],
-  [`playerName`], [`String`], [是], [玩家昵称（建议不含 `|`）],
-  [`gameId`], [`String`], [否], [指定游戏 ID；空 = 自动匹配],
+  table.header([*项目*], [*约定*], [*说明*], [*本组*]),
+  [传输], [WebSocket 文本帧], [一帧 = 一条 JSON 字符串], [#ok],
+  [连接 URL], [`ws://host:8887`], [默认端口 8887；启动时打印], [#ok],
+  [编码], [UTF-8], [JSON 字符串], [#ok],
+  [心跳], [可选，建议 10s `ping`/`pong`], [未实现心跳的客户端应被兼容], [#ok],
+  [未知 messageType], [静默忽略，不得崩溃], [老师原文；本组返回 `error` 4001], [#warn],
 )
 
-*示例*：
+*实现类*：`com.jieqi.protocol.json.JsonMessages`、`com.jieqi.server.ws.WsGameServer`、`com.jieqi.client.WsGameClient`。
+
+== 依赖库版本（§6.2）
+
+老师示例指定，各组统一：
 
 #table(
-  columns: (1.7cm, 1.2cm, 2.4cm, 3.2cm, 3.2cm),
-  stroke: 0.3pt + rgb(203, 213, 225),
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*color*], [*playerName*], [*gameId*]),
-  [`1`], [`12`], [`0`], [`张三`], [（空）],
-  [`1`], [`20`], [`1`], [`李四`], [`a1b2c3d4`],
-)
-
-*行为约定*：
-- `gameId` 为空时，服务器将客户端放入匹配池，凑齐双方后自动开局
-- `gameId` 非空时，服务器查找指定游戏；若不存在则返回 ERROR
-- `color` 为客户端偏好，*服务器可覆盖*（如先到先得）
-
-=== MSG_MOVE（2）— 走子
-
-*客户端 → 服务器（走子请求）*
-
-#table(
-  columns: (1.7cm, 1.2cm, 2cm, 2cm, 1.5cm, 2.4cm, 2cm),
+  columns: (auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*source*], [*destination*], [*type*], [*turnStartTime*], [*isFlipOnly*]),
-  [`2`], [`<len>`], [`<source>`], [`<destination>`], [`<type>`], [`<turnStartTime>`], [`<isFlipOnly>`],
+  table.header([*依赖*], [*版本*], [*本组*]),
+  [`org.java-websocket:Java-WebSocket`], [1.5.7], [#ok],
+  [`com.google.code.gson:gson`], [2.10.1], [#ok],
 )
 
-*服务器 → 双方（广播确认）*
+== 消息格式总览（§6.3）
 
-格式同上，服务器在广播前完成：
-+ 合法性校验（着法规则 + 路径有效性）
-+ 将军检测（走子后己方不能处于被将状态）
-+ 若暗子首次翻开，用服务器预生成类型*覆盖* `type`
-+ 用服务器当前时间*覆盖* `turnStartTime`
+所有消息必含 `messageType`（字符串）。方向缩写：C→S = 客户端→服务器，S→C = 服务器→客户端。
+
+== 客户端 → 服务器消息（§6.4）
+
+#table(
+  columns: (auto, auto, auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (center + horizon, center + horizon, left, left, center),
+  table.header([*messageType*], [*方向*], [*说明*], [*字段*], [*本组*]),
+  [`Login`], [C→S], [登录], [`userId`, `password`], [#ok],
+  [`register`], [C→S], [注册], [`userId`, `password`, `nickname`], [#ok],
+  [`startMatch`], [C→S], [开始匹配], [无额外字段], [#ok],
+  [`cancelMatch`], [C→S], [取消匹配（可选）], [无额外字段], [#ok],
+  [`requestFirstHand`], [C→S], [请求先手（可选，10s 窗口）], [`wannaFirst`: true/false], [#ok],
+  [`Ready`], [C→S], [准备就绪], [无额外字段], [#ok],
+  [`move`], [C→S], [走子/翻子], [`fromX`, `fromY`, `toX`, `toY`, `isFlip`], [#ok],
+  [`ping`], [C→S], [心跳（可选）], [`timestamp`: long 毫秒], [#ok],
+  [`Resign`], [C→S], [认输], [无额外字段], [#ok],
+)
+
+*字段类型（C→S）*：
 
 #table(
   columns: (auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
   table.header([*字段*], [*类型*], [*必填*], [*说明*]),
-  [`source`], [`String`], [是], [原坐标，如 `"b3"`],
-  [`destination`], [`String`], [是], [目标坐标，如 `"b4"`],
-  [`type`], [`int` 或空], [条件], [暗子翻开时由服务器填入 0–6；否则为空字符串],
-  [`turnStartTime`], [`long`], [否], [客户端时间戳，*服务器忽略并覆盖*],
-  [`isFlipOnly`], [`int`], [是], [`1` = 原地翻子，`0` = 普通移动],
+  [`userId` / `password` / `nickname`], [String], [是], [账号信息],
+  [`wannaFirst`], [boolean], [是], [true=请求红方先手],
+  [`fromX` / `toX`], [String], [是], [列 `a`–`i`],
+  [`fromY` / `toY`], [int], [是], [行 `0`–`9`],
+  [`isFlip`], [boolean], [是], [true=本步翻子；from=to 时为原地翻子],
+  [`timestamp`], [long], [是], [毫秒时间戳，pong 原样返回],
 )
 
-*示例*:
+*JSON 示例（C→S）*：
+
+#payload-block("
+{\"messageType\":\"Login\",\"userId\":\"u1\",\"password\":\"123456\"}
+{\"messageType\":\"register\",\"userId\":\"u2\",\"password\":\"123456\",\"nickname\":\"李四\"}
+{\"messageType\":\"startMatch\"}
+{\"messageType\":\"cancelMatch\"}
+{\"messageType\":\"requestFirstHand\",\"wannaFirst\":true}
+{\"messageType\":\"Ready\"}
+{\"messageType\":\"move\",\"fromX\":\"a\",\"fromY\":0,\"toX\":\"a\",\"toY\":1,\"isFlip\":true}
+{\"messageType\":\"ping\",\"timestamp\":1712345678901}
+{\"messageType\":\"Resign\"}
+")
+
+== 服务器 → 客户端消息（§6.5）
 
 #table(
-  columns: (1.7cm, 1.2cm, 2cm, 2cm, 1.5cm, 2.4cm, 2cm, 3fr),
-  stroke: 0.3pt + rgb(203, 213, 225),
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*source*], [*destination*], [*type*], [*turnStartTime*], [*isFlipOnly*], [*说明*]),
-  [`2`], [`10`], [`b1`], [`b3`], [ ], [`0`], [`0`], [正常走子（type 为空，turnStartTime 占位 = 0）],
-  [`2`], [`10`], [`a0`], [`a0`], [ ], [`0`], [`1`], [原地翻子 a0 位置的暗子],
-  [`2`], [`20`], [`c4`], [`e4`], [`3`], [`1700000000`], [`0`], [翻出类型 3（炮），时间戳会被覆盖],
-)
-
-=== MSG_GAME_STATE（3）— 游戏状态
-
-*仅服务器 → 客户端*，通过首个字段区分子类型。
-
-*子类型 1：LOGIN_ACK（登录确认）*
-
-#table(
-  columns: (1.7cm, 1.2cm, 2.8cm, 2.5cm, 2.2cm, 2.2cm),
+  columns: (auto, auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*subType*], [*gameId*], [*assignedColor*], [*status*]),
-  [`3`], [`<len>`], [`LOGIN_ACK`], [`<gameId>`], [`<assignedColor>`], [`<status>`],
+  align: (center + horizon, center + horizon, left, left, center),
+  table.header([*messageType*], [*方向*], [*说明*], [*字段*], [*本组*]),
+  [`loginResult`], [S→C], [登录结果], [`success`, `message`, `userId`（成功时）], [#ok],
+  [`matchSuccess`], [S→C], [匹配成功], [`roomId`, `opponentId`, `opponentNickname`], [#ok],
+  [`roomInfo`], [S→C], [房间状态], [`opponentReady`: true/false], [#ok],
+  [`gameStart`], [S→C], [开局], [`redPlayerId`, `blackPlayerId`, `yourColor`, `firstHand`, `initialBoard`], [#ok],
+  [`moveResult`], [S→C], [走子结果], [`success`, `valid`, `move`, `flipResult`?], [#ok],
+  [`timeout`], [S→C], [超时判负], [`loserId`, `winnerId`, `reason`], [#ok],
+  [`gameOver`], [S→C], [终局], [`winner`, `reason`, `winnerId`], [#ok],
+  [`pong`], [S→C], [心跳回复（可选）], [`timestamp`], [#ok],
+  [`error`], [S→C], [错误（可选）], [`code`, `message`], [#ok],
 )
 
+*走子结果广播规则*（老师原文）：`valid=true` 时向双方广播；`valid=false` 时仅回复发送方。
+
+*JSON 示例（S→C）*：
+
+#payload-block("
+{\"messageType\":\"loginResult\",\"success\":true,\"message\":\"ok\",\"userId\":\"u1\"}
+{\"messageType\":\"matchSuccess\",\"roomId\":\"room_123\",\"opponentId\":\"user456\",\"opponentNickname\":\"象棋高手\"}
+{\"messageType\":\"roomInfo\",\"opponentReady\":true}
+{\"messageType\":\"gameStart\",\"redPlayerId\":\"user123\",\"blackPlayerId\":\"user456\",\"yourColor\":\"red\",\"firstHand\":true,\"initialBoard\":[{\"x\":\"a\",\"y\":0,\"piece\":\"rook\",\"visible\":false}]}
+{\"messageType\":\"moveResult\",\"success\":true,\"valid\":true,\"move\":{\"fromX\":\"a\",\"fromY\":0,\"toX\":\"a\",\"toY\":1,\"isFlip\":true},\"flipResult\":\"cannon\"}
+{\"messageType\":\"timeout\",\"loserId\":\"user123\",\"winnerId\":\"user456\",\"reason\":\"timeout\"}
+{\"messageType\":\"gameOver\",\"winner\":\"red\",\"reason\":\"checkmate\",\"winnerId\":\"user123\"}
+{\"messageType\":\"pong\",\"timestamp\":1712345678901}
+{\"messageType\":\"error\",\"code\":2001,\"message\":\"非法走子\"}
+")
+
+== 公共数据结构（§6.6）
+
+=== initialBoard
+
+棋盘为 9×10，每格一个对象（仅包含有子格子）：
+
+#payload-block("{\"x\":\"a\",\"y\":0,\"piece\":\"rook\",\"visible\":false}")
+
 #table(
-  columns: (auto, auto),
+  columns: (auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*字段*], [*说明*]),
-  [`LOGIN_ACK`], [固定字面量],
-  [`gameId`], [分配的游戏 ID],
-  [`assignedColor`], [服务器分配的阵营（`0` = 红，`1` = 黑）],
-  [`status`], [`WAITING` 或 `PLAYING`],
+  table.header([*字段*], [*类型*], [*取值*], [*本组*]),
+  [`x`], [String], [`a`–`i`], [#ok],
+  [`y`], [int], [`0`–`9`（0=红方底线）], [#ok],
+  [`piece`], [String], [`king`/`rook`/… 见 §3.2], [#ok],
+  [`visible`], [boolean], [false=暗子，true=明子], [#ok],
 )
 
-服务器收到 LOGIN 后立即回复。
+- 开局除将帅外 `visible=false`；翻子后服务器写入真实 `piece` 并设 `visible=true`。
+- `flipResult` 使用相同英文枚举（如 `"cannon"`）。
+- *服务器权威*：客户端不可伪造翻子结果；`RandomRevealService` 在走子后写回。
 
-*子类型 2：GAME_START（开局广播）*
-
-#table(
-  columns: (1.7cm, 1.2cm, 3cm, 3cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*subType*], [*firstMoveColor*]),
-  [`3`], [`<len>`], [`GAME_START`], [`<firstMoveColor>`],
-)
-
-#table(
-  columns: (auto, auto),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*字段*], [*说明*]),
-  [`GAME_START`], [固定字面量],
-  [`firstMoveColor`], [`0` = 红方先手],
-)
-
-双方到齐且棋盘初始化后广播。客户端收到后进入对弈状态。
-
-*子类型 3：TURN_CHANGE（回合切换）*
-
-#table(
-  columns: (1.7cm, 1.2cm, 3cm, 3cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*subType*], [*currentTurnColor*]),
-  [`3`], [`<len>`], [`TURN_CHANGE`], [`<currentTurnColor>`],
-)
-
-每次合法走子后广播，通知当前轮到谁走。
-
-*状态值枚举*：
-
-#table(
-  columns: (auto, auto),
-  stroke: none,
-  [`WAITING`], [等待对手加入],
-  [`PLAYING`], [对弈进行中],
-  [`RED_WIN`], [红方获胜],
-  [`BLACK_WIN`], [黑方获胜],
-  [`DRAW`], [和棋],
-  [`TIMEOUT`], [超时判负],
-)
-
-=== MSG_ERROR（4）— 错误消息
-
-*仅服务器 → 客户端*
-
-#table(
-  columns: (1.7cm, 1.2cm, 2.4cm, 5cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*errorCode*], [*errorDescription*]),
-  [`4`], [`<len>`], [`<errorCode>`], [`<errorDescription>`],
-)
-
-#table(
-  columns: (auto, auto),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*字段*], [*说明*]),
-  [`errorCode`], [整数错误码（见下表）],
-  [`errorDescription`], [人类可读的中文错误描述],
-)
-
-*错误码表*：
-
-#table(
-  columns: (auto, auto),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: (center + horizon, left),
-  table.header([*编码*], [*含义*]),
-  [100], [未知错误],
-  [101], [非法着法（棋子移动规则违反）],
-  [102], [移动路径被阻挡],
-  [103], [同色吃子（目标为己方棋子）],
-  [104], [蹩马腿],
-  [105], [塞象眼],
-  [106], [（保留）走子后己方被将军；本组不因送将返回],
-  [107], [不是你的回合],
-  [108], [游戏未在进行中],
-  [109], [暗子已翻开，不可重复翻子],
-  [110], [源位置无棋子],
-  [111], [消息格式错误（帧解析失败）],
-  [112], [重复登录],
-  [200], [游戏房间不存在],
-  [201], [游戏房间已满],
-  [202], [所选颜色已被占用],
-)
-
-=== MSG_QUIT（5）— 退出
-
-*客户端 → 服务器*
-
-#table(
-  columns: (1.7cm, 1.2cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*]),
-  [`5`], [`<len>`],
-)
-
-服务器收到后：退出方判负 → 广播 GAME_OVER → 关闭连接。
-
-=== MSG_GAME_OVER（6）— 游戏结束
-
-*仅服务器 → 客户端*
-
-#table(
-  columns: (1.7cm, 1.2cm, 2cm, 2.4cm, 4cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*winner*], [*reasonCode*], [*reasonDescription*]),
-  [`6`], [`<len>`], [`<winner>`], [`<reasonCode>`], [`<reasonDescription>`],
-)
+=== move 对象（JSON）
 
 #table(
   columns: (auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
   table.header([*字段*], [*类型*], [*说明*]),
-  [`winner`], [`int`], [`0` = 红胜，`1` = 黑胜，`-1` = 和棋],
-  [`reasonCode`], [`int`], [结束原因码（见下表）],
-  [`reasonDescription`], [`String`], [人类可读的原因描述],
+  [`fromX` / `toX`], [String], [列 `a`–`i`],
+  [`fromY` / `toY`], [int], [行 `0`–`9`],
+  [`isFlip`], [boolean], [true=翻子步；from=to 时为原地翻子],
 )
 
-*示例*：
+*内部领域对象*使用 `Move.source` / `Move.destination` 合并字符串（如 `"b1"`），边界处由 `JsonMessages` 转换。
 
-#table(
-  columns: (1.7cm, 1.2cm, 2cm, 2.4cm, 4cm),
-  stroke: 0.3pt + rgb(203, 213, 225),
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*winner*], [*reasonCode*], [*reasonDescription*]),
-  [`6`], [`27`], [`0`], [`0`], [红方将死黑方获胜],
-  [`6`], [`14`], [`-1`], [`6`], [40回合无吃子，和棋],
-  [`6`], [`16`], [`1`], [`3`], [黑方认输，红方胜],
-)
-
-*游戏结束原因码*：
+=== moveResult 对象
 
 #table(
   columns: (auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: (center + horizon, left, center + horizon, left),
-  table.header([*编码*], [*原因*], [*胜方*], [*说明*]),
-  [0], [将死 (Checkmate)], [对方], [被将军且无任何合法着法可解],
-  [1], [困毙 (Stalemate)], [对方], [未被将军但无任何合法着法可走],
-  [2], [超时 (Timeout)], [对方], [单步超过 65 秒未走子],
-  [3], [认输 (Resign)], [对方], [主动认输],
-  [4], [断线 (Disconnect)], [对方], [对手断开 TCP 连接],
-  [5], [吃将获胜], [吃将方], [对方未应将，己方直接吃掉将/帅（作业明确允许）],
-  [6], [40 回合无吃子], [无（和棋）], [连续 80 个半步无吃子],
-  [7], [长将/长捉判负], [对方], [同局面重复 ≥6 次，且非兵卒长捉],
-  [8], [兵卒长捉和], [无（和棋）], [兵卒长捉导致局面重复 ≥6 次],
-  [9], [协议和棋], [无（和棋）], [双方同意和棋],
+  table.header([*字段*], [*类型*], [*说明*], [*本组*]),
+  [`success`], [boolean], [消息处理是否成功], [#ok],
+  [`valid`], [boolean], [走子是否符合规则], [#ok],
+  [`move`], [object], [同客户端 move 结构], [#ok],
+  [`flipResult`], [String?], [isFlip 为真时，翻出棋子 `piece` 枚举], [#ok],
 )
 
-=== MSG_BOARD_STATE（7）— 棋盘同步
-
-*仅服务器 → 客户端*
+== 错误码（§6.7）
 
 #table(
-  columns: (1.7cm, 1.2cm, 2.4cm, 6cm),
+  columns: (auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*currentTurn*], [*rows*]),
-  [`7`], [`<len>`], [`<currentTurn>`], [`<row0>|<row1>|...|<row9>`],
+  table.header([*code*], [*含义（老师原文）*], [*本组*]),
+  [1001], [登录失败（账号或密码错误）], [#ok],
+  [1002], [重复登录], [#ok],
+  [2001], [非法走子（规则不符）], [#ok],
+  [2002], [未轮到本方走子], [#ok],
+  [2003], [超时未走子], [#ok],
+  [3001], [房间不存在], [#ok],
+  [3002], [匹配失败（无对手）], [#ok],
+  [4001], [JSON 格式错误], [#ok],
 )
 
-*棋盘行编码*：
-- 共 10 行，以 `|` 分隔（与 `currentTurn` 组成 11 段，以 `|` 切分 payload）
-- *row0* = 棋盘最顶行（显示行号 9，黑方底线）
-- *row9* = 棋盘最底行（显示行号 0，红方底线）
-- 每行 9 个 cell，以 `,` 分隔
-
-*Cell 编码规则*：
+== gameOver / timeout 原因（reason）
 
 #table(
-  columns: (auto, auto),
+  columns: (auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: (center + horizon, left),
-  table.header([*Cell 值*], [*含义*]),
-  [`.`], [空位（该格无棋子）],
-  [`0` + type], [红方已翻开棋子，type 为 0–6（例：`01` = 红车）],
-  [`1` + type], [黑方已翻开棋子，type 为 0–6（例：`13` = 黑炮）],
-  [`0?`], [红方暗子（未翻开）],
-  [`1?`], [黑方暗子（未翻开）],
+  table.header([*reason*], [*说明*], [*本组*]),
+  [`checkmate`], [将死（老师原文）], [#ok],
+  [`resign`], [认输（老师原文）], [#ok],
+  [`timeout`], [超时], [#ok],
+  [`stalemate`], [困毙], [#ok],
+  [`disconnect`], [断线判负], [#ok],
+  [`king_captured`], [吃将获胜（允许不应将）], [#ok],
+  [`draw_no_capture`], [40 回合无吃子和], [#ok],
+  [`repetition_loss`], [长将/长捉判负], [#ok],
+  [`repetition_draw`], [兵卒长捉和], [#ok],
+  [`draw_agreed`], [协议和棋], [#ok],
 )
 
-*完整示例*（开局棋盘，`currentTurn=0` 红方行棋。帧格式：`7|len|0|<row0>|...|<row9>`）：
+`winner` 取值：`"red"` / `"black"`；和棋时本组扩展使用 `"draw"`。
 
-#v(0.3cm)
-#figure(
-  table(
-    columns: (1.1cm,) + 9 * (1.3cm,),
-    stroke: 0.3pt + rgb(203, 213, 225),
-    align: center + horizon,
-    // 列头（加粗底边）
-    table.cell(stroke: (bottom: 1pt + black))[], table.cell(stroke: (bottom: 1pt + black))[a], table.cell(stroke: (bottom: 1pt + black))[b], table.cell(stroke: (bottom: 1pt + black))[c], table.cell(stroke: (bottom: 1pt + black))[d], table.cell(stroke: (bottom: 1pt + black))[e], table.cell(stroke: (bottom: 1pt + black))[f], table.cell(stroke: (bottom: 1pt + black))[g], table.cell(stroke: (bottom: 1pt + black))[h], table.cell(stroke: (bottom: 1pt + black))[i],
-    // row 9 黑方底线
-    table.cell(fill: rgb(241, 245, 249))[9], [`1?`], [`1?`], [`1?`], [`1?`], [`10`], [`1?`], [`1?`], [`1?`], [`1?`],
-    // row 8
-    [8], [·], [·], [·], [·], [·], [·], [·], [·], [·],
-    // row 7 黑炮位
-    table.cell(fill: rgb(241, 245, 249))[7], [·], [`1?`], [·], [·], [·], [·], [·], [`1?`], [·],
-    // row 6 黑卒位
-    table.cell(fill: rgb(241, 245, 249))[6], [`1?`], [·], [`1?`], [·], [`1?`], [·], [`1?`], [·], [`1?`],
-    // row 5 楚河（加粗底边）
-    table.cell(stroke: (bottom: 1pt + black))[5], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·],
-    // row 4 汉界
-    [4], [·], [·], [·], [·], [·], [·], [·], [·], [·],
-    // row 3 红兵位
-    table.cell(fill: rgb(241, 245, 249))[3], [`0?`], [·], [`0?`], [·], [`0?`], [·], [`0?`], [·], [`0?`],
-    // row 2 红炮位
-    table.cell(fill: rgb(241, 245, 249))[2], [·], [`0?`], [·], [·], [·], [·], [·], [`0?`], [·],
-    // row 1
-    [1], [·], [·], [·], [·], [·], [·], [·], [·], [·],
-    // row 0 红方底线
-    table.cell(fill: rgb(241, 245, 249))[0], [`0?`], [`0?`], [`0?`], [`0?`], [`00`], [`0?`], [`0?`], [`0?`], [`0?`],
-  ),
-  caption: [BOARD\_STATE 开局帧（`len=211`，`currentTurn=0`）。`e9`=`10`（黑将）、`e0`=`00`（红帅）开局即明；`0?`=红方暗子，`1?`=黑方暗子，`·`=空位],
-)
+== 典型 JSON 示例（§6.8，老师原文 4.1–4.5）
 
-=== MSG_DRAW_REQUEST（8）— 提和
+=== 4.1 匹配与先手协商
 
-*双向*（C → S 或 S → C）
+#payload-block("
+// C→S 开始匹配
+{\"messageType\":\"startMatch\"}
+// S→C 匹配成功
+{\"messageType\":\"matchSuccess\",\"roomId\":\"room_123\",\"opponentId\":\"user456\",\"opponentNickname\":\"象棋高手\"}
+// C→S 请求先手（可选）
+{\"messageType\":\"requestFirstHand\",\"wannaFirst\":true}
+// S→C 游戏开始
+{\"messageType\":\"gameStart\",\"redPlayerId\":\"user123\",\"blackPlayerId\":\"user456\",\"yourColor\":\"red\",\"firstHand\":true,\"initialBoard\":[{\"x\":\"a\",\"y\":0,\"piece\":\"rook\",\"visible\":false}]}
+")
 
-*客户端提和*：
+=== 4.2 走子与翻子
 
-#table(
-  columns: (1.7cm, 1.2cm, 2.4cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*action*]),
-  [`8`], [`<len>`], [`OFFER`],
-)
+#payload-block("
+// C→S 移动（翻子）
+{\"messageType\":\"move\",\"fromX\":\"a\",\"fromY\":0,\"toX\":\"a\",\"toY\":1,\"isFlip\":true}
+// S→C 移动结果（广播）
+{\"messageType\":\"moveResult\",\"success\":true,\"move\":{\"fromX\":\"a\",\"fromY\":0,\"toX\":\"a\",\"toY\":1,\"isFlip\":true},\"flipResult\":\"cannon\",\"valid\":true}
+")
 
-*对方同意*：
+=== 4.3 超时处理
 
-#table(
-  columns: (1.7cm, 1.2cm, 2.4cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*action*]),
-  [`8`], [`<len>`], [`ACCEPT`],
-)
+#payload-block("
+// S→C 超时（广播）
+{\"messageType\":\"timeout\",\"loserId\":\"user123\",\"winnerId\":\"user456\",\"reason\":\"timeout\"}
+")
 
-*对方拒绝*：
+=== 4.4 正常结束
 
-#table(
-  columns: (1.7cm, 1.2cm, 2.4cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*action*]),
-  [`8`], [`<len>`], [`DECLINE`],
-)
+#payload-block("
+// S→C 将死对方
+{\"messageType\":\"gameOver\",\"winner\":\"red\",\"reason\":\"checkmate\",\"winnerId\":\"user123\"}
+")
 
-服务器收到 ACCEPT 后广播 GAME_OVER（原因码 = 9，协议和棋）。收到 DECLINE 后仅转发，棋局继续。
+=== 4.5 心跳
 
-=== MSG_RESIGN（9）— 认输
+#payload-block("
+// C→S
+{\"messageType\":\"ping\",\"timestamp\":1712345678901}
+// S→C
+{\"messageType\":\"pong\",\"timestamp\":1712345678901}
+")
 
-*客户端认输*：
+== 本组扩展消息（§6.9，可选，兼容忽略）
 
-#table(
-  columns: (1.7cm, 1.2cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*]),
-  [`9`], [`<len>`],
-)
+在不影响与老师客户端互操作的前提下，本组保留以下*可选*能力（见附录 B TCP 层）：
 
-*服务器通知*：
+- 提和 / 聊天 / 多盘 `gameId` — 仅 TCP 扩展
+- 步时 65s、长将/长捉、吃将获胜等*规则扩展*在服务器逻辑中实现，通过扩展 `gameOver.reason` 表达
 
-#table(
-  columns: (1.7cm, 1.2cm, 2cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*color*]),
-  [`9`], [`<len>`], [`<color>`],
-)
-
-服务器收到认输后立即广播 GAME_OVER（原因码 = 3）。
-
-=== MSG_CHAT（10）— 聊天
-
-*双向*（可选实现）
-
-#table(
-  columns: (1.7cm, 1.2cm, 2.4cm, 3cm, 3.5cm),
-  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  align: center + horizon,
-  table.header([*msgType*], [*len*], [*playerColor*], [*playerName*], [*message*]),
-  [`10`], [`<len>`], [`<playerColor>`], [`<playerName>`], [`<message>`],
-)
-
-不影响棋局状态，服务器仅负责转发。
 
 // ============================================================
-// 第四章：通信流程
+// 第七章：通信流程
 // ============================================================
 
 = 典型通信流程
 
 #v(0.2cm)
-#text(size: hint-size, fill: gray)[时序图竖线 `|` 表示各方连接；`-->` / `<--` 表示消息方向。图内为等宽英文标签以保证对齐。]
+#text(size: hint-size, fill: gray)[时序图内为 JSON messageType 标签；WebSocket 全双工。]
 
 == 正常对弈时序
 
 #seq-diagram(
   "
-      Client A (Red)              Server              Client B (Black)
+      Client A                    Server                    Client B
             |                         |                         |
-            |------ LOGIN(c=0) ------>|                         |
-            |<----- LOGIN_ACK ---------|                         |
-            |      (WAITING)          |                         |
-            |                         |<------ LOGIN(c=1) -------|
-            |                         |----- LOGIN_ACK -------->|
-            |                         |       (PLAYING)         |
-            |<---- GAME_START ---------|<---- GAME_START -------->|
-            |<---- BOARD_STATE --------|<---- BOARD_STATE ------>|
+            |------ Login ----------->|                         |
+            |<----- loginResult -------|                         |
+            |                         |<------ Login -----------|
+            |                         |------ loginResult ----->|
+            |------ startMatch ------>|                         |
+            |                         |<------ startMatch -------|
+            |<---- matchSuccess -------|---- matchSuccess ------>|
+            |------ Ready ------------>|------ Ready ------------>|
+            |<---- roomInfo ----------|---- roomInfo ---------->|
+            |<---- gameStart ---------|<---- gameStart --------->|
             |                         |                         |
-            |------ MOVE(b1-b3) ------>|                         |
-            |                         |                         |
-            |    [server: validate + fill type on reveal]       |
-            |<---- MOVE (broadcast) ---|<---- MOVE (broadcast) ->|
-            |<---- BOARD_STATE --------|<---- BOARD_STATE ------>|
-            |<---- TURN_CHANGE ---------|<---- TURN_CHANGE ------>|
-            |                         |                         |
-            |                         |<------ MOVE(c7-c5) -------|
-            |                         |        [ok]             |
-            |<---- MOVE (broadcast) ---|<---- MOVE (broadcast) ->|
-            |<---- BOARD_STATE --------|<---- BOARD_STATE ------>|
-            |                         |                         |
-            |       ... repeat until game over ...              |
-            |<---- GAME_OVER ----------|<---- GAME_OVER -------->|
+            |------ move ------------>|                         |
+            |<---- moveResult --------|---- moveResult -------->|
+            |                         |<------ move -------------|
+            |<---- moveResult --------|---- moveResult -------->|
+            |       ... until gameOver / timeout ...            |
   ",
-  [从登录到终局的消息序列（客户端 A 红方、服务器、客户端 B 黑方）],
+  [WebSocket JSON：登录 → 匹配 → Ready → 开局 → 走子],
   roles: [#grid(columns: (1fr, 1fr, 1fr), align: center,
-    [客户端 A（红方）], [服务器], [客户端 B（黑方）],
+    [客户端 A], [服务器], [客户端 B],
   )],
 )
 
-== 非法着法被拒绝
+== 非法着法
 
 #seq-diagram(
   "
       Client A                    Server
             |                         |
-            |------ MOVE(b1-b5) ------>|
-            |                         |  [reject]
-            |<-- ERROR(102, blocked) --|
-            |   (state unchanged)     |
+            |------ move ------------>|
+            |<-- error(2001) ---------|
+            |<-- moveResult valid=false
   ",
-  [非法着法被拒绝：棋局状态不变，仍轮到客户端 A],
+  [非法着法：仅发送方收到 error + valid=false 的 moveResult],
   roles: [#grid(columns: (1fr, 1fr), align: center, [客户端 A], [服务器])],
 )
 
@@ -986,55 +822,65 @@ public static String parsePayload(String line) {
   "
       Client A (Red)              Server
             |                         |
-            |   (no MOVE within 65s)  |
-            |                         |
-            |                         |  [timer fires]
-            |<-- GAME_OVER(1,2,timeout)|
+            |   (no move within 65s)  |
+            |<-- timeout -------------|
+            |<-- gameOver ------------|
   ",
-  [超时判负：红方 65 秒内未走子，服务器定时器触发后广播 GAME\_OVER],
-  roles: [#grid(columns: (1fr, 1fr), align: center, [客户端 A（红方）], [服务器])],
+  [超时：广播 timeout + gameOver（reason=timeout）],
+  roles: [#grid(columns: (1fr, 1fr), align: center, [客户端 A], [服务器])],
 )
 
-== 提和流程
+== 认输
 
 #seq-diagram(
   "
       Client A                    Server                    Client B
             |                         |                         |
-            |--- DRAW_REQUEST OFFER --->|                         |
-            |                         |--- DRAW_REQUEST OFFER ->|
-            |                         |                         |
-            |                         |<- DRAW_REQUEST ACCEPT --|
-            |                         |                         |
-            |<------ GAME_OVER --------|<------ GAME_OVER ------>|
-            |    (-1,9, agreed draw)    |    (-1,9, agreed draw)   |
+            |-------- Resign -------->|                         |
+            |<------ gameOver -------|------ gameOver -------->|
   ",
-  [提和流程：双方 OFFER 后一方 ACCEPT，服务器广播和棋 GAME\_OVER],
+  [认输：广播 gameOver（reason=resign）],
   roles: [#grid(columns: (1fr, 1fr, 1fr), align: center,
     [客户端 A], [服务器], [客户端 B],
   )],
 )
+// ============================================================
 
-== 认输流程
+== 先手协商时序（requestFirstHand）
 
 #seq-diagram(
   "
       Client A                    Server                    Client B
             |                         |                         |
-            |-------- RESIGN --------->|                         |
-            |                         |-------- RESIGN -------->|
-            |<------ GAME_OVER --------|<------ GAME_OVER ------>|
+            |------ Ready ------------>|------ Ready ------------>|
+            |-- requestFirstHand ----->|<-- requestFirstHand -----|
+            |<---- gameStart ---------|<---- gameStart --------->|
+            |   (colors per wannaFirst negotiation)             |
   ",
-  [认输流程：客户端 A 认输，服务器通知 B 并广播 GAME\_OVER],
+  [可选：10s 窗口内双方发送 requestFirstHand，服务器分配红/黑],
   roles: [#grid(columns: (1fr, 1fr, 1fr), align: center,
     [客户端 A], [服务器], [客户端 B],
   )],
 )
 
-// ============================================================
-// 第五章：暗子走法与虚拟类型
-// ============================================================
+== 断线判负
 
+#seq-diagram(
+  "
+      Client A                    Server                    Client B
+            |                         |                         |
+            |   (connection close)    |                         |
+            |                         |------ gameOver -------->|
+            |                         |  reason=disconnect      |
+  ",
+  [一方 WebSocket 关闭：对方收到 gameOver（reason=disconnect）],
+  roles: [#grid(columns: (1fr, 1fr, 1fr), align: center,
+    [客户端 A], [服务器], [客户端 B],
+  )],
+)
+
+#v(0.3cm)
+*注*：附录 B §B.7 保留 v2.0 TCP 文本帧典型时序图（LOGIN/MOVE/BOARD_STATE 等），供 TCP 联调参考。
 = 暗子走法与虚拟类型
 
 == 虚拟类型机制
@@ -1141,10 +987,6 @@ public static String parsePayload(String line) {
 - 局面重复判定使用局面哈希（含每个位置的明子类型/颜色/暗子标记 + 当前走子方）
 - 暗子的虚拟类型不参与哈希（同位置虚拟类型固定）
 - 计数器在每次吃子后重置
-
-== 不与「不应将」自动判负
-
-遵循课程要求：走子后己方仍被将军的着法（送将）#strong[允许执行]。`Game` / `ClientHandler` / 客户端仅校验 `isValidMove`，#strong[不]调用 `isMoveLegal` 拦截。对方下一步可通过合法吃将走子，并以 `KING_CAPTURED`（原因码 5）结束对局。错误码 106 保留编号，本组实现中服务器不因送将返回 106。
 
 == 超时判定公式
 
@@ -1261,7 +1103,7 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
 作业题目说明「本题目定义应该是不完整的」。本节为本组在需求分析、规则研读、协议设计与联调中 #strong[主动提出并给出暂定方案] 的争议点，供老师裁定后写入全体统一的公共规范。
 
 #v(0.2cm)
-*说明*：带「待确认」者需教师裁定；带「本组方案」者为本协议 v2.0 已采用、建议老师认可后全组遵照的默认实现。
+*说明*：带「待确认」者需教师裁定；带「本组方案」者为本协议 v3.0 已采用、建议老师认可后全组遵照的默认实现。
 
 == 规则与胜负判定
 
@@ -1564,13 +1406,757 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
 )
 
 #v(0.3cm)
-*提交建议*：请老师对 Q1–Q44 逐条确认或修正；Q25–Q44 可整体标注为「加分扩展 / v2.1 草案」。确认后本组更新协议版本并通知他组。必做互操作仍以 Q1–Q24 与正文协议为准。
+
+  [Q45], [
+    WS 与 TCP 双协议并存期间，组间联调优先级如何确定？
+  ], [
+    本组方案：默认 WS 8887 联调；TCP 8888 作为备用/调试通道（附录 B）。
+  ], [本组方案],
+
+*提交建议*：请老师对 Q1–Q45 逐条确认或修正；Q25–Q44 可整体标注为「加分扩展 / v3.1 草案」。确认后本组更新协议版本并通知他组。必做互操作以课程 WebSocket JSON 正文 + Q1–Q24 规则扩展为准。
+
+// ============================================================
+
+// ============================================================
+// 第十四章：实现状态标注
+// ============================================================
+
+= 实现状态标注
+
+本章按本组实际代码与测试覆盖，逐条标注每项特性的实现状态：#ok 已实现；#warn 已实现但有已知差异或待补测；#no 未实现。
+
+== WebSocket 消息类型（第 6 章）
+
+#table(
+  columns: (auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (left, center, left),
+  table.header([*messageType / 特性*], [*状态*], [*说明*]),
+  [Login / register], [#ok], [`WsGameServerIntegrationTest`],
+  [startMatch / cancelMatch], [#ok], [含对手 error 3002 通知],
+  [requestFirstHand], [#ok], [10s 窗口 + 换色],
+  [Ready / roomInfo], [#ok], [],
+  [move（含 isFlip）], [#ok], [`JsonMessages.parseMove` 修复],
+  [loginResult / matchSuccess / gameStart], [#ok], [含 initialBoard],
+  [moveResult / flipResult], [#ok], [服务器权威翻子],
+  [timeout / gameOver], [#ok], [65s 阈值],
+  [ping / pong], [#ok], [],
+  [Resign], [#ok], [],
+  [error 1001–4001], [#ok], [12 场景集成测试],
+  [未知 messageType 静默忽略], [#warn], [本组返回 error 4001],
+)
+
+== 揭棋规则与领域层
+
+#table(
+  columns: (auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (left, center, left),
+  table.header([*规则/模块*], [*状态*], [*说明*]),
+  [RandomRevealService 翻子随机], [#ok], [],
+  [RuleValidator 走法/虚拟类型], [#ok], [],
+  [EndgameJudge 将死/困毙/和棋], [#ok], [],
+  [长将/长捉/40 回合和棋], [#ok], [],
+  [暗子被吃信息差], [#warn], [见 Q1；双方广播相同 flipResult],
+  [不应将（允许送将）], [#ok], [见 §9],
+  [棋谱 .jieqi 存储], [#ok], [`GameRecordStore`],
+  [多盘并发 `Map<String, Game>`], [#ok], [],
+)
+
+== TCP 扩展（附录 B）
+
+#table(
+  columns: (auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (left, center, left),
+  table.header([*特性*], [*状态*], [*说明*]),
+  [MSG 1–7 核心消息], [#ok], [端口 8888],
+  [MSG 8–10 扩展消息], [#ok], [DRAW/RESIGN/CHAT],
+  [BOARD_STATE Cell 编码], [#ok], [],
+  [FrameDecoder 帧解析], [#ok], [],
+)
+
+== 工程与 DevOps
+
+#table(
+  columns: (auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (left, center, left),
+  table.header([*特性*], [*状态*], [*说明*]),
+  [WsGameServerIntegrationTest 12 场景], [#ok], [`jieqi-server`],
+  [WsAIGameClient 自动对弈], [#ok], [`jieqi-app` 菜单 9 / `ai-ws`],
+  [Docker 默认 WS 8887], [#ok], [`docker-compose.yml`],
+  [Bento Web 旁观端], [#no], [加分扩展 Q40–Q44],
+  [Redis 匹配队列], [#no], [加分扩展 Q29–Q32],
+)
+
+== v2.0 内容保留检查清单（§0.2 自检）
+
+#table(
+  columns: (auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (left, left, center),
+  table.header([*v2.0 内容*], [*新文档位置*], [*状态*]),
+  [术语定义表], [§1.1], [#ok],
+  [技术约定], [§1.2 + 附录 B], [#ok],
+  [坐标定义与转换公式], [§2.1–2.2], [#ok],
+  [棋子类型编码（含基准价值）], [§3.1], [#ok],
+  [颜色编码], [§4], [#ok],
+  [Move 类/字段/翻子随机性], [§5.1–5.3], [#ok],
+  [TCP 帧格式与解析], [附录 B §B.1–B.2], [#ok],
+  [MSG 1–10 详细格式], [附录 B §B.4], [#ok],
+  [BOARD_STATE Cell 与开局示例], [附录 B §B.4.7], [#ok],
+  [ERROR 100–202 / GAME_OVER 0–9], [附录 B §B.5–B.6], [#ok],
+  [TCP 五组时序图], [附录 B §B.7], [#ok],
+  [虚拟类型/明子强化], [§8.1–8.2], [#ok],
+  [胜负/和棋/长将长捉/超时公式], [§9.1–9.4], [#ok],
+  [棋谱记录格式], [§10], [#ok],
+  [多盘对弈], [§11], [#ok],
+  [组间联调清单 14 条 + WS 扩展], [§12], [#ok],
+  [Q1–Q44 开放问题], [§13], [#ok],
+  [附录 A TCP 速查], [附录 B §B.8], [#ok],
+  [版本历史 v0.1–v2.0], [附录 C], [#ok],
+  [老师 WS+JSON 协议], [§6 新增], [#ok],
+  [实现状态标注], [§14 新增], [#ok],
+)
 
 // ============================================================
 // 附录
 // ============================================================
 
-= 附录 A：消息快速参考卡片
+= 附录 A：WS JSON messageType 快速参考卡片
+
+#table(
+  columns: (auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (center + horizon, left, left),
+  table.header([*messageType*], [*方向*], [*关键字段*]),
+  [Login], [C→S], [`userId`, `password`],
+  [register], [C→S], [`userId`, `password`, `nickname`],
+  [startMatch], [C→S], [—],
+  [Ready], [C→S], [—],
+  [move], [C→S], [`fromX`, `fromY`, `toX`, `toY`, `isFlip`],
+  [loginResult], [S→C], [`success`, `message`, `userId`],
+  [matchSuccess], [S→C], [`roomId`, `opponentId`, `opponentNickname`],
+  [gameStart], [S→C], [`yourColor`, `firstHand`, `initialBoard`],
+  [moveResult], [S→C], [`valid`, `move`, `flipResult`?],
+  [timeout], [S→C], [`loserId`, `winnerId`],
+  [gameOver], [S→C], [`winner`, `reason`, `winnerId`],
+  [error], [S→C], [`code`, `message`],
+  [ping / pong], [双向], [`timestamp`],
+)
+
+
+// ============================================================
+// 附录 B
+// ============================================================
+
+
+本附录为第一组历史扩展协议（v2.0 正文第 6 章完整迁移），供需要 TCP 通信的组参考或 telnet 调试使用。组间联调默认使用正文 WebSocket + JSON 协议（第 6 章）。
+
+本组保留 TCP `msgType|payloadLen|payload\n` 实现（端口 *8888*）。实现类：`Protocol.java`、`GameServer`、`GameClient`、`FrameDecoder`。
+
+*组间互操作*：与对方联调前须约定使用 WebSocket JSON（正文）或 TCP v2.0（本附录）；不可混用。
+
+= 附录 B：TCP 文本帧扩展协议 v2.0（本组可选）
+
+== B.1 消息帧格式
+
+每条消息为*一行文本*（以 `\n` 结尾）：
+
+```
+<msgType>|<payloadByteLength>|<payload>\n
+```
+
+#table(
+  columns: (auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  table.header([*字段*], [*类型*], [*说明*]),
+  [`msgType`], [`int`], [消息类型编号（见 §3.2）],
+  [`payloadByteLength`], [`int`], [`payload` 字段的 *UTF-8 字节数*（不含 `|` 和 `\n`）],
+  [`payload`], [`String`], [实际负载数据，内部可含 `|` 分隔符],
+)
+
+*示例*：
+```
+2|17|a0|a1||12345678|0
+```
+
+== B.2 消息帧解析规则
+
+#enum[
+  从 TCP 流中读取直到 `\n`，得到一行文本
+  以 `|` 分割，取第 1 段为 `msgType`
+  以 `|` 分割，取第 2 段为 `payloadByteLength`
+  剩余部分（第 3 段起，用 `|` 连接还原）为 `payload`
+  *校验*：`payload` 的 UTF-8 字节数必须等于 `payloadByteLength`，否则丢弃并返回 ERROR
+]
+
+解析参考实现（Java）：
+
+```java
+public static int parseMsgType(String line) {
+    return Integer.parseInt(line.split("\\|")[0]);
+}
+
+public static String parsePayload(String line) {
+    String[] parts = line.split("\\|", 3);
+    if (parts.length < 3) return "";
+    int declaredLen = Integer.parseInt(parts[1]);
+    String payload = parts[2];
+    if (payload.getBytes("UTF-8").length != declaredLen) {
+        return null;  // 帧损坏
+    }
+    return payload;
+}
+```
+
+*设计理由*：采用换行分隔而非纯长度前缀，是因为课程场景下可用 telnet 手动调试，且 payload 内 `|` 无需转义。`payloadByteLength` 的首要作用是校验帧完整性，次要作用是允许 payload 包含换行符（当前未使用此特性）。
+
+== B.3 消息类型目录
+
+#table(
+  columns: (auto, auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (center + horizon, left, center + horizon, left),
+  table.header(
+    [*编号*], [*常量名*], [*方向*], [*说明*],
+  ),
+  [1], [`MSG_LOGIN`], [C → S], [客户端登录 / 加入游戏],
+  [2], [`MSG_MOVE`], [C ↔ S], [走子提交与广播确认],
+  [3], [`MSG_GAME_STATE`], [S → C], [游戏状态变更通知],
+  [4], [`MSG_ERROR`], [S → C], [错误消息（含错误码）],
+  [5], [`MSG_QUIT`], [C → S], [客户端主动退出],
+  [6], [`MSG_GAME_OVER`], [S → C], [游戏结束通知（含结果与原因码）],
+  [7], [`MSG_BOARD_STATE`], [S → C], [完整棋盘同步（含当前走子方）],
+  [8], [`MSG_DRAW_REQUEST`], [C ↔ S], [提和 / 和棋响应],
+  [9], [`MSG_RESIGN`], [C ↔ S], [认输],
+  [10], [`MSG_CHAT`], [C ↔ S], [文本聊天（可选实现）],
+)
+
+*实现要求*：
+- 1–7 为*必须实现*的核心消息
+- 8–10 为*可选扩展*，但必须能收到未知消息不崩溃（静默忽略）
+- 各组可在本地协议中使用 100+ 的私有消息号，组间通信时不得发送
+
+== B.4 各消息详细格式
+
+=== B.4.x MSG_LOGIN（1）— 客户端登录
+
+*客户端 → 服务器*
+
+#table(
+  columns: (1.7cm, 1.2cm, 2.4cm, 3.2cm, 3.2cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*color*], [*playerName*], [*gameId*]),
+  [`1`], [`<len>`], [`<color>`], [`<playerName>`], [`<gameId>`],
+)
+
+#v(0.2cm)
+#table(
+  columns: (auto, auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  table.header([*字段*], [*类型*], [*必填*], [*说明*]),
+  [`color`], [`int`], [是], [`0` = 红方，`1` = 黑方],
+  [`playerName`], [`String`], [是], [玩家昵称（建议不含 `|`）],
+  [`gameId`], [`String`], [否], [指定游戏 ID；空 = 自动匹配],
+)
+
+*示例*：
+
+#table(
+  columns: (1.7cm, 1.2cm, 2.4cm, 3.2cm, 3.2cm),
+  stroke: 0.3pt + rgb(203, 213, 225),
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*color*], [*playerName*], [*gameId*]),
+  [`1`], [`12`], [`0`], [`张三`], [（空）],
+  [`1`], [`20`], [`1`], [`李四`], [`a1b2c3d4`],
+)
+
+*行为约定*：
+- `gameId` 为空时，服务器将客户端放入匹配池，凑齐双方后自动开局
+- `gameId` 非空时，服务器查找指定游戏；若不存在则返回 ERROR
+- `color` 为客户端偏好，*服务器可覆盖*（如先到先得）
+
+=== B.4.x MSG_MOVE（2）— 走子
+
+*客户端 → 服务器（走子请求）*
+
+#table(
+  columns: (1.7cm, 1.2cm, 2cm, 2cm, 1.5cm, 2.4cm, 2cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*source*], [*destination*], [*type*], [*turnStartTime*], [*isFlipOnly*]),
+  [`2`], [`<len>`], [`<source>`], [`<destination>`], [`<type>`], [`<turnStartTime>`], [`<isFlipOnly>`],
+)
+
+*服务器 → 双方（广播确认）*
+
+格式同上，服务器在广播前完成：
++ 合法性校验（着法规则 + 路径有效性）
++ 将军检测（走子后己方不能处于被将状态）
++ 若暗子首次翻开，用服务器预生成类型*覆盖* `type`
++ 用服务器当前时间*覆盖* `turnStartTime`
+
+#table(
+  columns: (auto, auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  table.header([*字段*], [*类型*], [*必填*], [*说明*]),
+  [`source`], [`String`], [是], [原坐标，如 `"b3"`],
+  [`destination`], [`String`], [是], [目标坐标，如 `"b4"`],
+  [`type`], [`int` 或空], [条件], [暗子翻开时由服务器填入 0–6；否则为空字符串],
+  [`turnStartTime`], [`long`], [否], [客户端时间戳，*服务器忽略并覆盖*],
+  [`isFlipOnly`], [`int`], [是], [`1` = 原地翻子，`0` = 普通移动],
+)
+
+*示例*:
+
+#table(
+  columns: (1.7cm, 1.2cm, 2cm, 2cm, 1.5cm, 2.4cm, 2cm, 3fr),
+  stroke: 0.3pt + rgb(203, 213, 225),
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*source*], [*destination*], [*type*], [*turnStartTime*], [*isFlipOnly*], [*说明*]),
+  [`2`], [`10`], [`b1`], [`b3`], [ ], [`0`], [`0`], [正常走子（type 为空，turnStartTime 占位 = 0）],
+  [`2`], [`10`], [`a0`], [`a0`], [ ], [`0`], [`1`], [原地翻子 a0 位置的暗子],
+  [`2`], [`20`], [`c4`], [`e4`], [`3`], [`1700000000`], [`0`], [翻出类型 3（炮），时间戳会被覆盖],
+)
+
+=== B.4.x MSG_GAME_STATE（3）— 游戏状态
+
+*仅服务器 → 客户端*，通过首个字段区分子类型。
+
+*子类型 1：LOGIN_ACK（登录确认）*
+
+#table(
+  columns: (1.7cm, 1.2cm, 2.8cm, 2.5cm, 2.2cm, 2.2cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*subType*], [*gameId*], [*assignedColor*], [*status*]),
+  [`3`], [`<len>`], [`LOGIN_ACK`], [`<gameId>`], [`<assignedColor>`], [`<status>`],
+)
+
+#table(
+  columns: (auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  table.header([*字段*], [*说明*]),
+  [`LOGIN_ACK`], [固定字面量],
+  [`gameId`], [分配的游戏 ID],
+  [`assignedColor`], [服务器分配的阵营（`0` = 红，`1` = 黑）],
+  [`status`], [`WAITING` 或 `PLAYING`],
+)
+
+服务器收到 LOGIN 后立即回复。
+
+*子类型 2：GAME_START（开局广播）*
+
+#table(
+  columns: (1.7cm, 1.2cm, 3cm, 3cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*subType*], [*firstMoveColor*]),
+  [`3`], [`<len>`], [`GAME_START`], [`<firstMoveColor>`],
+)
+
+#table(
+  columns: (auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  table.header([*字段*], [*说明*]),
+  [`GAME_START`], [固定字面量],
+  [`firstMoveColor`], [`0` = 红方先手],
+)
+
+双方到齐且棋盘初始化后广播。客户端收到后进入对弈状态。
+
+*子类型 3：TURN_CHANGE（回合切换）*
+
+#table(
+  columns: (1.7cm, 1.2cm, 3cm, 3cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*subType*], [*currentTurnColor*]),
+  [`3`], [`<len>`], [`TURN_CHANGE`], [`<currentTurnColor>`],
+)
+
+每次合法走子后广播，通知当前轮到谁走。
+
+*状态值枚举*：
+
+#table(
+  columns: (auto, auto),
+  stroke: none,
+  [`WAITING`], [等待对手加入],
+  [`PLAYING`], [对弈进行中],
+  [`RED_WIN`], [红方获胜],
+  [`BLACK_WIN`], [黑方获胜],
+  [`DRAW`], [和棋],
+  [`TIMEOUT`], [超时判负],
+)
+
+=== B.4.x MSG_ERROR（4）— 错误消息
+
+*仅服务器 → 客户端*
+
+#table(
+  columns: (1.7cm, 1.2cm, 2.4cm, 5cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*errorCode*], [*errorDescription*]),
+  [`4`], [`<len>`], [`<errorCode>`], [`<errorDescription>`],
+)
+
+#table(
+  columns: (auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  table.header([*字段*], [*说明*]),
+  [`errorCode`], [整数错误码（见下表）],
+  [`errorDescription`], [人类可读的中文错误描述],
+)
+
+*错误码表*：
+
+#table(
+  columns: (auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (center + horizon, left),
+  table.header([*编码*], [*含义*]),
+  [100], [未知错误],
+  [101], [非法着法（棋子移动规则违反）],
+  [102], [移动路径被阻挡],
+  [103], [同色吃子（目标为己方棋子）],
+  [104], [蹩马腿],
+  [105], [塞象眼],
+  [106], [走子后己方被将军],
+  [107], [不是你的回合],
+  [108], [游戏未在进行中],
+  [109], [暗子已翻开，不可重复翻子],
+  [110], [源位置无棋子],
+  [111], [消息格式错误（帧解析失败）],
+  [112], [重复登录],
+  [200], [游戏房间不存在],
+  [201], [游戏房间已满],
+  [202], [所选颜色已被占用],
+)
+
+=== B.4.x MSG_QUIT（5）— 退出
+
+*客户端 → 服务器*
+
+#table(
+  columns: (1.7cm, 1.2cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*]),
+  [`5`], [`<len>`],
+)
+
+服务器收到后：退出方判负 → 广播 GAME_OVER → 关闭连接。
+
+=== B.4.x MSG_GAME_OVER（6）— 游戏结束
+
+*仅服务器 → 客户端*
+
+#table(
+  columns: (1.7cm, 1.2cm, 2cm, 2.4cm, 4cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*winner*], [*reasonCode*], [*reasonDescription*]),
+  [`6`], [`<len>`], [`<winner>`], [`<reasonCode>`], [`<reasonDescription>`],
+)
+
+#table(
+  columns: (auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  table.header([*字段*], [*类型*], [*说明*]),
+  [`winner`], [`int`], [`0` = 红胜，`1` = 黑胜，`-1` = 和棋],
+  [`reasonCode`], [`int`], [结束原因码（见下表）],
+  [`reasonDescription`], [`String`], [人类可读的原因描述],
+)
+
+*示例*：
+
+#table(
+  columns: (1.7cm, 1.2cm, 2cm, 2.4cm, 4cm),
+  stroke: 0.3pt + rgb(203, 213, 225),
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*winner*], [*reasonCode*], [*reasonDescription*]),
+  [`6`], [`27`], [`0`], [`0`], [红方将死黑方获胜],
+  [`6`], [`14`], [`-1`], [`6`], [40回合无吃子，和棋],
+  [`6`], [`16`], [`1`], [`3`], [黑方认输，红方胜],
+)
+
+*游戏结束原因码*：
+
+#table(
+  columns: (auto, auto, auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (center + horizon, left, center + horizon, left),
+  table.header([*编码*], [*原因*], [*胜方*], [*说明*]),
+  [0], [将死 (Checkmate)], [对方], [被将军且无任何合法着法可解],
+  [1], [困毙 (Stalemate)], [对方], [未被将军但无任何合法着法可走],
+  [2], [超时 (Timeout)], [对方], [单步超过 65 秒未走子],
+  [3], [认输 (Resign)], [对方], [主动认输],
+  [4], [断线 (Disconnect)], [对方], [对手断开 TCP 连接],
+  [5], [吃将获胜], [吃将方], [对方未应将，己方直接吃掉将/帅（作业明确允许）],
+  [6], [40 回合无吃子], [无（和棋）], [连续 80 个半步无吃子],
+  [7], [长将/长捉判负], [对方], [同局面重复 ≥6 次，且非兵卒长捉],
+  [8], [兵卒长捉和], [无（和棋）], [兵卒长捉导致局面重复 ≥6 次],
+  [9], [协议和棋], [无（和棋）], [双方同意和棋],
+)
+
+=== B.4.x MSG_BOARD_STATE（7）— 棋盘同步
+
+*仅服务器 → 客户端*
+
+#table(
+  columns: (1.7cm, 1.2cm, 2.4cm, 6cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*currentTurn*], [*rows*]),
+  [`7`], [`<len>`], [`<currentTurn>`], [`<row0>|<row1>|...|<row9>`],
+)
+
+*棋盘行编码*：
+- 共 10 行，以 `|` 分隔（与 `currentTurn` 组成 11 段，以 `|` 切分 payload）
+- *row0* = 棋盘最顶行（显示行号 9，黑方底线）
+- *row9* = 棋盘最底行（显示行号 0，红方底线）
+- 每行 9 个 cell，以 `,` 分隔
+
+*Cell 编码规则*：
+
+#table(
+  columns: (auto, auto),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: (center + horizon, left),
+  table.header([*Cell 值*], [*含义*]),
+  [`.`], [空位（该格无棋子）],
+  [`0` + type], [红方已翻开棋子，type 为 0–6（例：`01` = 红车）],
+  [`1` + type], [黑方已翻开棋子，type 为 0–6（例：`13` = 黑炮）],
+  [`0?`], [红方暗子（未翻开）],
+  [`1?`], [黑方暗子（未翻开）],
+)
+
+*完整示例*（开局棋盘，`currentTurn=0` 红方行棋。帧格式：`7|len|0|<row0>|...|<row9>`）：
+
+#v(0.3cm)
+#figure(
+  table(
+    columns: (1.1cm,) + 9 * (1.3cm,),
+    stroke: 0.3pt + rgb(203, 213, 225),
+    align: center + horizon,
+    // 列头（加粗底边）
+    table.cell(stroke: (bottom: 1pt + black))[], table.cell(stroke: (bottom: 1pt + black))[a], table.cell(stroke: (bottom: 1pt + black))[b], table.cell(stroke: (bottom: 1pt + black))[c], table.cell(stroke: (bottom: 1pt + black))[d], table.cell(stroke: (bottom: 1pt + black))[e], table.cell(stroke: (bottom: 1pt + black))[f], table.cell(stroke: (bottom: 1pt + black))[g], table.cell(stroke: (bottom: 1pt + black))[h], table.cell(stroke: (bottom: 1pt + black))[i],
+    // row 9 黑方底线
+    table.cell(fill: rgb(241, 245, 249))[9], [`1?`], [`1?`], [`1?`], [`1?`], [`10`], [`1?`], [`1?`], [`1?`], [`1?`],
+    // row 8
+    [8], [·], [·], [·], [·], [·], [·], [·], [·], [·],
+    // row 7 黑炮位
+    table.cell(fill: rgb(241, 245, 249))[7], [·], [`1?`], [·], [·], [·], [·], [·], [`1?`], [·],
+    // row 6 黑卒位
+    table.cell(fill: rgb(241, 245, 249))[6], [`1?`], [·], [`1?`], [·], [`1?`], [·], [`1?`], [·], [`1?`],
+    // row 5 楚河（加粗底边）
+    table.cell(stroke: (bottom: 1pt + black))[5], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·], table.cell(stroke: (bottom: 1pt + black))[·],
+    // row 4 汉界
+    [4], [·], [·], [·], [·], [·], [·], [·], [·], [·],
+    // row 3 红兵位
+    table.cell(fill: rgb(241, 245, 249))[3], [`0?`], [·], [`0?`], [·], [`0?`], [·], [`0?`], [·], [`0?`],
+    // row 2 红炮位
+    table.cell(fill: rgb(241, 245, 249))[2], [·], [`0?`], [·], [·], [·], [·], [·], [`0?`], [·],
+    // row 1
+    [1], [·], [·], [·], [·], [·], [·], [·], [·], [·],
+    // row 0 红方底线
+    table.cell(fill: rgb(241, 245, 249))[0], [`0?`], [`0?`], [`0?`], [`0?`], [`00`], [`0?`], [`0?`], [`0?`], [`0?`],
+  ),
+  caption: [BOARD\_STATE 开局帧（`len=211`，`currentTurn=0`）。`e9`=`10`（黑将）、`e0`=`00`（红帅）开局即明；`0?`=红方暗子，`1?`=黑方暗子，`·`=空位],
+)
+
+=== B.4.x MSG_DRAW_REQUEST（8）— 提和
+
+*双向*（C → S 或 S → C）
+
+*客户端提和*：
+
+#table(
+  columns: (1.7cm, 1.2cm, 2.4cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*action*]),
+  [`8`], [`<len>`], [`OFFER`],
+)
+
+*对方同意*：
+
+#table(
+  columns: (1.7cm, 1.2cm, 2.4cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*action*]),
+  [`8`], [`<len>`], [`ACCEPT`],
+)
+
+*对方拒绝*：
+
+#table(
+  columns: (1.7cm, 1.2cm, 2.4cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*action*]),
+  [`8`], [`<len>`], [`DECLINE`],
+)
+
+服务器收到 ACCEPT 后广播 GAME_OVER（原因码 = 9，协议和棋）。收到 DECLINE 后仅转发，棋局继续。
+
+=== B.4.x MSG_RESIGN（9）— 认输
+
+*客户端认输*：
+
+#table(
+  columns: (1.7cm, 1.2cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*]),
+  [`9`], [`<len>`],
+)
+
+*服务器通知*：
+
+#table(
+  columns: (1.7cm, 1.2cm, 2cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*color*]),
+  [`9`], [`<len>`], [`<color>`],
+)
+
+服务器收到认输后立即广播 GAME_OVER（原因码 = 3）。
+
+=== B.4.x MSG_CHAT（10）— 聊天
+
+*双向*（可选实现）
+
+#table(
+  columns: (1.7cm, 1.2cm, 2.4cm, 3cm, 3.5cm),
+  stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
+  align: center + horizon,
+  table.header([*msgType*], [*len*], [*playerColor*], [*playerName*], [*message*]),
+  [`10`], [`<len>`], [`<playerColor>`], [`<playerName>`], [`<message>`],
+)
+
+不影响棋局状态，服务器仅负责转发。
+
+// ============================================================
+
+== B.7 TCP 典型通信时序图
+
+#v(0.2cm)
+#text(size: hint-size, fill: gray)[时序图竖线 `|` 表示各方连接；`-->` / `<--` 表示消息方向。图内为等宽英文标签以保证对齐。]
+
+=== B.7.1 正常对弈时序
+
+#seq-diagram(
+  "
+      Client A (Red)              Server              Client B (Black)
+            |                         |                         |
+            |------ LOGIN(c=0) ------>|                         |
+            |<----- LOGIN_ACK ---------|                         |
+            |      (WAITING)          |                         |
+            |                         |<------ LOGIN(c=1) -------|
+            |                         |----- LOGIN_ACK -------->|
+            |                         |       (PLAYING)         |
+            |<---- GAME_START ---------|<---- GAME_START -------->|
+            |<---- BOARD_STATE --------|<---- BOARD_STATE ------>|
+            |                         |                         |
+            |------ MOVE(b1-b3) ------>|                         |
+            |                         |                         |
+            |    [server: validate + fill type on reveal]       |
+            |<---- MOVE (broadcast) ---|<---- MOVE (broadcast) ->|
+            |<---- BOARD_STATE --------|<---- BOARD_STATE ------>|
+            |<---- TURN_CHANGE ---------|<---- TURN_CHANGE ------>|
+            |                         |                         |
+            |                         |<------ MOVE(c7-c5) -------|
+            |                         |        [ok]             |
+            |<---- MOVE (broadcast) ---|<---- MOVE (broadcast) ->|
+            |<---- BOARD_STATE --------|<---- BOARD_STATE ------>|
+            |                         |                         |
+            |       ... repeat until game over ...              |
+            |<---- GAME_OVER ----------|<---- GAME_OVER -------->|
+  ",
+  [从登录到终局的消息序列（客户端 A 红方、服务器、客户端 B 黑方）],
+  roles: [#grid(columns: (1fr, 1fr, 1fr), align: center,
+    [客户端 A（红方）], [服务器], [客户端 B（黑方）],
+  )],
+)
+
+=== B.7.2 非法着法被拒绝
+
+#seq-diagram(
+  "
+      Client A                    Server
+            |                         |
+            |------ MOVE(b1-b5) ------>|
+            |                         |  [reject]
+            |<-- ERROR(102, blocked) --|
+            |   (state unchanged)     |
+  ",
+  [非法着法被拒绝：棋局状态不变，仍轮到客户端 A],
+  roles: [#grid(columns: (1fr, 1fr), align: center, [客户端 A], [服务器])],
+)
+
+=== B.7.3 超时判负
+
+#seq-diagram(
+  "
+      Client A (Red)              Server
+            |                         |
+            |   (no MOVE within 65s)  |
+            |                         |
+            |                         |  [timer fires]
+            |<-- GAME_OVER(1,2,timeout)|
+  ",
+  [超时判负：红方 65 秒内未走子，服务器定时器触发后广播 GAME\_OVER],
+  roles: [#grid(columns: (1fr, 1fr), align: center, [客户端 A（红方）], [服务器])],
+)
+
+=== B.7.4 提和流程
+
+#seq-diagram(
+  "
+      Client A                    Server                    Client B
+            |                         |                         |
+            |--- DRAW_REQUEST OFFER --->|                         |
+            |                         |--- DRAW_REQUEST OFFER ->|
+            |                         |                         |
+            |                         |<- DRAW_REQUEST ACCEPT --|
+            |                         |                         |
+            |<------ GAME_OVER --------|<------ GAME_OVER ------>|
+            |    (-1,9, agreed draw)    |    (-1,9, agreed draw)   |
+  ",
+  [提和流程：双方 OFFER 后一方 ACCEPT，服务器广播和棋 GAME\_OVER],
+  roles: [#grid(columns: (1fr, 1fr, 1fr), align: center,
+    [客户端 A], [服务器], [客户端 B],
+  )],
+)
+
+=== B.7.5 认输流程
+
+#seq-diagram(
+  "
+      Client A                    Server                    Client B
+            |                         |                         |
+            |-------- RESIGN --------->|                         |
+            |                         |-------- RESIGN -------->|
+            |<------ GAME_OVER --------|<------ GAME_OVER ------>|
+  ",
+  [认输流程：客户端 A 认输，服务器通知 B 并广播 GAME\_OVER],
+  roles: [#grid(columns: (1fr, 1fr, 1fr), align: center,
+    [客户端 A], [服务器], [客户端 B],
+  )],
+)
+
+// ============================================================
+
+== B.8 TCP 消息快速参考卡片
+
 
 #table(
   columns: (auto, auto, auto),
@@ -1589,7 +2175,8 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
   [CHAT], [双边], [`<color>\|<name>\|<msg>`],
 )
 
-= 附录 B：版本历史
+
+= 附录 C：版本历史
 
 #table(
   columns: (1.1cm, 2.4cm, 1fr),
@@ -1635,3 +2222,11 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
     本文档作为组间互操作唯一参考
   ],
 )
+  [v3.0], [2026-05-29], [
+    新增老师 WebSocket + JSON 公共接口为正文主协议（第 6 章）；    原 TCP 协议完整迁移至附录 B；新增 WS 联调清单与实现状态标注
+  ],
+  [v3.1], [2026-05-30], [
+    全文对齐老师 2026 公共接口；v2.0 全部内容一字不删（27 条保留清单）；    补全 C→S/S→C 字段级说明；§14 实现状态标注；附录 B 含 MSG 1–10、BOARD_STATE、TCP 时序图；    预期 PDF ≥30 页
+  ],
+)
+

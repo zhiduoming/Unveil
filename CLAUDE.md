@@ -1,6 +1,6 @@
 # Unveil — 揭棋对弈程序设计
 
-第一组（组长 张恒基）课程大作业。基于 TCP Socket 的揭棋（Hidden Chess）客户端-服务器对弈系统。
+第一组（组长 张恒基）课程大作业。揭棋（Hidden Chess）客户端-服务器对弈系统。**主协议**：WebSocket + JSON（对齐课程 2026 公共接口）；**可选**：TCP 文本帧 v2.0。
 
 ## 项目结构
 
@@ -8,8 +8,8 @@
 Unveil/
 ├── jieqi-core/       # 领域、规则、协议（Board, Game, EndgameJudge, RuleValidator）
 │   └── com.jieqi.record/   # 棋谱记法与导入（GameRecord, MoveNotation）
-├── jieqi-server/     # TCP 服务器（GameServer, ClientHandler, GameRecordStore）
-├── jieqi-client/     # TCP 客户端（GameClient, ConsoleUI）
+├── jieqi-server/     # WebSocket 服务器（WsGameServer）+ TCP 服务器（GameServer）
+├── jieqi-client/     # WebSocket 客户端（WsGameClient）+ TCP 客户端（GameClient）
 ├── jieqi-ai/         # AI 博弈（JieqiAgent, Alpha-Beta, 期望值评估）
 │   └── com.jieqi.ai.agent/ # 多 Agent 编排（Probability / Endgame / Search）
 ├── jieqi-app/        # 可选 GUI 启动器
@@ -25,22 +25,24 @@ Unveil/
 # 编译全部模块
 mvn clean compile -f pom.xml
 
-# 启动服务器（默认端口 8888）
-mvn exec:java -pl jieqi-server -Dexec.mainClass="com.jieqi.server.GameServer"
+# 启动交互菜单（-f jieqi-app + -am 构建依赖，避免根 POM 误跑 exec）
+mvn exec:java -f jieqi-app/pom.xml -am
 
-# 启动客户端
-mvn exec:java -pl jieqi-client -Dexec.mainClass="com.jieqi.client.GameClient"
+# 或使用 Fat JAR
+mvn package -pl jieqi-app -am -DskipTests
+java -jar jieqi-app/target/unveil-jieqi.jar
 
-# 编译协议文档为 PDF
-typst compile docs/INTERFACE.typ docs/INTERFACE.pdf
+# 启动 WebSocket 服务器（默认 8887，课程公共接口）
+mvn exec:java -f jieqi-app/pom.xml -am -Dexec.args="server-ws 8887"
 ```
 
 ## 协议文档
 
-- 组间互操作以 `docs/INTERFACE.typ` 为唯一权威格式。
+- 组间互操作以 `docs/INTERFACE.typ` **v3.0** 为唯一权威格式（WebSocket + JSON）。
 - 每次修改协议必须先更新 Typst 文档，再改代码。
-- 消息帧格式：`msgType|payloadByteLength|payload\n`，UTF-8 编码，LF 行尾。
-- 完整消息类型、错误码、原因码定义见 Protocol.java 及文档 §3。
+- 正文：`messageType` JSON over WebSocket，默认端口 **8887**。
+- 附录 B：TCP `msgType|payloadByteLength|payload\n`（本组可选，端口 8888）。
+- JSON 实现见 `com.jieqi.protocol.json.*`；TCP 见 `Protocol.java`。
 
 ## 代码约定
 
@@ -56,7 +58,8 @@ typst compile docs/INTERFACE.typ docs/INTERFACE.pdf
 
 - 修改 `jieqi-core` 的领域类时必须同步审查 RuleValidator 的规则正确性。
 - 协议层改动必须与 `docs/INTERFACE.typ` 保持一致，严禁代码与文档脱节。
-- 新增消息类型必须同步更新 Protocol.java、ClientHandler.java、GameClient.java 三处。
+- WebSocket 消息改动须同步 `JsonMessages.java`、`WsGameServer.java`、`WsGameClient.java`。
+- TCP 扩展改动须同步 `Protocol.java`、`ClientHandler.java`、`GameClient.java`。
 
 ## 开发模式与 AI 协作约束
 

@@ -76,7 +76,7 @@ public class Game {
     }
 
     /** 测试用：调整回合开始时间以触发超时。 */
-    void setTurnStartTime(long turnStartTime) {
+    public void setTurnStartTime(long turnStartTime) {
         this.turnStartTime = turnStartTime;
     }
 

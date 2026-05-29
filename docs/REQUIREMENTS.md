@@ -9,14 +9,14 @@
 
 | # | 需求 | 覆盖状态 |
 |---|------|----------|
-| F1 | 两个客户端经 TCP 连接同一服务器真人对弈 | ✅ `GameServer` + `ClientHandler` |
+| F1 | 两个客户端经网络连接同一服务器真人对弈 | ✅ `WsGameServer` + `WsGameClient`（WebSocket）；TCP 见附录 B |
 | F2 | 服务器与客户端均校验并拒绝非法着法 | ✅ `RuleValidator`（双端均调用） |
 | F3 | 不考虑"不应将"自动判负；走不出不自动判胜 | ✅ 仅 `isValidMove`；允许送将 → 对方 `KING_CAPTURED`（§11.1 / Q2） |
-| F4 | 棋谱：坐标 9-0 行、a-i 列；每步 source + destination；首翻带 type | ✅ `INTERFACE.md` §6-§8 |
-| F5 | 服务器随机决定翻开类型；自动记录棋谱 | ✅ Board 初始化随机排布；`GameRecord` |
-| F6 | Move 三属性 + 时间戳；以服务器时间为准 | ✅ `Move.java` + `INTERFACE.md` §7 |
-| F7 | 计时器判超时（65s = 60s + 5s 裕量） | ✅ `INTERFACE.md` §7.3 |
-| F8 | 客户端 UI 从简；可选多盘对弈 | ✅ `ConsoleUI`，多盘见 `INTERFACE.md` §12 |
+| F4 | 棋谱：坐标 9-0 行、a-i 列；每步 source + destination；首翻带 type | ✅ `INTERFACE.md` §3–§4 |
+| F5 | 服务器随机决定翻开类型；自动记录棋谱 | ✅ `RandomRevealService`；`GameRecordStore` |
+| F6 | Move 三属性 + 时间戳；以服务器时间为准 | ✅ `Move.java`；JSON 见 `fromX/fromY` 映射 |
+| F7 | 计时器判超时（65s = 60s + 5s 裕量） | ✅ `WsGameServer` / `Game` |
+| F8 | 客户端 UI 从简；可选多盘对弈 | ✅ `ConsoleUI`；WebSocket `roomId` + TCP `gameId` |
 
 ### B. AI 博弈
 
@@ -43,7 +43,7 @@
 ## 3. 非功能需求
 
 - [x] 面向对象：≥5 领域类（`Board`、`ChessPiece`、`Move`、`Game`、`GameRecord`、`Coordinate`、`PieceType`）
-- [x] 组间互操作：`docs/INTERFACE.md` v2.0 协议完整定义
+- [x] 组间互操作：`docs/INTERFACE.md` **v3.0**（WebSocket JSON 正文 + TCP 附录 B）
 - [x] AI 辅助分析、设计、编程、测试（见各文档及 `TEAM.md`）
 - [x] 实验报告：成员分工 + 贡献度百分比（见 `TEAM.md`）
 
