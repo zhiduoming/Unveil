@@ -22,10 +22,10 @@
 | `Login` | 登录 | userId, password |
 | `register` | 注册 | userId, password, nickname |
 | `startMatch` | 开始匹配 | 无额外字段 |
-| `cancelMatch` | 取消匹配（可选） | 无额外字段 |
-| `requestFirstHand` | 请求先手（可选，10s 窗口） | wannaFirst: true/false |
+| `cancelMatch` | 取消匹配 | 无额外字段 |
+| `requestFirstHand` | 请求先手（10s 窗口） | wannaFirst: true/false |
 | `move` | 走子 | fromX, fromY, toX, toY, isFlip: true/false |
-| `ping` | 心跳（可选） | timestamp: 长整型毫秒 |
+| `ping` | 心跳 | timestamp: 长整型毫秒 |
 | `Resign` | 认输 | 无额外字段（**注意大写 R**） |
 | `Ready` | 准备就绪 | 无额外字段（**注意大写 R**） |
 
@@ -226,9 +226,9 @@ v2.0 原有 28 页内容按以下方案重组（**保留所有已有内容，在
 
 14. 实现状态标注（★ 新增整章）
     按本组实际代码覆盖，逐条标注每项特性的实现状态：
-    - ✅ 已实现（代码完整 + 测试通过）
-    - ⚠️ 已实现待补测（代码存在但集成测试未覆盖）
-    - ❌ 未实现（计划中或待开发）
+    - 已实现（代码完整 + 测试通过）
+    - 部分实现（待补测）（代码存在但集成测试未覆盖）
+    - 未实现（计划中或待开发）
     
     标注粒度：到每个 messageType、每个规则条款、每个错误码
 
@@ -240,7 +240,7 @@ v2.0 原有 28 页内容按以下方案重组（**保留所有已有内容，在
     - WS 错误码速查
 
 附录 B：TCP 文本帧扩展协议 v2.0（★ 原 v2.0 正文第 6 章完整迁移至此）
-    说明文字：「本附录为第一组历史扩展协议（v2.0），供需要 TCP 通信的组参考或调试。
+    说明文字：「本附录为 Unveil 历史扩展协议（v2.0），供需要 TCP 通信的组参考或调试。
               组间联调默认使用正文 WebSocket + JSON 协议（第 6 章）。」
     
     B.1 消息帧格式（msgType|len|payload\n）
@@ -598,12 +598,12 @@ rook, knight, cannon, bishop, guard, king, pawn
 
 #### 7.1 任务完成清单
 
-每个任务一条，标注状态（✅ 完成 / ⚠️ 部分完成 / ❌ 未完成），并附一句说明：
+每个任务一条，标注状态（已完成 / 部分完成 / 未完成），并附一句说明：
 
 ```
-任务 0 INTERFACE.typ 更新：✅ 已完成，新增 3 个表格、15 条 JSON 示例、实现状态标注
-任务 1.1 完整对局流程测试：✅ 通过，3 个回合 flipResult 均非空
-任务 1.2 非法走子测试：✅ 通过，error code=2001 + moveResult valid=false
+任务 0 INTERFACE.typ 更新：已完成，新增 3 个表格、15 条 JSON 示例、实现状态标注
+任务 1.1 完整对局流程测试：已通过，3 个回合 flipResult 均非空
+任务 1.2 非法走子测试：已通过，error code=2001 + moveResult valid=false
 ...
 ```
 
@@ -636,9 +636,9 @@ jieqi-server/
 
 | 老师规范条目 | 代码实现位置 | 状态 | 备注 |
 |-------------|-------------|------|------|
-| Login (C→S) | WsGameServer.handleLogin:124 | ✅ | |
-| register (C→S) | WsGameServer.handleRegister:142 | ✅ | |
-| move (C→S) | WsGameServer.handleMove:200 | ✅ | 含 isFlip, flipResult |
+| Login (C→S) | WsGameServer.handleLogin:124 | 已实现 | |
+| register (C→S) | WsGameServer.handleRegister:142 | 已实现 | |
+| move (C→S) | WsGameServer.handleMove:200 | 已实现 | 含 isFlip, flipResult |
 | ... | ... | ... | ... |
 
 必须覆盖老师规范中的**全部** messageType、错误码、数据结构。

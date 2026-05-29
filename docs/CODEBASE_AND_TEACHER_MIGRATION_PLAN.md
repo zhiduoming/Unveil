@@ -56,17 +56,17 @@
 
 | 类别 | 状态 |
 |------|------|
-| 老师列出的全部 `messageType` | ✅ 已实现 |
-| 暗子随机 + 服务器权威翻子 | ✅ 已实现 |
-| Login / Match / Ready / gameStart 流程 | ✅ 已实现 |
-| move / moveResult / flipResult | ✅ 已实现 |
-| 超时 timeout + gameOver | ✅ 已实现 |
-| 错误码 1001–4001 | ✅ 已实现 |
-| WS 集成测试（move/resign/终局/超时） | ⚠️ 仅 2 场景 |
-| AI 接入 WS | ❌ `EnhancedAIEngine` 仍连 TCP 8888 |
-| Docker / compose 默认端口 | ❌ 仍暴露 8888 TCP |
-| 客户端单元/集成测试 | ❌ `jieqi-client` 零测试 |
-| 按玩家视角的棋盘迷雾（Per-client board） | ⚠️ 未实现；当前客户端本地 `executeMove` 全知 |
+| 老师列出的全部 `messageType` | 已实现 |
+| 暗子随机 + 服务器权威翻子 | 已实现 |
+| Login / Match / Ready / gameStart 流程 | 已实现 |
+| move / moveResult / flipResult | 已实现 |
+| 超时 timeout + gameOver | 已实现 |
+| 错误码 1001–4001 | 已实现 |
+| WS 集成测试（move/resign/终局/超时） | 部分实现：仅 2 场景 |
+| AI 接入 WS | 未实现 `EnhancedAIEngine` 仍连 TCP 8888 |
+| Docker / compose 默认端口 | 未实现 仍暴露 8888 TCP |
+| 客户端单元/集成测试 | 未实现 `jieqi-client` 零测试 |
+| 按玩家视角的棋盘迷雾（Per-client board） | 部分实现：未实现；当前客户端本地 `executeMove` 全知 |
 
 ---
 
@@ -225,7 +225,7 @@ TCP 依赖 `Protocol.buildBoardState` 每步推送完整棋盘字符串，客户
 
 **迁移建议**：组间联调以 WS 为准时，此包标记 **deprecated**，保留供调试与他组 TCP 互操作；**不删除**直至老师明确废弃附录 B。
 
-### 4.3 包 `com.jieqi.protocol.json` — 老师 WS JSON（正文）
+### 4.3 包 `com.jieqi.protocol.json` — 老师 WS JSON
 
 | 文件 | 职责 |
 |------|------|
@@ -416,11 +416,11 @@ mvn package -pl jieqi-app -am -DskipTests
 | 走子 | MOVE | move → moveResult | move |
 | 翻子揭示 | MOVE.type | flipResult | flipResult |
 | 棋盘同步 | 每步 BOARD_STATE | 仅 initialBoard + 客户端本地 | initialBoard + moveResult |
-| 提和 | DRAW_REQUEST | ❌ | ❌ 未定义 |
-| 聊天 | CHAT | ❌ | ❌ 未定义 |
+| 提和 | DRAW_REQUEST | 未实现 | 未实现 未定义 |
+| 聊天 | CHAT | 未实现 | 未实现 未定义 |
 | 认输 | RESIGN | Resign | Resign |
 | 超时 | 服务器轮询 | timeout + gameOver | timeout |
-| 心跳 | ❌ | ping/pong | 可选 |
+| 心跳 | 未实现 | ping/pong | 可选 |
 | 错误码 | 100–202 | 1001–4001 | 1001–4001 |
 
 ### 10.2 重复实现（迁移时可抽象）
@@ -449,48 +449,48 @@ mvn package -pl jieqi-app -am -DskipTests
 
 | 老师要求 | 本仓库实现 | 文件 |
 |----------|------------|------|
-| WebSocket + JSON | ✅ | `WsGameServer`, `WsGameClient` |
-| 端口 8887 | ✅ 默认 | `WsGameServer`, Main `server-ws` |
-| Java-WebSocket 1.5.7 | ✅ | 父 pom |
-| Gson 2.10.1 | ✅ | 父 pom |
+| WebSocket + JSON | 已实现 | `WsGameServer`, `WsGameClient` |
+| 端口 8887 | 已实现（默认） | `WsGameServer`, Main `server-ws` |
+| Java-WebSocket 1.5.7 | 已实现 | 父 pom |
+| Gson 2.10.1 | 已实现 | 父 pom |
 
 ### 11.2 客户端 → 服务器消息
 
 | messageType | 实现 | 备注 |
 |-------------|------|------|
-| Login | ✅ | userId/password |
-| register | ✅ | |
-| startMatch | ✅ | FIFO 队列 |
-| cancelMatch | ✅ | 基础出队 |
-| requestFirstHand | ✅ | 10s 窗口 |
-| Ready | ✅ | 双方 Ready 开局 |
-| move | ✅ | fromX/Y, toX/Y, isFlip |
-| ping | ✅ | |
-| Resign | ✅ | 注意大小写 `Resign` |
+| Login | 已实现 | userId/password |
+| register | 已实现 | |
+| startMatch | 已实现 | FIFO 队列 |
+| cancelMatch | 已实现 | 基础出队 |
+| requestFirstHand | 已实现 | 10s 窗口 |
+| Ready | 已实现 | 双方 Ready 开局 |
+| move | 已实现 | fromX/Y, toX/Y, isFlip |
+| ping | 已实现 | |
+| Resign | 已实现 | 注意大小写 `Resign` |
 
 ### 11.3 服务器 → 客户端消息
 
 | messageType | 实现 | 备注 |
 |-------------|------|------|
-| loginResult | ✅ | success, userId, message |
-| matchSuccess | ✅ | roomId, opponentId, opponentNickname |
-| roomInfo | ✅ | opponentReady |
-| gameStart | ✅ | red/blackPlayerId, yourColor, firstHand, initialBoard |
-| moveResult | ✅ | success, valid, move, flipResult? |
-| timeout | ✅ | loserId, winnerId, reason |
-| gameOver | ✅ | winner, reason, winnerId |
-| pong | ✅ | |
-| error | ✅ | code, message |
+| loginResult | 已实现 | success, userId, message |
+| matchSuccess | 已实现 | roomId, opponentId, opponentNickname |
+| roomInfo | 已实现 | opponentReady |
+| gameStart | 已实现 | red/blackPlayerId, yourColor, firstHand, initialBoard |
+| moveResult | 已实现 | success, valid, move, flipResult? |
+| timeout | 已实现 | loserId, winnerId, reason |
+| gameOver | 已实现 | winner, reason, winnerId |
+| pong | 已实现 | |
+| error | 已实现 | code, message |
 
 ### 11.4 数据结构
 
 | 结构 | 实现 | 文件 |
 |------|------|------|
-| initialBoard `{x,y,piece,visible}` | ✅ | `BoardJsonMapper` |
-| piece 枚举 rook/knight/… | ✅ | `PieceJsonMapper` |
-| move 坐标 fromX/fromY/toX/toY | ✅ | `JsonMessages.parseMove` |
-| flipResult 服务器生成 | ✅ | `RandomRevealService` + `WsGameServer.handleMove` |
-| 错误码 1001–4001 | ✅ | `JsonErrorCodes` |
+| initialBoard `{x,y,piece,visible}` | 已实现 | `BoardJsonMapper` |
+| piece 枚举 rook/knight/… | 已实现 | `PieceJsonMapper` |
+| move 坐标 fromX/fromY/toX/toY | 已实现 | `JsonMessages.parseMove` |
+| flipResult 服务器生成 | 已实现 | `RandomRevealService` + `WsGameServer.handleMove` |
+| 错误码 1001–4001 | 已实现 | `JsonErrorCodes` |
 
 ### 11.5 流程（老师 §4）
 
@@ -571,7 +571,7 @@ Login → startMatch → matchSuccess → Ready×2 → gameStart
 | WS 测试 2 场景 | 补齐至与 TCP 9 场景对等（能 WS 测的不走 TCP） |
 | README/CLAUDE 双轨说明 | WS 单一主路径 + 附录 B 链接 |
 
-### 13.4 废弃/归档（可选，联调稳定后）
+### 13.4 废弃/归档（联调稳定后）
 
 | 组件 | 策略 |
 |------|------|
@@ -587,7 +587,7 @@ Login → startMatch → matchSuccess → Ready×2 → gameStart
 | 新组件 | 用途 |
 |--------|------|
 | `WsAIEngine` / `WsGameClient` AI 模式 | AI 经 WS 接入对战 |
-| `PlayerBoardView`（可选） | 若 Q1 裁定「被吃方不可见 type」，在客户端过滤显示 |
+| `PlayerBoardView` | 若 Q1 裁定「被吃方不可见 type」，在客户端过滤显示 |
 | `MatchService` 接口 | 统一 TCP/WS 匹配语义（长期） |
 | `WsGameServerIntegrationTest` 扩展 | move/resign/timeout/gameOver/disconnect |
 | `WsGameClientTest` | 客户端 JSON 解析与本地 sync |
@@ -640,7 +640,7 @@ Login → startMatch → matchSuccess → Ready×2 → gameStart
 
 `Main` 增加选项「AI 经 WS 对战」或 CLI `ai-ws ws://... user pass`。
 
-### 阶段 4：会话层抽象（可选，3–5 人日）
+### 阶段 4：会话层抽象（3–5 人日）
 
 - 抽 `com.jieqi.server.session.GameSessionManager`
 - TCP `MatchmakingService` 与 WS `matchQueue` 实现同一接口
@@ -660,13 +660,13 @@ Login → startMatch → matchSuccess → Ready×2 → gameStart
 
 | 老师概念 | 本仓库位置 | 状态 |
 |----------|------------|------|
-| JsonWebSocketServer 示例 | `WsGameServer` | ✅ 已替换示例桩 |
-| JsonWebSocketClient 示例 | `WsGameClient` | ✅ 已替换 |
-| initialBoard | `BoardJsonMapper.toInitialBoard` | ✅ |
-| move JSON | `JsonMessages.parseMove` | ✅ |
-| moveResult + flipResult | `WsGameServer.handleMove` | ✅ |
-| Login/Register | `UserRegistry` + handlers | ✅ |
-| 错误码 | `JsonErrorCodes` | ✅ |
+| JsonWebSocketServer 示例 | `WsGameServer` | 已替换示例桩 |
+| JsonWebSocketClient 示例 | `WsGameClient` | 已替换 |
+| initialBoard | `BoardJsonMapper.toInitialBoard` | 已实现 |
+| move JSON | `JsonMessages.parseMove` | 已实现 |
+| moveResult + flipResult | `WsGameServer.handleMove` | 已实现 |
+| Login/Register | `UserRegistry` + handlers | 已实现 |
+| 错误码 | `JsonErrorCodes` | 已实现 |
 
 ### 15.2 若「完全以老师规范为唯一网络面」时的替换关系
 
