@@ -9,36 +9,36 @@
 
 | # | 需求 | 覆盖状态 |
 |---|------|----------|
-| F1 | 两个客户端经网络连接同一服务器真人对弈 | ✅ `WsGameServer` + `WsGameClient`（WebSocket）；TCP 见附录 B |
-| F2 | 服务器与客户端均校验并拒绝非法着法 | ✅ `RuleValidator`（双端均调用） |
-| F3 | 不考虑"不应将"自动判负；走不出不自动判胜 | ✅ 仅 `isValidMove`；允许送将 → 对方 `KING_CAPTURED`（§11.1 / Q2） |
-| F4 | 棋谱：坐标 9-0 行、a-i 列；每步 source + destination；首翻带 type | ✅ `INTERFACE.md` §3–§4 |
-| F5 | 服务器随机决定翻开类型；自动记录棋谱 | ✅ `RandomRevealService`；`GameRecordStore` |
-| F6 | Move 三属性 + 时间戳；以服务器时间为准 | ✅ `Move.java`；JSON 见 `fromX/fromY` 映射 |
-| F7 | 计时器判超时（65s = 60s + 5s 裕量） | ✅ `WsGameServer` / `Game` |
-| F8 | 客户端 UI 从简；可选多盘对弈 | ✅ `ConsoleUI`；WebSocket `roomId` + TCP `gameId` |
+| F1 | 两个客户端经网络连接同一服务器真人对弈 | 已实现 `WsGameServer` + `WsGameClient`（WebSocket）；TCP 见附录 B |
+| F2 | 服务器与客户端均校验并拒绝非法着法 | 已实现 `RuleValidator`（双端均调用） |
+| F3 | 不考虑"不应将"自动判负；走不出不自动判胜 | 已实现 仅 `isValidMove`；允许送将 → 对方 `KING_CAPTURED`（§11.1 / Q2） |
+| F4 | 棋谱：坐标 9-0 行、a-i 列；每步 source + destination；首翻带 type | 已实现 `INTERFACE.md` §3–§4 |
+| F5 | 服务器随机决定翻开类型；自动记录棋谱 | 已实现 `RandomRevealService`；`GameRecordStore` |
+| F6 | Move 三属性 + 时间戳；以服务器时间为准 | 已实现 `Move.java`；JSON 见 `fromX/fromY` 映射 |
+| F7 | 计时器判超时（65s = 60s + 5s 裕量） | 已实现 `WsGameServer` / `Game` |
+| F8 | 客户端 UI 从简；可选多盘对弈 | 已实现 `ConsoleUI`；WebSocket `roomId` + TCP `gameId` |
 
 ### B. AI 博弈
 
 | # | 需求 | 覆盖状态 |
 |---|------|----------|
-| F9 | 暗子局面评估含数学期望值 | ✅ `ExpectedValueEvaluator` |
-| F10 | Alpha-Beta 剪枝搜索 | ✅ `OptimizedAlphaBeta` + 置换表/杀手启发 |
-| F11 | Agent 对象封装决策 | ✅ `JieqiAgent` |
-| F12 | 可对接网络或本地 Board 自检 | ✅ `AIVsAIEnhanced` |
+| F9 | 暗子局面评估含数学期望值 | 已实现 `ExpectedValueEvaluator` |
+| F10 | Alpha-Beta 剪枝搜索 | 已实现 `OptimizedAlphaBeta` + 置换表/杀手启发 |
+| F11 | Agent 对象封装决策 | 已实现 `JieqiAgent` |
+| F12 | 可对接网络或本地 Board 自检 | 已实现 `AIVsAIEnhanced` |
 
 ## 2. 规则需求（揭棋）
 
 | 规则 | 实现 | 状态 |
 |------|------|------|
-| 开局：仅将帅明，其余 15 暗子随机 | `Board.initBoard()` | ✅ |
-| 走暗子按位置角色规则 | `ChessPiece.getMoveType()` → `virtualType` | ✅ |
-| 走完/吃子后翻开；可原地翻子（一回合） | `executeMove()` + `isFlipOnly` | ✅ |
-| 明士/明象可过河 | `isValidAdvisorMove()` / `isValidBishopMove()` 无限界 | ✅ |
-| 塞象眼、蹩马腿不变 | `isValidKnightMove()` / `isValidBishopMove()` | ✅ |
-| 胜负：将死、困毙、认输、超时 | `EndgameJudge` + `Game` 状态机 | ✅ |
-| 和棋：40 步无吃子 | `noCaptureCount >= 80` | ✅ |
-| 长将/长捉判负（6 次），兵卒长捉和 | `EndgameJudge`：将军/捉子分类，≥6 次 REPETITION_LOSS(7) 或兵卒 REPETITION_DRAW(8) | ✅ |
+| 开局：仅将帅明，其余 15 暗子随机 | `Board.initBoard()` | 已实现 |
+| 走暗子按位置角色规则 | `ChessPiece.getMoveType()` → `virtualType` | 已实现 |
+| 走完/吃子后翻开；可原地翻子（一回合） | `executeMove()` + `isFlipOnly` | 已实现 |
+| 明士/明象可过河 | `isValidAdvisorMove()` / `isValidBishopMove()` 无限界 | 已实现 |
+| 塞象眼、蹩马腿不变 | `isValidKnightMove()` / `isValidBishopMove()` | 已实现 |
+| 胜负：将死、困毙、认输、超时 | `EndgameJudge` + `Game` 状态机 | 已实现 |
+| 和棋：40 步无吃子 | `noCaptureCount >= 80` | 已实现 |
+| 长将/长捉判负（6 次），兵卒长捉和 | `EndgameJudge`：将军/捉子分类，≥6 次 REPETITION_LOSS(7) 或兵卒 REPETITION_DRAW(8) | 已实现 |
 
 ## 3. 非功能需求
 
