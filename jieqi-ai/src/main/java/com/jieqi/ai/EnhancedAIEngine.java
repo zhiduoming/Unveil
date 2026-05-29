@@ -69,8 +69,14 @@ public class EnhancedAIEngine implements Runnable {
     }
 
     public Move calculateMove() {
+        return calculateMove(board);
+    }
+
+    /** 本地人机对弈：在调用方提供的当前局面上搜索（不修改传入棋盘）。 */
+    public Move calculateMove(Board gameBoard) {
         System.out.println("[" + name + "] 思考中...");
-        Move move = agent.selectMove(board, color, 55_000L);
+        Board snapshot = new Board(gameBoard);
+        Move move = agent.selectMove(snapshot, color, 55_000L);
         if (move != null) {
             System.out.println("[" + name + "] 走: " + move);
         }
@@ -79,6 +85,10 @@ public class EnhancedAIEngine implements Runnable {
 
     public Move calculateMoveFast() {
         return agent.selectMove(board, color, 5_000L);
+    }
+
+    public Move calculateMoveFast(Board gameBoard) {
+        return agent.selectMove(new Board(gameBoard), color, 5_000L);
     }
 
     public void reset() {
