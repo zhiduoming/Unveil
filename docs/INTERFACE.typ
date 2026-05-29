@@ -37,10 +37,10 @@
 #let caption-size = 11pt
 #let hint-size = 11pt
 
-// 本组实现状态标记（Task 0）
-#let ok = text(fill: rgb("#15803d"))[✅]
-#let warn = text(fill: rgb("#c2410c"))[⚠️]
-#let no = text(fill: rgb("#b91c1c"))[❌]
+// 本组实现状态标记
+#let ok = text(fill: rgb("#15803d"))[已实现]
+#let warn = text(fill: rgb("#c2410c"))[部分实现]
+#let no = text(fill: rgb("#b91c1c"))[未实现]
 
 #show heading: set text(font: main-font)
 
@@ -104,8 +104,8 @@
   caption: caption,
 )
 
-// 长 payload：按行展示（逐行 trim，避免源码缩进空格；避免与页码重叠）
-#let payload-block(content, title: none) = block(
+// 可换行等宽块：逐行用 text 渲染（不用 raw block），避免超长 JSON 溢出灰框
+#let mono-lines(content, title: none) = block(
   width: 100%,
   fill: rgb("#f8fafc"),
   inset: 12pt,
@@ -114,19 +114,33 @@
   breakable: true,
 )[
   #if title != none [
-    #text(weight: "bold", size: hint-size)[#title]
+    #text(weight: "bold", size: hint-size, fill: rgb("#334155"))[#title]
     #v(6pt)
   ]
   #set text(font: mono-font, size: payload-size)
-  #set par(leading: 0.62em, spacing: 0pt)
+  #set par(leading: 0.62em, spacing: 0pt, justify: false)
   #for line in content.trim().split("\n") {
     let row = line.trim()
     if row.len() > 0 [
-      #raw(row)
+      #row
       #linebreak()
+    ] else [
+      #v(0.3em)
     ]
   }
 ]
+
+// 长 payload：按行展示（兼容旧调用）
+#let payload-block(content, title: none) = mono-lines(content, title: title)
+
+// JSON 示例：整块（多消息时用 json-snippet 逐条更清晰）
+#let json-example-block(content) = mono-lines(content)
+
+// 单条 JSON 消息：独立灰框 + 标题，PDF 不串行、不溢出
+#let json-snippet(title, content) = {
+  v(0.35em)
+  mono-lines(content, title: title)
+}
 
 // 普通代码块：限制在版心宽度内
 #show raw.where(block: true): it => block(
@@ -155,7 +169,7 @@
       stroke: (top: 2.5pt + rgb("#1a365d"), bottom: 0.75pt + rgb("#cbd5e1")),
     )[
       #align(center)[
-        #text(size: 10.5pt, tracking: 0.35em, fill: rgb("#475569"))[大 作 业 · 第 一 组]
+        #text(size: 10.5pt, tracking: 0.35em, fill: rgb("#475569"))[大 作 业]
         #v(0.55cm)
         #text(size: 26pt, weight: "bold", fill: rgb("#0f172a"))[揭棋对弈程序设计]
         #v(0.65cm)
@@ -230,7 +244,7 @@
   #v(1fr)
   #align(center)[
     #text(size: caption-size, fill: rgb(148, 163, 184))[
-      正文以课程 WebSocket+JSON 公共接口为准；附录 B 为本组可选 TCP 扩展
+      正文以课程 WebSocket+JSON 公共接口为准；附录 B 为 Unveil TCP 扩展
     ]
   ]
 ]
@@ -243,6 +257,19 @@
 
 #set page(numbering: none, footer: none)
 #outline(title: "目录", indent: 2em)
+
+#v(0.5cm)
+#block(
+  width: 100%,
+  inset: (x: 10pt, y: 8pt),
+  fill: rgb("#fffbeb"),
+  radius: 4pt,
+  stroke: 0.5pt + rgb("#fcd34d"),
+)[
+  #text(size: hint-size, fill: rgb("#78350f"))[
+    *§ = 节（section）*：正文章节引用，如 §6.5 即第 6 章第 5 节；附录 B §B.4 即附录 B 第 4 节。*§0.2* 仅指任务清单，非正文章节。
+  ]
+]
 
 #pagebreak()
 #set page(
@@ -264,6 +291,7 @@
   stroke: none,
   align: (left, left),
   [*术语*], [*含义*],
+  [§（节号）], [章节引用符号；§6.5 = 第 6 章第 5 节。见目录后说明],
   [暗子], [背面朝上、尚未翻开的棋子，按所在位置对应的中国象棋棋子规则移动],
   [明子], [正面朝上、已翻开的棋子，按实际类型规则移动],
   [翻子], [将暗子变为明子的操作。可通过移动触发，也可原地翻子（消耗一回合）],
@@ -282,12 +310,12 @@
   table.header(
     [*项目*], [*约定*], [*备注*],
   ),
-  [传输协议（正文）], [*WebSocket* + *JSON*], [课程公共接口；默认端口 *8887*；见第 6 章],
-  [TCP 扩展（附录）], [文本帧 `msgType|len|payload\n`], [本组保留；默认端口 *8888*；见附录 B],
-  [字符编码], [*UTF-8*（强制）], [JSON 与 TCP payload 均为 UTF-8],
+  [传输协议], [*WebSocket* + *JSON*], [课程公共接口；默认端口 *8887*；见第 6 章],
+  [TCP 扩展], [文本帧 `msgType|len|payload\n`], [本组保留；默认端口 *8888*；见附录 B],
+  [字符编码], [*UTF-8*], [JSON 与 TCP payload 均为 UTF-8],
   [TCP 行尾], [LF（`\n`，0x0A）], [附录 B 每条 TCP 消息以单个换行符结尾],
   [WS 消息识别], [`messageType` 字符串], [每条 JSON 对象必含此字段],
-  [心跳（可选）], [`ping` / `pong`，建议 10s], [未实现心跳的客户端应被兼容],
+  [心跳], [`ping` / `pong`，建议 10s], [未实现心跳的客户端应被兼容],
   [超时阈值], [65 秒（60 秒思考 + 5 秒网络裕量）], [服务器可配置],
   [时间戳单位], [毫秒], [`System.currentTimeMillis()` 风格],
   [时间戳权威方], [*服务器*], [客户端时间戳仅供参考，超时判定以服务器为准],
@@ -347,7 +375,7 @@
 
 == 坐标转换公式
 
-坐标字符串与内部棋盘数组索引的转换（Java 参考实现）：
+坐标字符串与内部棋盘数组索引的转换，本组提供参考：
 
 ```java
 // 坐标字符串 → 内部数组索引
@@ -394,7 +422,7 @@ public static String toCoord(int row, int col) {
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
   align: (center + horizon, left, left, center, center, center),
   table.header(
-    [*内部编码*], [*中文名*], [*JSON piece*], [*红方*], [*黑方*], [*本组*],
+    [*内部编码*], [*中文名*], [*JSON piece*], [*红方*], [*黑方*], [*状态*],
   ),
   [0], [将/帅], [`king`], [帅], [将], [#ok],
   [1], [车], [`rook`], [车], [車], [#ok],
@@ -447,7 +475,7 @@ public class Move {
     private String  destination;     // 终点坐标，如 "a1"
     private Integer type;            // 翻出的棋子类型（0–6），非翻子步为 null
     private long    turnStartTime;   // 回合开始时间戳（毫秒），以服务器记录值为准
-    private long    clientTimestamp; // 客户端发送时间戳（可选，服务器忽略防伪造）
+    private long    clientTimestamp; // 客户端发送时间戳（服务器忽略防伪造）
     private long    serverTimestamp; // 服务器处理时间戳（服务器写入）
     private boolean isFlipOnly;      // 是否原地翻子操作
 }
@@ -493,7 +521,7 @@ public class Move {
 #table(
   columns: (auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*字段*], [*类型*], [*说明*], [*本组*]),
+  table.header([*字段*], [*类型*], [*说明*], [*状态*]),
   [`success`], [boolean], [消息处理是否成功], [#ok],
   [`valid`], [boolean], [走子是否符合规则], [#ok],
   [`move`], [object], [同客户端 move 结构], [#ok],
@@ -520,7 +548,7 @@ public class Move {
 #table(
   columns: (auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*项目*], [*约定*], [*说明*], [*本组*]),
+  table.header([*项目*], [*约定*], [*说明*], [*状态*]),
   [传输], [WebSocket 文本帧], [一帧 = 一条 JSON 字符串], [#ok],
   [连接 URL], [`ws://host:8887`], [默认端口 8887；启动时打印], [#ok],
   [编码], [UTF-8], [JSON 字符串], [#ok],
@@ -537,7 +565,7 @@ public class Move {
 #table(
   columns: (auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*依赖*], [*版本*], [*本组*]),
+  table.header([*依赖*], [*版本*], [*状态*]),
   [`org.java-websocket:Java-WebSocket`], [1.5.7], [#ok],
   [`com.google.code.gson:gson`], [2.10.1], [#ok],
 )
@@ -552,15 +580,15 @@ public class Move {
   columns: (auto, auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
   align: (center + horizon, center + horizon, left, left, center),
-  table.header([*messageType*], [*方向*], [*说明*], [*字段*], [*本组*]),
+  table.header([*messageType*], [*方向*], [*说明*], [*字段*], [*状态*]),
   [`Login`], [C→S], [登录], [`userId`, `password`], [#ok],
   [`register`], [C→S], [注册], [`userId`, `password`, `nickname`], [#ok],
   [`startMatch`], [C→S], [开始匹配], [无额外字段], [#ok],
-  [`cancelMatch`], [C→S], [取消匹配（可选）], [无额外字段], [#ok],
-  [`requestFirstHand`], [C→S], [请求先手（可选，10s 窗口）], [`wannaFirst`: true/false], [#ok],
+  [`cancelMatch`], [C→S], [取消匹配], [无额外字段], [#ok],
+  [`requestFirstHand`], [C→S], [请求先手（10s 窗口）], [`wannaFirst`: true/false], [#ok],
   [`Ready`], [C→S], [准备就绪], [无额外字段], [#ok],
   [`move`], [C→S], [走子/翻子], [`fromX`, `fromY`, `toX`, `toY`, `isFlip`], [#ok],
-  [`ping`], [C→S], [心跳（可选）], [`timestamp`: long 毫秒], [#ok],
+  [`ping`], [C→S], [心跳], [`timestamp`: long 毫秒], [#ok],
   [`Resign`], [C→S], [认输], [无额外字段], [#ok],
 )
 
@@ -580,17 +608,53 @@ public class Move {
 
 *JSON 示例（C→S）*：
 
-#payload-block("
-{\"messageType\":\"Login\",\"userId\":\"u1\",\"password\":\"123456\"}
-{\"messageType\":\"register\",\"userId\":\"u2\",\"password\":\"123456\",\"nickname\":\"李四\"}
-{\"messageType\":\"startMatch\"}
-{\"messageType\":\"cancelMatch\"}
-{\"messageType\":\"requestFirstHand\",\"wannaFirst\":true}
-{\"messageType\":\"Ready\"}
-{\"messageType\":\"move\",\"fromX\":\"a\",\"fromY\":0,\"toX\":\"a\",\"toY\":1,\"isFlip\":true}
-{\"messageType\":\"ping\",\"timestamp\":1712345678901}
-{\"messageType\":\"Resign\"}
-")
+#json-snippet("Login", "{
+  \"messageType\": \"Login\",
+  \"userId\": \"u1\",
+  \"password\": \"123456\"
+}")
+
+#json-snippet("register", "{
+  \"messageType\": \"register\",
+  \"userId\": \"u2\",
+  \"password\": \"123456\",
+  \"nickname\": \"李四\"
+}")
+
+#json-snippet("startMatch / cancelMatch / Ready / Resign", "{
+  \"messageType\": \"startMatch\"
+}
+
+{
+  \"messageType\": \"cancelMatch\"
+}
+
+{
+  \"messageType\": \"Ready\"
+}
+
+{
+  \"messageType\": \"Resign\"
+}")
+
+#json-snippet("requestFirstHand", "{
+  \"messageType\": \"requestFirstHand\",
+  \"wannaFirst\": true
+}")
+
+#json-snippet("move（含翻子）", "{
+  \"messageType\": \"move\",
+  \"fromX\": \"a\",
+  \"fromY\": 0,
+  \"toX\": \"a\",
+  \"toY\": 1,
+  \"isFlip\": true
+}")
+
+#json-snippet("ping", "{
+  \"messageType\": \"ping\",
+  \"timestamp\": 1712345678901
+}")
 
 == 服务器 → 客户端消息（§6.5）
 
@@ -598,7 +662,7 @@ public class Move {
   columns: (auto, auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
   align: (center + horizon, center + horizon, left, left, center),
-  table.header([*messageType*], [*方向*], [*说明*], [*字段*], [*本组*]),
+  table.header([*messageType*], [*方向*], [*说明*], [*字段*], [*状态*]),
   [`loginResult`], [S→C], [登录结果], [`success`, `message`, `userId`（成功时）], [#ok],
   [`matchSuccess`], [S→C], [匹配成功], [`roomId`, `opponentId`, `opponentNickname`], [#ok],
   [`roomInfo`], [S→C], [房间状态], [`opponentReady`: true/false], [#ok],
@@ -606,25 +670,87 @@ public class Move {
   [`moveResult`], [S→C], [走子结果], [`success`, `valid`, `move`, `flipResult`?], [#ok],
   [`timeout`], [S→C], [超时判负], [`loserId`, `winnerId`, `reason`], [#ok],
   [`gameOver`], [S→C], [终局], [`winner`, `reason`, `winnerId`], [#ok],
-  [`pong`], [S→C], [心跳回复（可选）], [`timestamp`], [#ok],
-  [`error`], [S→C], [错误（可选）], [`code`, `message`], [#ok],
+  [`pong`], [S→C], [心跳回复], [`timestamp`], [#ok],
+  [`error`], [S→C], [错误], [`code`, `message`], [#ok],
 )
 
 *走子结果广播规则*（老师原文）：`valid=true` 时向双方广播；`valid=false` 时仅回复发送方。
 
-*JSON 示例（S→C）*：
+*JSON 示例（S→C）*：以下每条消息*单独成框*；`raw` 不换行会导致长 JSON 撑破灰框，故采用可换行等宽文本。
 
-#payload-block("
-{\"messageType\":\"loginResult\",\"success\":true,\"message\":\"ok\",\"userId\":\"u1\"}
-{\"messageType\":\"matchSuccess\",\"roomId\":\"room_123\",\"opponentId\":\"user456\",\"opponentNickname\":\"象棋高手\"}
-{\"messageType\":\"roomInfo\",\"opponentReady\":true}
-{\"messageType\":\"gameStart\",\"redPlayerId\":\"user123\",\"blackPlayerId\":\"user456\",\"yourColor\":\"red\",\"firstHand\":true,\"initialBoard\":[{\"x\":\"a\",\"y\":0,\"piece\":\"rook\",\"visible\":false}]}
-{\"messageType\":\"moveResult\",\"success\":true,\"valid\":true,\"move\":{\"fromX\":\"a\",\"fromY\":0,\"toX\":\"a\",\"toY\":1,\"isFlip\":true},\"flipResult\":\"cannon\"}
-{\"messageType\":\"timeout\",\"loserId\":\"user123\",\"winnerId\":\"user456\",\"reason\":\"timeout\"}
-{\"messageType\":\"gameOver\",\"winner\":\"red\",\"reason\":\"checkmate\",\"winnerId\":\"user123\"}
-{\"messageType\":\"pong\",\"timestamp\":1712345678901}
-{\"messageType\":\"error\",\"code\":2001,\"message\":\"非法走子\"}
-")
+#json-snippet("loginResult", "{
+  \"messageType\": \"loginResult\",
+  \"success\": true,
+  \"message\": \"ok\",
+  \"userId\": \"u1\"
+}")
+
+#json-snippet("matchSuccess", "{
+  \"messageType\": \"matchSuccess\",
+  \"roomId\": \"room_123\",
+  \"opponentId\": \"user456\",
+  \"opponentNickname\": \"象棋高手\"
+}")
+
+#json-snippet("roomInfo", "{
+  \"messageType\": \"roomInfo\",
+  \"opponentReady\": true
+}")
+
+#json-snippet("gameStart", "{
+  \"messageType\": \"gameStart\",
+  \"redPlayerId\": \"user123\",
+  \"blackPlayerId\": \"user456\",
+  \"yourColor\": \"red\",
+  \"firstHand\": true,
+  \"initialBoard\": [
+    {
+      \"x\": \"a\",
+      \"y\": 0,
+      \"piece\": \"rook\",
+      \"visible\": false
+    }
+  ]
+}")
+
+#json-snippet("moveResult（valid=true，双方广播）", "{
+  \"messageType\": \"moveResult\",
+  \"success\": true,
+  \"valid\": true,
+  \"move\": {
+    \"fromX\": \"a\",
+    \"fromY\": 0,
+    \"toX\": \"a\",
+    \"toY\": 1,
+    \"isFlip\": true
+  },
+  \"flipResult\": \"cannon\"
+}")
+
+#json-snippet("timeout", "{
+  \"messageType\": \"timeout\",
+  \"loserId\": \"user123\",
+  \"winnerId\": \"user456\",
+  \"reason\": \"timeout\"
+}")
+
+#json-snippet("gameOver", "{
+  \"messageType\": \"gameOver\",
+  \"winner\": \"red\",
+  \"reason\": \"checkmate\",
+  \"winnerId\": \"user123\"
+}")
+
+#json-snippet("pong", "{
+  \"messageType\": \"pong\",
+  \"timestamp\": 1712345678901
+}")
+
+#json-snippet("error", "{
+  \"messageType\": \"error\",
+  \"code\": 2001,
+  \"message\": \"非法走子\"
+}")
 
 == 公共数据结构（§6.6）
 
@@ -632,12 +758,17 @@ public class Move {
 
 棋盘为 9×10，每格一个对象（仅包含有子格子）：
 
-#payload-block("{\"x\":\"a\",\"y\":0,\"piece\":\"rook\",\"visible\":false}")
+#payload-block("{
+  \"x\": \"a\",
+  \"y\": 0,
+  \"piece\": \"rook\",
+  \"visible\": false
+}")
 
 #table(
   columns: (auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*字段*], [*类型*], [*取值*], [*本组*]),
+  table.header([*字段*], [*类型*], [*取值*], [*状态*]),
   [`x`], [String], [`a`–`i`], [#ok],
   [`y`], [int], [`0`–`9`（0=红方底线）], [#ok],
   [`piece`], [String], [`king`/`rook`/… 见 §3.2], [#ok],
@@ -666,7 +797,7 @@ public class Move {
 #table(
   columns: (auto, auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*字段*], [*类型*], [*说明*], [*本组*]),
+  table.header([*字段*], [*类型*], [*说明*], [*状态*]),
   [`success`], [boolean], [消息处理是否成功], [#ok],
   [`valid`], [boolean], [走子是否符合规则], [#ok],
   [`move`], [object], [同客户端 move 结构], [#ok],
@@ -678,7 +809,7 @@ public class Move {
 #table(
   columns: (auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*code*], [*含义（老师原文）*], [*本组*]),
+  table.header([*code*], [*含义（老师原文）*], [*状态*]),
   [1001], [登录失败（账号或密码错误）], [#ok],
   [1002], [重复登录], [#ok],
   [2001], [非法走子（规则不符）], [#ok],
@@ -689,12 +820,12 @@ public class Move {
   [4001], [JSON 格式错误], [#ok],
 )
 
-== gameOver / timeout 原因（reason）
+=== gameOver / timeout 原因（reason）
 
 #table(
   columns: (auto, auto, auto),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
-  table.header([*reason*], [*说明*], [*本组*]),
+  table.header([*reason*], [*说明*], [*状态*]),
   [`checkmate`], [将死（老师原文）], [#ok],
   [`resign`], [认输（老师原文）], [#ok],
   [`timeout`], [超时], [#ok],
@@ -709,56 +840,120 @@ public class Move {
 
 `winner` 取值：`"red"` / `"black"`；和棋时本组扩展使用 `"draw"`。
 
-== 典型 JSON 示例（§6.8，老师原文 4.1–4.5）
+== 典型 JSON 示例
 
-=== 4.1 匹配与先手协商
+#text(size: hint-size, fill: gray)[以下示例对应老师公共接口原文 §4.1–§4.5。]
 
-#payload-block("
+=== 匹配与先手协商
+
+#json-example-block("
 // C→S 开始匹配
 {\"messageType\":\"startMatch\"}
+
 // S→C 匹配成功
-{\"messageType\":\"matchSuccess\",\"roomId\":\"room_123\",\"opponentId\":\"user456\",\"opponentNickname\":\"象棋高手\"}
-// C→S 请求先手（可选）
-{\"messageType\":\"requestFirstHand\",\"wannaFirst\":true}
+{
+  \"messageType\": \"matchSuccess\",
+  \"roomId\": \"room_123\",
+  \"opponentId\": \"user456\",
+  \"opponentNickname\": \"象棋高手\"
+}
+
+// C→S 请求先手
+{
+  \"messageType\": \"requestFirstHand\",
+  \"wannaFirst\": true
+}
+
 // S→C 游戏开始
-{\"messageType\":\"gameStart\",\"redPlayerId\":\"user123\",\"blackPlayerId\":\"user456\",\"yourColor\":\"red\",\"firstHand\":true,\"initialBoard\":[{\"x\":\"a\",\"y\":0,\"piece\":\"rook\",\"visible\":false}]}
+{
+  \"messageType\": \"gameStart\",
+  \"redPlayerId\": \"user123\",
+  \"blackPlayerId\": \"user456\",
+  \"yourColor\": \"red\",
+  \"firstHand\": true,
+  \"initialBoard\": [
+  {
+    \"x\": \"a\",
+    \"y\": 0,
+    \"piece\": \"rook\",
+    \"visible\": false
+  }
+  ]
+}
 ")
 
-=== 4.2 走子与翻子
+=== 走子与翻子
 
-#payload-block("
+#json-example-block("
 // C→S 移动（翻子）
-{\"messageType\":\"move\",\"fromX\":\"a\",\"fromY\":0,\"toX\":\"a\",\"toY\":1,\"isFlip\":true}
+{
+  \"messageType\": \"move\",
+  \"fromX\": \"a\",
+  \"fromY\": 0,
+  \"toX\": \"a\",
+  \"toY\": 1,
+  \"isFlip\": true
+}
+
 // S→C 移动结果（广播）
-{\"messageType\":\"moveResult\",\"success\":true,\"move\":{\"fromX\":\"a\",\"fromY\":0,\"toX\":\"a\",\"toY\":1,\"isFlip\":true},\"flipResult\":\"cannon\",\"valid\":true}
+{
+  \"messageType\": \"moveResult\",
+  \"success\": true,
+  \"move\": {
+    \"fromX\": \"a\",
+    \"fromY\": 0,
+    \"toX\": \"a\",
+    \"toY\": 1,
+    \"isFlip\": true
+  },
+  \"flipResult\": \"cannon\",
+  \"valid\": true
+}
 ")
 
-=== 4.3 超时处理
+=== 超时处理
 
-#payload-block("
+#json-example-block("
 // S→C 超时（广播）
-{\"messageType\":\"timeout\",\"loserId\":\"user123\",\"winnerId\":\"user456\",\"reason\":\"timeout\"}
+{
+  \"messageType\": \"timeout\",
+  \"loserId\": \"user123\",
+  \"winnerId\": \"user456\",
+  \"reason\": \"timeout\"
+}
 ")
 
-=== 4.4 正常结束
+=== 正常结束
 
-#payload-block("
+#json-example-block("
 // S→C 将死对方
-{\"messageType\":\"gameOver\",\"winner\":\"red\",\"reason\":\"checkmate\",\"winnerId\":\"user123\"}
+{
+  \"messageType\": \"gameOver\",
+  \"winner\": \"red\",
+  \"reason\": \"checkmate\",
+  \"winnerId\": \"user123\"
+}
 ")
 
-=== 4.5 心跳
+=== 心跳
 
-#payload-block("
+#json-example-block("
 // C→S
-{\"messageType\":\"ping\",\"timestamp\":1712345678901}
+{
+  \"messageType\": \"ping\",
+  \"timestamp\": 1712345678901
+}
+
 // S→C
-{\"messageType\":\"pong\",\"timestamp\":1712345678901}
+{
+  \"messageType\": \"pong\",
+  \"timestamp\": 1712345678901
+}
 ")
 
-== 本组扩展消息（§6.9，可选，兼容忽略）
+== 本组扩展消息
 
-在不影响与老师客户端互操作的前提下，本组保留以下*可选*能力（见附录 B TCP 层）：
+在不影响与老师客户端互操作的前提下，本组保留以下扩展能力（见附录 B TCP 层）：
 
 - 提和 / 聊天 / 多盘 `gameId` — 仅 TCP 扩展
 - 步时 65s、长将/长捉、吃将获胜等*规则扩展*在服务器逻辑中实现，通过扩展 `gameOver.reason` 表达
@@ -1043,7 +1238,7 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
 
 服务器必须按时间顺序保存每局棋的所有走法。建议格式：
 - *内存*：`List<Move>` 或 `List<String>`，实时追记
-- *持久化*（可选）：对局结束时写入文件，文件名为 `"<gameId>_<时间戳>.pgn"` 或 `".txt"`
+- *持久化*：对局结束时写入文件，文件名为 `"<gameId>_<时间戳>.pgn"` 或 `".txt"`
 - 棋谱内容应包含对局元信息（双方昵称、起始时间、终局原因）
 
 // ============================================================
@@ -1423,7 +1618,7 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
 
 = 实现状态标注
 
-本章按本组实际代码与测试覆盖，逐条标注每项特性的实现状态：#ok 已实现；#warn 已实现但有已知差异或待补测；#no 未实现。
+本章按本组实际代码与测试覆盖，采用以下状态标注：#ok（代码完整且测试通过）；#warn（已实现，但与规范存在差异或测试未全覆盖）；#no（尚未开发或仅作规划）。
 
 == WebSocket 消息类型（第 6 章）
 
@@ -1515,7 +1710,7 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
   [组间联调清单 14 条 + WS 扩展], [§12], [#ok],
   [Q1–Q44 开放问题], [§13], [#ok],
   [附录 A TCP 速查], [附录 B §B.8], [#ok],
-  [版本历史 v0.1–v2.0], [附录 C], [#ok],
+  [版本历史 v0.0.0–v2.0], [附录 C], [#ok],
   [老师 WS+JSON 协议], [§6 新增], [#ok],
   [实现状态标注], [§14 新增], [#ok],
 )
@@ -1552,13 +1747,13 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
 // ============================================================
 
 
-本附录为第一组历史扩展协议（v2.0 正文第 6 章完整迁移），供需要 TCP 通信的组参考或 telnet 调试使用。组间联调默认使用正文 WebSocket + JSON 协议（第 6 章）。
+本附录为 Unveil 历史扩展协议（v2.0 正文第 6 章完整迁移），供需要 TCP 通信的组参考或 telnet 调试使用。组间联调默认使用正文 WebSocket + JSON 协议（第 6 章）。
 
-本组保留 TCP `msgType|payloadLen|payload\n` 实现（端口 *8888*）。实现类：`Protocol.java`、`GameServer`、`GameClient`、`FrameDecoder`。
+Unveil 保留 TCP `msgType|payloadLen|payload\n` 实现（端口 *8888*）。实现类：`Protocol.java`、`GameServer`、`GameClient`、`FrameDecoder`。
 
-*组间互操作*：与对方联调前须约定使用 WebSocket JSON（正文）或 TCP v2.0（本附录）；不可混用。
+*组间互操作*：与对方联调前须约定使用 WebSocket JSON 或 TCP v2.0（本附录）；不可混用。
 
-= 附录 B：TCP 文本帧扩展协议 v2.0（本组可选）
+= 附录 B：TCP 文本帧扩展协议 v2.0（Unveil 扩展）
 
 == B.1 消息帧格式
 
@@ -1631,7 +1826,7 @@ public static String parsePayload(String line) {
   [7], [`MSG_BOARD_STATE`], [S → C], [完整棋盘同步（含当前走子方）],
   [8], [`MSG_DRAW_REQUEST`], [C ↔ S], [提和 / 和棋响应],
   [9], [`MSG_RESIGN`], [C ↔ S], [认输],
-  [10], [`MSG_CHAT`], [C ↔ S], [文本聊天（可选实现）],
+  [10], [`MSG_CHAT`], [C ↔ S], [文本聊天],
 )
 
 *实现要求*：
@@ -2032,7 +2227,7 @@ public static String parsePayload(String line) {
 
 === B.4.x MSG_CHAT（10）— 聊天
 
-*双向*（可选实现）
+*双向*
 
 #table(
   columns: (1.7cm, 1.2cm, 2.4cm, 3cm, 3.5cm),
@@ -2178,29 +2373,19 @@ public static String parsePayload(String line) {
 
 = 附录 C：版本历史
 
+*版本号方案*：对外正式版本自 *v0.0.0（2026-05-15）* 起算。此前 2026-05-08～05-12 为项目组内部草案，不纳入对外版本序列。
+
 #table(
   columns: (1.1cm, 2.4cm, 1fr),
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
   align: (center + horizon, center + horizon, left),
   table.header([*版本*], [*日期*], [*主要变更*]),
-  [v0.1], [2026-05-08], [
-    项目组内部草案；确定采用 TCP 文本帧、UTF-8/LF 约定；\
-    初步定义坐标系（行 9–0、列 a–i）与先后手方位
-  ],
-  [v0.2], [2026-05-10], [
-    补充 Move 对象字段（source、destination、type、时间戳）；\
-    约定暗子首次翻开由服务器随机生成 type；\
-    起草 MSG_LOGIN / MSG_MOVE 两类消息
-  ],
-  [v1.0], [2026-05-12], [
-    提交课程初稿：坐标系统、Move 规范、7 种核心消息类型\
-    （LOGIN、MOVE、GAME_STATE、ERROR、QUIT、GAME_OVER、BOARD_STATE）；\
-    实现组内 Reference Server 联调通过
-  ],
-  [v1.1], [2026-05-15], [
-    完善 BOARD_STATE 行/列编码与 Cell 规则（`0?`/`1?`/明子编码）；\
-    增加非法着法 ERROR 错误码表（100–112）；\
-    补充超时判负与断线处理说明
+  [v0.0.0], [2026-05-15], [
+    协议版本体系基线（自本日起从 0.0.0 起算）；\
+    TCP 文本帧、UTF-8/LF、坐标系（行 9–0、列 a–i）与 Move 字段；\
+    7 种核心消息类型与组内 Reference Server 联调通过；\
+    BOARD_STATE/Cell 编码（`0?`/`1?`/明子）；ERROR 错误码表（100–112）；\
+    暗子服务器随机 type；超时判负与断线处理说明
   ],
   [v1.2], [2026-05-18], [
     新增 GAME_STATE 子类型（LOGIN_ACK、GAME_START、TURN_CHANGE）；\
@@ -2221,12 +2406,15 @@ public static String parsePayload(String line) {
     定稿虚拟类型表、多盘对弈约定及待老师确认问题列表；\
     本文档作为组间互操作唯一参考
   ],
-)
   [v3.0], [2026-05-29], [
-    新增老师 WebSocket + JSON 公共接口为正文主协议（第 6 章）；    原 TCP 协议完整迁移至附录 B；新增 WS 联调清单与实现状态标注
+    对齐课程《2026大作业公共接口》：WebSocket + JSON 升为正文主协议（第 6 章）；\
+    原 v2.0 TCP 协议完整迁移至附录 B；默认端口 8887；\
+    新增 WS 联调清单条目
   ],
   [v3.1], [2026-05-30], [
-    全文对齐老师 2026 公共接口；v2.0 全部内容一字不删（27 条保留清单）；    补全 C→S/S→C 字段级说明；§14 实现状态标注；附录 B 含 MSG 1–10、BOARD_STATE、TCP 时序图；    预期 PDF ≥30 页
+    在 v2.0 全文保留基础上扩展（27 条保留自检清单，§14 实现状态标注）；\
+    补全 C→S/S→C 字段级说明与老师原文 JSON 示例；\
+    附录 B 含 MSG 1–10、BOARD_STATE/Cell 编码、TCP 五组时序图
   ],
 )
 

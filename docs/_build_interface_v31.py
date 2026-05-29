@@ -28,15 +28,15 @@ ch1_5 = slice_lines(v2, ch1_start, ch5_end)
 # Update §1.2 技术约定
 tech_old = """  [传输协议], [TCP Socket], [],
   [默认端口], [8888], [可配置，启动时打印实际端口],
-  [字符编码], [*UTF-8*（强制）], [所有字符串均为 UTF-8 编码],
+  [字符编码], [*UTF-8*], [所有字符串均为 UTF-8 编码],
   [行尾], [LF（`\\n`，0x0A）], [每条消息以单个换行符结尾],"""
 
-tech_new = """  [传输协议（正文）], [*WebSocket* + *JSON*], [课程公共接口；默认端口 *8887*；见第 6 章],
-  [TCP 扩展（附录）], [文本帧 `msgType|len|payload\\n`], [本组保留；默认端口 *8888*；见附录 B],
-  [字符编码], [*UTF-8*（强制）], [JSON 与 TCP payload 均为 UTF-8],
+tech_new = """  [传输协议], [*WebSocket* + *JSON*], [课程公共接口；默认端口 *8887*；见第 6 章],
+  [TCP 扩展], [文本帧 `msgType|len|payload\\n`], [本组保留；默认端口 *8888*；见附录 B],
+  [字符编码], [*UTF-8*], [JSON 与 TCP payload 均为 UTF-8],
   [TCP 行尾], [LF（`\\n`，0x0A）], [附录 B 每条 TCP 消息以单个换行符结尾],
   [WS 消息识别], [`messageType` 字符串], [每条 JSON 对象必含此字段],
-  [心跳（可选）], [`ping` / `pong`，建议 10s], [未实现心跳的客户端应被兼容],"""
+  [心跳], [`ping` / `pong`，建议 10s], [未实现心跳的客户端应被兼容],"""
 
 ch1_5 = ch1_5.replace(tech_old, tech_new)
 
@@ -234,7 +234,7 @@ ws_checklist = """
   [`move` 中 `isFlip=true` 且 from≠to 时不误判为原地翻子],
   [超时默认 65s，以服务器 `turnStartTime` 判定],
   [`cancelMatch` 后双方状态与房间已清理],
-  [AI 客户端 `WsAIGameClient` 可完成自动对弈（本组可选验证）],
+  [AI 客户端 `WsAIGameClient` 可完成自动对弈],
 )
 """
 ch8_13 = ch8_13.replace(
@@ -274,7 +274,7 @@ ch14 = """
 
 = 实现状态标注
 
-本章按本组实际代码与测试覆盖，逐条标注每项特性的实现状态：#ok 已实现；#warn 已实现但有已知差异或待补测；#no 未实现。
+本章按本组实际代码与测试覆盖，采用以下状态标注：#ok（代码完整且测试通过）；#warn（已实现，但与规范存在差异或测试未全覆盖）；#no（尚未开发或仅作规划）。
 
 == WebSocket 消息类型（第 6 章）
 
@@ -366,7 +366,7 @@ ch14 = """
   [组间联调清单 14 条 + WS 扩展], [§12], [#ok],
   [Q1–Q44 开放问题], [§13], [#ok],
   [附录 A TCP 速查], [附录 B §B.8], [#ok],
-  [版本历史 v0.1–v2.0], [附录 C], [#ok],
+  [版本历史 v0.0.0–v2.0], [附录 C], [#ok],
   [老师 WS+JSON 协议], [§6 新增], [#ok],
   [实现状态标注], [§14 新增], [#ok],
 )
@@ -382,7 +382,7 @@ tcp_body = slice_lines(v2, tcp_start, tcp_proto_end)
 tcp_flows = slice_lines(v2, tcp_flow_start, tcp_flow_end)
 
 # Restructure TCP body headings for appendix
-tcp_body = tcp_body.replace("= 网络通信协议", "= 附录 B：TCP 文本帧扩展协议 v2.0（本组可选）")
+tcp_body = tcp_body.replace("= 网络通信协议", "= 附录 B：TCP 文本帧扩展协议 v2.0（Unveil 扩展）")
 tcp_body = tcp_body.replace("== 消息帧格式", "== B.1 消息帧格式")
 tcp_body = tcp_body.replace("== 消息帧解析规则", "== B.2 消息帧解析规则")
 tcp_body = tcp_body.replace("== 消息类型目录", "== B.3 消息类型目录")
@@ -400,11 +400,11 @@ tcp_flows = tcp_flows.replace("== 提和流程", "=== B.7.4 提和流程")
 tcp_flows = tcp_flows.replace("== 认输流程", "=== B.7.5 认输流程")
 
 appendix_b_intro = """
-本附录为第一组历史扩展协议（v2.0 正文第 6 章完整迁移），供需要 TCP 通信的组参考或 telnet 调试使用。组间联调默认使用正文 WebSocket + JSON 协议（第 6 章）。
+本附录为 Unveil 历史扩展协议（v2.0 正文第 6 章完整迁移），供需要 TCP 通信的组参考或 telnet 调试使用。组间联调默认使用正文 WebSocket + JSON 协议（第 6 章）。
 
-本组保留 TCP `msgType|payloadLen|payload\\n` 实现（端口 *8888*）。实现类：`Protocol.java`、`GameServer`、`GameClient`、`FrameDecoder`。
+Unveil 保留 TCP `msgType|payloadLen|payload\\n` 实现（端口 *8888*）。实现类：`Protocol.java`、`GameServer`、`GameClient`、`FrameDecoder`。
 
-*组间互操作*：与对方联调前须约定使用 WebSocket JSON（正文）或 TCP v2.0（本附录）；不可混用。
+*组间互操作*：与对方联调前须约定使用 WebSocket JSON 或 TCP v2.0（本附录）；不可混用。
 
 """
 
@@ -433,15 +433,19 @@ appendix_a = slice_lines(cur, app_a_start, app_a_end).replace(
 ver_start = find_line(v2, "= 附录 B：版本历史")
 ver_v2 = slice_lines(v2, ver_start, len(v2))
 ver_v2 = ver_v2.replace("= 附录 B：版本历史", "= 附录 C：版本历史")
-ver_v2 = ver_v2.rstrip() + """
+ver_v2 = ver_v2.rstrip()
+if ver_v2.endswith("),"):
+    ver_v2 = ver_v2[:-2]
+ver_v2 += """
   [v3.0], [2026-05-29], [
-    新增老师 WebSocket + JSON 公共接口为正文主协议（第 6 章）；\
-    原 TCP 协议完整迁移至附录 B；新增 WS 联调清单与实现状态标注
+    对齐课程《2026大作业公共接口》：WebSocket + JSON 升为正文主协议（第 6 章）；\
+    原 v2.0 TCP 协议完整迁移至附录 B；默认端口 8887；\
+    新增 WS 联调清单条目
   ],
   [v3.1], [2026-05-30], [
-    全文对齐老师 2026 公共接口；v2.0 全部内容一字不删（27 条保留清单）；\
-    补全 C→S/S→C 字段级说明；§14 实现状态标注；附录 B 含 MSG 1–10、BOARD_STATE、TCP 时序图；\
-    预期 PDF ≥30 页
+    在 v2.0 全文保留基础上扩展（27 条保留自检清单，§14 实现状态标注）；\
+    补全 C→S/S→C 字段级说明与老师原文 JSON 示例；\
+    附录 B 含 MSG 1–10、BOARD_STATE/Cell 编码、TCP 五组时序图
   ],
 )
 """
