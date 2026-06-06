@@ -440,6 +440,9 @@ public class WsGameServer extends WebSocketServer {
         broadcastRoom(room, JsonMessages.gameOver(winnerStr, reason, winnerId));
         persistRecord(room.game());
         rooms.remove(room.roomId());
+        // 复位双方玩家的 roomId，否则下一局 match 会因 ctx.roomId() != null 被拒（3002 已在房间中）
+        if (room.red() != null) room.red().setRoomId(null);
+        if (room.black() != null) room.black().setRoomId(null);
         System.out.println("[WS] 对局结束 roomId=" + room.roomId() + " " + status);
     }
 
