@@ -5,17 +5,25 @@ import java.util.*;
 public class RuleValidator {
 
     public static boolean isValidMove(Board board, Move move, int currentColor) {
-        int[] src = ChessPiece.fromCoord(move.getSource());
-        int[] dst = ChessPiece.fromCoord(move.getDestination());
+        int[] src, dst;
+        try {
+            src = ChessPiece.fromCoord(move.getSource());
+            dst = ChessPiece.fromCoord(move.getDestination());
+        } catch (IllegalArgumentException e) {
+            return false; // 非法坐标：判为非法着法，不向上抛异常（避免客户端崩溃）
+        }
         ChessPiece piece = board.getPiece(src[0], src[1]);
         if (piece == null) return false;
         if (piece.getColor() != currentColor) return false;
-        ChessPiece target = board.getPiece(dst[0], dst[1]);
-        if (target != null && target.getColor() == currentColor) return false;
 
+        // 原地翻子：起点=终点，须在“禁吃己方子”检查之前判断，
+        // 否则会把“翻开自己的暗子”误判为“吃自己的子”而拒绝。
         if (move.isFlipOnly()) {
             return !piece.isRevealed() && src[0] == dst[0] && src[1] == dst[1];
         }
+
+        ChessPiece target = board.getPiece(dst[0], dst[1]);
+        if (target != null && target.getColor() == currentColor) return false;
 
         int moveType = piece.getMoveType();
         switch (moveType) {

@@ -22,6 +22,7 @@ public class GameClient {
     private Board board;
     private ConsoleUI ui;
     private boolean running;
+    private boolean opponentOfferedDraw; // 对方是否已提和，决定本方 draw 是“同意”还是“发起”
 
     public GameClient(String host, int port, String playerName) {
         try {
@@ -77,8 +78,16 @@ public class GameClient {
                     continue;
                 }
                 if (input.equalsIgnoreCase("draw") || input.equalsIgnoreCase("d")) {
-                    out.println(Protocol.buildDrawOffer());
-                    System.out.println("已发送提和请求");
+                    if (opponentOfferedDraw) {
+                        // 对方已提和 → 本次 draw 视为“同意”
+                        out.println(Protocol.buildDrawResponse(true));
+                        System.out.println("已同意提和");
+                        opponentOfferedDraw = false;
+                    } else {
+                        // 本方主动发起提和
+                        out.println(Protocol.buildDrawOffer());
+                        System.out.println("已发送提和请求");
+                    }
                     continue;
                 }
                 if (input.startsWith("chat ") || input.startsWith("c ")) {
@@ -134,6 +143,11 @@ public class GameClient {
         if (!RuleValidator.isValidMove(board, move, color)) {
             System.out.println("[本地校验] 非法着法，未发送");
             return false;
+        }
+        if (opponentOfferedDraw) {
+            // 对方提和后本方选择走子 → 视为拒绝提和
+            out.println(Protocol.buildDrawResponse(false));
+            opponentOfferedDraw = false;
         }
         out.println(Protocol.buildMessage(Protocol.MSG_MOVE, Protocol.serializeMove(move)));
         return true;
@@ -269,6 +283,7 @@ public class GameClient {
 
     private void handleDrawRequest(String data) {
         if (data.equals("OFFER")) {
+            opponentOfferedDraw = true;
             System.out.println("\n对方提和。输入 'draw' 同意，或继续走子拒绝。");
         } else if (data.equals("ACCEPT")) {
             System.out.println("对方同意了提和");
