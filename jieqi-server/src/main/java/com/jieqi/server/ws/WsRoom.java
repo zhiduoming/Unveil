@@ -6,7 +6,7 @@ import com.jieqi.core.Game;
 public final class WsRoom {
 
     private final String roomId;
-    private final Game game;
+    private Game game;                 // 改为可变：rematch 时重新构造一个新的 Game
     private WsPlayerContext red;
     private WsPlayerContext black;
     private boolean redReady;
@@ -16,10 +16,59 @@ public final class WsRoom {
     private final long matchedAtMs;
     private boolean started;
 
+    // ── Draw offer（对局中提和） ──
+    private int drawOfferedByColor = -1; // -1=无提和，红/黑=当前提和发起方
+
+    // ── Rematch（本组扩展：对局结束后双方可邀请再来一局） ──
+    private boolean finished;          // 对局已结束（保留 room 给 rematch 用）
+    private long finishedAtMs;         // 结束时刻，用于超时清理
+    private boolean redRematchAsked;   // 红方已请求 rematch
+    private boolean blackRematchAsked; // 黑方已请求 rematch
+
     public WsRoom(String roomId, Game game) {
         this.roomId = roomId;
         this.game = game;
         this.matchedAtMs = System.currentTimeMillis();
+    }
+
+    /** rematch 时替换 Game 实例。 */
+    public void replaceGame(Game game) {
+        this.game = game;
+    }
+
+    public boolean isFinished() { return finished; }
+    public long finishedAtMs() { return finishedAtMs; }
+    public void markFinished() {
+        this.finished = true;
+        this.finishedAtMs = System.currentTimeMillis();
+        this.redRematchAsked = false;
+        this.blackRematchAsked = false;
+    }
+
+    public boolean isRedRematchAsked() { return redRematchAsked; }
+    public boolean isBlackRematchAsked() { return blackRematchAsked; }
+    public void setRematchAsked(int color, boolean asked) {
+        if (color == com.jieqi.core.ChessPiece.RED) redRematchAsked = asked;
+        else blackRematchAsked = asked;
+    }
+    public boolean bothRematchAsked() { return redRematchAsked && blackRematchAsked; }
+
+    public int drawOfferedByColor() { return drawOfferedByColor; }
+    public void setDrawOfferedByColor(int color) { this.drawOfferedByColor = color; }
+    public void clearDrawOffer() { this.drawOfferedByColor = -1; }
+
+    /** rematch 同意后清状态，准备进入新局。 */
+    public void resetForRematch() {
+        this.finished = false;
+        this.finishedAtMs = 0;
+        this.redRematchAsked = false;
+        this.blackRematchAsked = false;
+        this.redReady = false;
+        this.blackReady = false;
+        this.redWannaFirst = null;
+        this.blackWannaFirst = null;
+        this.started = false;
+        this.drawOfferedByColor = -1;
     }
 
     public String roomId() {

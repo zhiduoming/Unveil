@@ -7,9 +7,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Q2：允许送将，对方下一步吃明将/帅以 KING_CAPTURED 获胜。
- */
+/** 将帅安全规则：不能主动送将；直接吃到将/帅仍以 KING_CAPTURED 结束。 */
 class KingCapturedRuleTest {
 
     @Test
@@ -40,7 +38,7 @@ class KingCapturedRuleTest {
     }
 
     @Test
-    void gameProcessMoveAllowsExposingKing() {
+    void gameProcessMoveRejectsExposingKing() {
         Board board = emptyBoard();
         board.placePiece(new ChessPiece(ChessPiece.KING, ChessPiece.RED, true, 9, 4), 9, 4);
         board.placePiece(new ChessPiece(ChessPiece.KING, ChessPiece.BLACK, true, 0, 4), 0, 4);
@@ -53,7 +51,7 @@ class KingCapturedRuleTest {
         game.setCurrentTurn(ChessPiece.RED);
 
         String err = game.processMove(new Move("e5", "f5"), ChessPiece.RED);
-        assertNull(err, "送将着法不得被「走子后将被将军」拒绝");
+        assertEquals("不能送将", err);
         assertEquals(Game.GameStatus.PLAYING, game.getStatus());
     }
 

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- 基础底色：更浅的暖米色 -->
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f7e4be"/>
+      <stop offset="50%" stop-color="#f0d6a8"/>
+      <stop offset="100%" stop-color="#e6c894"/>
+    </linearGradient>
+
+    <!-- 木纹噪声：降低强度让纹理更轻 -->
+    <filter id="woodGrain" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018 0.9" numOctaves="3" seed="7" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values="
+        0 0 0 0 0.55
+        0 0 0 0 0.38
+        0 0 0 0 0.22
+        0 0 0 0.30 0"/>
+    </filter>
+
+    <!-- 二层细纹：更弱 -->
+    <filter id="grainFine" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.06 1.8" numOctaves="2" seed="3" result="noise2"/>
+      <feColorMatrix in="noise2" type="matrix" values="
+        0 0 0 0 0.42
+        0 0 0 0 0.28
+        0 0 0 0 0.16
+        0 0 0 0.15 0"/>
+    </filter>
+  </defs>
+
+  <rect width="800" height="800" fill="url(#base)"/>
+  <rect width="800" height="800" filter="url(#woodGrain)"/>
+  <rect width="800" height="800" filter="url(#grainFine)"/>
+  <!-- 暖色叠加更淡 -->
+  <rect width="800" height="800" fill="#c87a3a" opacity="0.025"/>
+</svg>

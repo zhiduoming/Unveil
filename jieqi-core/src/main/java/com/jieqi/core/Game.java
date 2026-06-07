@@ -37,8 +37,11 @@ public class Game {
             gameOverReason = EndgameJudge.ProtocolReason.TIMEOUT;
             return "超时判负";
         }
+        if (move.isFlipOnly() || move.getSource().equals(move.getDestination())) {
+            return "禁止原地翻子";
+        }
         if (!RuleValidator.isValidMove(board, move, playerColor)) return "非法走法";
-        // Q2：不考虑「不应将」——允许送将，对方下一步可吃将并以 KING_CAPTURED 结束
+        if (!RuleValidator.isMoveLegal(board, move, playerColor)) return "不能送将";
 
         move.setServerTimestamp(System.currentTimeMillis());
         move.setTurnStartTime(turnStartTime);

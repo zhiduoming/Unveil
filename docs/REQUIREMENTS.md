@@ -11,7 +11,7 @@
 |---|------|----------|
 | F1 | 两个客户端经网络连接同一服务器真人对弈 | 已实现 `WsGameServer` + `WsGameClient`（WebSocket）；TCP 见附录 B |
 | F2 | 服务器与客户端均校验并拒绝非法着法 | 已实现 `RuleValidator`（双端均调用） |
-| F3 | 不考虑"不应将"自动判负；走不出不自动判胜 | 已实现 仅 `isValidMove`；允许送将 → 对方 `KING_CAPTURED`（§11.1 / Q2） |
+| F3 | 禁止送将；走子后己方不能处于被将军状态 | 已实现 `isValidMove` + `isMoveLegal`；非法时提示“不能送将” |
 | F4 | 棋谱：坐标 9-0 行、a-i 列；每步 source + destination；首翻带 type | 已实现 `INTERFACE.md` §3–§4 |
 | F5 | 服务器随机决定翻开类型；自动记录棋谱 | 已实现 `RandomRevealService`；`GameRecordStore` |
 | F6 | Move 三属性 + 时间戳；以服务器时间为准 | 已实现 `Move.java`；JSON 见 `fromX/fromY` 映射 |
@@ -33,7 +33,7 @@
 |------|------|------|
 | 开局：仅将帅明，其余 15 暗子随机 | `Board.initBoard()` | 已实现 |
 | 走暗子按位置角色规则 | `ChessPiece.getMoveType()` → `virtualType` | 已实现 |
-| 走完/吃子后翻开；可原地翻子（一回合） | `executeMove()` + `isFlipOnly` | 已实现 |
+| 暗子走完/吃子后翻开；禁止原地翻子 | `executeMove()`；`RuleValidator` 拒绝 `source==destination` | 已实现 |
 | 明士/明象可过河 | `isValidAdvisorMove()` / `isValidBishopMove()` 无限界 | 已实现 |
 | 塞象眼、蹩马腿不变 | `isValidKnightMove()` / `isValidBishopMove()` | 已实现 |
 | 胜负：将死、困毙、认输、超时 | `EndgameJudge` + `Game` 状态机 | 已实现 |
@@ -51,7 +51,7 @@
 
 - 不实现精美 GUI（`ConsoleUI` 足够）
 - 不处理客户端伪造时间戳（服务器忽略并覆盖）
-- "不应将"导致的吃帅赢：由玩家自行发现并执行吃将操作，系统不自动判负
+- 走子后己方被将军的操作会被拒绝，错误提示为“不能送将”
 
 ## 5. 开放问题追踪（完善题目定义）
 
@@ -60,7 +60,7 @@
 | 类别 | 编号 | 要点 |
 |------|------|------|
 | 规则与胜负 | Q1–Q8 | 吃暗子信息、不应将、40 回合计数、长将长捉、兵卒长捉、困毙、照面、暗子士象 |
-| 翻子与棋谱 | Q9–Q13 | 服务器随机翻子、seed、原地翻子、棋谱 type 字段 |
+| 翻子与棋谱 | Q9–Q13 | 服务器随机翻子、seed、禁止原地翻子、棋谱 type 字段 |
 | 网络与互操作 | Q14–Q20 | 超时 65s、端口 8888、断线重连、多盘匹配、观战、提和流程 |
 | AI 博弈 | Q21–Q24 | 期望值评估、Agent 接口、AI 接入方式、随机性说明 |
 | **I 网络底层与并发** | Q25–Q32 | 粘包/半包 FrameDecoder、payload 上限、NIO、Redis 房间/状态、分布式计时、Docker |
