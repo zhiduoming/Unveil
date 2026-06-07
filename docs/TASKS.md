@@ -1,16 +1,14 @@
 # 任务看板（监工同步）
 
-> **最后更新**：2026-05-22（Q2 不应将修复 + 文档对齐）
+> **最后更新**：2026-05-29（协议 v3.0：WebSocket JSON 正文 + TCP 附录 B）
 
 ## 当前迭代
 
 | ID | 任务 | 状态 | 备注 |
 |----|------|------|------|
-| **Q2** | 不应将：允许送将、吃将获胜 | 已完成 | 移除 `isMoveLegal` 拦截 |
-| **#2** | 长将/长捉 vs 兵卒长捉和 | 已完成 | `REPETITION_LOSS=7`，将军方判负 |
-| **#9** | Game/EndgameJudge 终局场景测试 | 已完成 | 将死/困毙/超时/吃将/长将 5 类 |
-| **#10** | 集成收尾 | 已完成 | 全模块 `mvn test` + `CLAUDE.md` 包说明 |
-| **#6** | commit 规范 | 已写入 | 仅 feat/fix/docs/refactor/test |
+| **WS** | 老师公共接口 WebSocket + JSON 实现 | 已完成 | `WsGameServer` / `WsGameClient` |
+| **DOC** | INTERFACE.typ v3.0 与全文档同步 | 已完成 | TCP v2.0 降为附录 B |
+| **TCP** | 原 TCP v2.0 保留为可选扩展 | 已完成 | 端口 8888，测试仍通过 |
 
 ## 提交记录（本轮）
 

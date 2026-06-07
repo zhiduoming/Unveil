@@ -9,9 +9,9 @@
 |------|------|----------|
 | 业务规则 | 明暗子、翻子、强化士象、40步无吃子和、长将长捉 | `RuleValidator` + `EndgameJudge` |
 | 对弈核心 | 棋盘、走子、棋谱、随机翻子 | `Board`、`Move`、`GameRecord` |
-| 网络对弈 | TCP、双客户端、非法着法拒绝、服务器计时 | `GameServer`、`Protocol` |
+| 网络对弈 | WebSocket JSON（主）+ TCP v2.0 | `WsGameServer`、`JsonMessages` |
 | AI 博弈 | 期望值评估、Alpha-Beta、Agent | `JieqiAgent`、`ExpectedValueEvaluator` |
-| 非功能 | 多盘对弈（可选）、组间互操作协议 | `MatchRoom`、`docs/INTERFACE.md` |
+| 非功能 | 多盘对弈、组间互操作协议 | `MatchRoom`、`docs/INTERFACE.md` |
 
 ## 2. 系统架构（Mermaid）
 
@@ -43,7 +43,8 @@ flowchart TB
         EV[ExpectedValueEvaluator]
     end
 
-    C1 -->|TCP Protocol| GS
+    C1 -->|WebSocket JSON| GS
+    C1 -.->|TCP 可选| GS
     AIc -->|TCP 或本地 Board| G
     GS --> MR --> G
     MR --> RV
@@ -69,15 +70,17 @@ Unveil/
 ├── jieqi-core/
 │   └── src/main/java/com/jieqi/
 │       ├── core/          Board, ChessPiece, Move, Game, RuleValidator
-│       ├── protocol/      Protocol（组间 TCP 消息格式）
+│       ├── protocol/      Protocol（TCP 附录 B）、protocol/json（WebSocket 正文）
 │       ├── ui/            ConsoleUI
 │       └── record/        GameRecord
 ├── jieqi-server/
 │   └── src/main/java/com/jieqi/server/
-│       ├── GameServer.java
-│       └── ClientHandler.java
+│       ├── GameServer.java      # TCP 附录 B
+│       └── ws/WsGameServer.java # WebSocket 正文
 ├── jieqi-client/
-│   └── src/main/java/com/jieqi/client/GameClient.java
+│   └── src/main/java/com/jieqi/client/
+│       ├── GameClient.java      # TCP
+│       └── WsGameClient.java    # WebSocket
 ├── jieqi-ai/
 │   └── src/main/java/com/jieqi/ai/   # Alpha-Beta、评估、AIVsAI 等
 └── jieqi-app/

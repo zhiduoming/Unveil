@@ -7,8 +7,8 @@ import com.jieqi.core.Move;
 import java.io.UnsupportedEncodingException;
 
 /**
- * 揭棋对弈公共通信协议 v2.0。
- * 完全对齐 docs/INTERFACE.md，组间互操作以此实现为准。
+ * TCP 文本帧协议 v2.0（Unveil 扩展，见 docs/INTERFACE.typ 附录 B）。
+ * 组间互操作正文权威：WebSocket + JSON v3.0 — com.jieqi.protocol.json.*
  */
 public class Protocol {
 

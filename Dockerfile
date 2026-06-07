@@ -17,6 +17,6 @@ RUN mvn -q package -pl jieqi-app -am -DskipTests
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /src/jieqi-app/target/unveil-jieqi.jar /app/unveil-jieqi.jar
-EXPOSE 8888
-ENV JIEQI_PORT=8888
-ENTRYPOINT ["java", "-jar", "/app/unveil-jieqi.jar", "server", "8888"]
+EXPOSE 8887
+ENV JIEQI_PORT=8887
+ENTRYPOINT ["java", "-jar", "/app/unveil-jieqi.jar", "server-ws", "8887"]
