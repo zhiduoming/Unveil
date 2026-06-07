@@ -164,12 +164,71 @@ class WsGameServerIntegrationTest {
         assertEquals("resign", overBlack.get("reason").getAsString());
         assertTrue(overRed.get("winner").getAsString().equals("black")
                 || overRed.get("winner").getAsString().equals("red"));
-        assertFalse(server.hasRoomForTest(roomId));
+        // 新行为：对局结束后房间保留一段时间等待 rematch 决定，不立即销毁。
+        // 房间仍在 rooms map 中，但处于 finished 状态。
+        assertTrue(server.hasRoomForTest(roomId));
+        assertTrue(server.isFinishedRoomForTest(roomId));
 
         red.clearMessages();
         red.sendJson(move("a", 3, "a", 4, true));
         JsonObject mr = red.awaitTypeObject(JsonMessageTypes.MOVE_RESULT, 3);
         assertFalse(mr.get("valid").getAsBoolean());
+
+        p1.close();
+        p2.close();
+    }
+
+    @Test
+    void agreedDrawEndsGameForBothPlayers() throws Exception {
+        TestWsClient p1 = connect("draw1");
+        TestWsClient p2 = connect("draw2");
+        GameStartSession session = loginMatchReadyStart(p1, p2, "draw1", "draw2");
+        TestWsClient red = session.red();
+        TestWsClient black = session.black();
+
+        red.sendJson(drawOffer());
+        JsonObject offerForRed = red.awaitTypeObject(JsonMessageTypes.DRAW_OFFERED, 5);
+        JsonObject offerForBlack = black.awaitTypeObject(JsonMessageTypes.DRAW_OFFERED, 5);
+        assertNotNull(offerForRed);
+        assertNotNull(offerForBlack);
+        assertEquals("draw1", offerForRed.get("fromUserId").getAsString());
+        assertEquals("draw1", offerForBlack.get("fromUserId").getAsString());
+
+        black.sendJson(drawAccept());
+        JsonObject overRed = red.awaitTypeObject(JsonMessageTypes.GAME_OVER, 5);
+        JsonObject overBlack = black.awaitTypeObject(JsonMessageTypes.GAME_OVER, 5);
+        assertEquals("draw", overRed.get("winner").getAsString());
+        assertEquals("draw", overBlack.get("winner").getAsString());
+        assertEquals("draw_agreed", overRed.get("reason").getAsString());
+        assertEquals("draw_agreed", overBlack.get("reason").getAsString());
+
+        p1.close();
+        p2.close();
+    }
+
+    @Test
+    void declinedDrawNotifiesOffererAndGameContinues() throws Exception {
+        TestWsClient p1 = connect("drawDecline1");
+        TestWsClient p2 = connect("drawDecline2");
+        GameStartSession session = loginMatchReadyStart(p1, p2, "drawDecline1", "drawDecline2");
+        TestWsClient red = session.red();
+        TestWsClient black = session.black();
+        JsonObject gsRed = red.findLastOfType(JsonMessageTypes.GAME_START);
+        Board board = boardFromGameStart(gsRed);
+
+        red.sendJson(drawOffer());
+        assertNotNull(red.awaitTypeObject(JsonMessageTypes.DRAW_OFFERED, 5));
+        assertNotNull(black.awaitTypeObject(JsonMessageTypes.DRAW_OFFERED, 5));
+        black.sendJson(drawDecline());
+        JsonObject declined = red.awaitTypeObject(JsonMessageTypes.DRAW_DECLINED, 5);
+        assertNotNull(declined);
+        assertEquals("drawDecline2", declined.get("fromUserId").getAsString());
+
+        Move legal = pickNonFlipMove(board, ChessPiece.RED);
+        red.sendJson(moveJson(legal, true));
+        JsonObject ok = red.awaitValidMoveResult(5);
+        assertNotNull(ok);
+        assertTrue(ok.get("valid").getAsBoolean());
 
         p1.close();
         p2.close();
@@ -339,6 +398,18 @@ class WsGameServerIntegrationTest {
 
     private static String resign() {
         return "{\"messageType\":\"Resign\"}";
+    }
+
+    private static String drawOffer() {
+        return "{\"messageType\":\"drawOffer\"}";
+    }
+
+    private static String drawAccept() {
+        return "{\"messageType\":\"drawAccept\"}";
+    }
+
+    private static String drawDecline() {
+        return "{\"messageType\":\"drawDecline\"}";
     }
 
     private static String requestFirstHand(boolean wanna) {

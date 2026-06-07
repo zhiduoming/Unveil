@@ -22,6 +22,18 @@
             <groupId>org.java-websocket</groupId>
             <artifactId>Java-WebSocket</artifactId>
         </dependency>
+        <!--
+          slf4j-simple：消除 Java-WebSocket 启动时的
+          "SLF4J: No SLF4J providers were found" 警告，
+          同时把 WebSocket 库的内部日志（连接/断开/错误）打到 stderr，
+          开发联调时可见。如不想看，把 artifactId 改成 slf4j-nop 即可。
+          默认级别 INFO 可由 src/main/resources/simplelogger.properties 调整。
+        -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>2.0.6</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

@@ -74,10 +74,12 @@ public class WsGameClient extends WebSocketClient {
             }
             if (line.equalsIgnoreCase("match")) {
                 sendJson(startMatch());
+                System.out.println("[WS Client] 正在匹配，等待对手加入...");
                 continue;
             }
             if (line.equalsIgnoreCase("ready")) {
                 sendJson(ready());
+                System.out.println("[WS Client] 你已准备，等待对手准备...");
                 continue;
             }
             if (line.equalsIgnoreCase("board") || line.equalsIgnoreCase("b")) {

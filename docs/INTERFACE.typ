@@ -294,10 +294,10 @@
   [§（节号）], [章节引用符号；§6.5 = 第 6 章第 5 节。见目录后说明],
   [暗子], [背面朝上、尚未翻开的棋子，按所在位置对应的中国象棋棋子规则移动],
   [明子], [正面朝上、已翻开的棋子，按实际类型规则移动],
-  [翻子], [将暗子变为明子的操作。可通过移动触发，也可原地翻子（消耗一回合）],
+  [翻子], [暗子完成合法移动或吃子后变为明子的揭示过程；标准规则不允许原地翻子],
   [先手], [红方，行棋优先权，棋盘下方],
   [后手], [黑方，棋盘上方],
-  [回合], [一方完成一次走子或翻子操作],
+  [回合], [一方完成一次合法走子],
   [半步], [一方的一次走子（40 回合 = 双方共 80 个半步）],
 )
 
@@ -477,7 +477,7 @@ public class Move {
     private long    turnStartTime;   // 回合开始时间戳（毫秒），以服务器记录值为准
     private long    clientTimestamp; // 客户端发送时间戳（服务器忽略防伪造）
     private long    serverTimestamp; // 服务器处理时间戳（服务器写入）
-    private boolean isFlipOnly;      // 是否原地翻子操作
+    private boolean isFlipOnly;      // 兼容旧记录字段；标准规则下请求中必须为 false
 }
 ```
 
@@ -486,10 +486,10 @@ public class Move {
 #table(
   columns: (auto, auto),
   [*规则*], [*说明*],
-  [首翻必带 type], [暗子首次被移动或翻开后，服务器必须将真实 type 填入并广播],
+  [首翻必带 type], [暗子首次被移动或吃子后，服务器必须将真实 type 填入并广播],
   [非首翻 type 为空], [已知明子的移动，type 字段为 null 或留空],
   [时间戳权威], [超时判定以服务器回合开始时间为准，客户端时间戳仅供参考],
-  [flipOnly 等价性], [`source.equals(destination)` ⇔ `isFlipOnly == true`，两者等效],
+  [禁止原地翻子], [`source.equals(destination)` 或 `isFlipOnly == true` 的请求均为非法走子],
   [翻子随机性], [服务器在棋局初始化时完成暗子随机排列，翻子时仅揭示预置类型；客户端提交的 type 被忽略并覆盖],
 )
 
@@ -498,7 +498,7 @@ public class Move {
 + 服务器在*棋局初始化时*完成暗子随机排列（每方 15 枚暗子，从类型池随机分配至各位置）
 + 类型池（每方）：车 ×2、马 ×2、炮 ×2、卒 ×5、士 ×2、象 ×2
 + 客户端无法预知暗子真实类型
-+ 客户端走子/翻子时，服务器仅*揭示*已预置的真实类型
++ 客户端移动暗子后，服务器仅*揭示*已预置的真实类型
 + 翻子后该棋子类型永久固定
 + *安全性*：客户端无法通过伪造 type 值改变翻子结果
 == JSON move 对象格式（§5.4）
@@ -511,7 +511,7 @@ public class Move {
   table.header([*JSON 字段*], [*类型*], [*说明*]),
   [`fromX` / `toX`], [String], [列 `a`–`i`],
   [`fromY` / `toY`], [int], [行 `0`–`9`（0=红方底线，9=黑方底线）],
-  [`isFlip`], [boolean], [true=本步翻子；`from==to` 时为原地翻子],
+  [`isFlip`], [boolean], [兼容字段；标准规则下客户端应传 false，暗子移动后的翻开由 `flipResult` 表示],
 )
 
 *映射*：`"b"+1` → `source="b1"`；`JsonMessages.parseMove` / `toMoveJson` 负责与 Java `Move` 互转。
@@ -602,7 +602,7 @@ public class Move {
   [`wannaFirst`], [boolean], [是], [true=请求红方先手],
   [`fromX` / `toX`], [String], [是], [列 `a`–`i`],
   [`fromY` / `toY`], [int], [是], [行 `0`–`9`],
-  [`isFlip`], [boolean], [是], [true=本步翻子；from=to 时为原地翻子],
+  [`isFlip`], [boolean], [是], [兼容字段；标准规则下请求传 false，暗子移动后的翻开由 `flipResult` 表示],
   [`timestamp`], [long], [是], [毫秒时间戳，pong 原样返回],
 )
 
@@ -787,7 +787,7 @@ public class Move {
   table.header([*字段*], [*类型*], [*说明*]),
   [`fromX` / `toX`], [String], [列 `a`–`i`],
   [`fromY` / `toY`], [int], [行 `0`–`9`],
-  [`isFlip`], [boolean], [true=翻子步；from=to 时为原地翻子],
+  [`isFlip`], [boolean], [兼容字段；标准规则下请求传 false，暗子移动后的翻开由 `flipResult` 表示],
 )
 
 *内部领域对象*使用 `Move.source` / `Move.destination` 合并字符串（如 `"b1"`），边界处由 `JsonMessages` 转换。
@@ -831,7 +831,7 @@ public class Move {
   [`timeout`], [超时], [#ok],
   [`stalemate`], [困毙], [#ok],
   [`disconnect`], [断线判负], [#ok],
-  [`king_captured`], [吃将获胜（允许不应将）], [#ok],
+  [`king_captured`], [吃将获胜], [#ok],
   [`draw_no_capture`], [40 回合无吃子和], [#ok],
   [`repetition_loss`], [长将/长捉判负], [#ok],
   [`repetition_draw`], [兵卒长捉和], [#ok],
@@ -1153,7 +1153,7 @@ public class Move {
   [超时], [对方胜], [单步超过 65 秒未走子],
   [认输], [对方胜], [主动发送 RESIGN 消息],
   [断线], [对方胜], [TCP 连接异常断开],
-  [不应将], [*对方*下一步吃将后胜], [系统不自动判负，由对方通过正常吃子操作实现],
+  [送将], [非法走子], [走子后己方仍被将军时拒绝，提示「不能送将」],
 )
 
 == 和棋条件
@@ -1216,7 +1216,7 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
 ```
 1.  b1-c3(2)      第 1 步，走子 b1→c3，翻出类型 2（马）
 2.  h7-g7          第 2 步，h7→g7（明子移动，无翻子）
-3.  a0-a0(1)[翻]   第 3 步，原地翻开 a0，翻出类型 1（车）
+3.  a3-a4(1)       第 3 步，暗子 a3→a4 后翻出类型 1（车）
 ```
 
 == 棋子类型的棋谱名称
@@ -1276,7 +1276,7 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
   [消息帧格式正确：`msgType|payloadLen|payload\n`，UTF-8 编码],
   [收到未知 `msgType`（8/9/10/100+）不会崩溃，静默忽略],
   [坐标解析正确：`"a0"` = 左下角（红方底线左车位），`"i9"` = 右上角（黑方底线右车位）],
-  [翻子操作 `source == destination` 被正确处理为原地翻子],
+  [`source == destination` 被拒绝为非法走子，禁止原地翻子],
   [服务器广播的 MOVE 中 `type` 为服务器生成值，非客户端提交值],
   [BOARD_STATE 的 `row0` = 棋盘最顶行（黑方），`row9` = 最底行（红方）],
   [BOARD_STATE 能完整解析并重建棋盘对象],
@@ -1316,7 +1316,7 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
   [Q2], [
     题目写「不考虑不应将」，走子后己方被将军是否仍一律拒绝？若对方未应将，是否允许直接吃帅结束？
   ], [
-    允许送将：仅 `isValidMove` 校验；不因己方被将拒绝。对方下一步吃明将/帅 → `KING_CAPTURED`（5）。见正文「不与不应将自动判负」。
+    禁止送将：走子后己方仍被将军时返回非法走子，客户端提示「不能送将」。
   ], [本组方案],
   [Q3], [
     「40 回合无吃子」指 40 个完整回合（80 半步）还是 40 半步？与实现 `noCaptureCount >= 80` 是否一致？
@@ -1334,9 +1334,9 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
     兵卒长捉导致重复局面 ≥6 次判和（不限被捉子类型）。
   ], [待确认],
   [Q6], [
-    困毙、无合法走子（含仅能原地翻子）是否均判负？单方只剩将帅是否和棋？
+    困毙、无合法走子是否均判负？单方只剩将帅是否和棋？
   ], [
-    无合法着法（含翻子）且未被将时判困毙负；单方将帅判和（实现可扩展）。
+    无合法着法且未被将时判困毙负；单方将帅判和（实现可扩展）。
   ], [待确认],
   [Q7], [
     将帅是否允许照面（中间无子）？亚洲规则常见「不可照面」。
@@ -1368,14 +1368,14 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
     联调不要求；棋谱记录翻出后的 type；可选日志记录 seed（扩展）。
   ], [待确认],
   [Q11], [
-    原地翻子（source=destination）是否每回合仅限一枚？能否连续多回合只翻子？
+    是否允许原地翻子（source=destination）？
   ], [
-    每回合仅允许一次翻子或走子；可连续多回合只翻子（合法即允许）。
-  ], [待确认],
+    不允许原地翻子；暗子只能在合法移动或吃子后翻开。
+  ], [本组方案],
   [Q12], [
     棋谱中首翻是否必须记录 type？后续明子走子 type 字段是否应为空？
   ], [
-    首次翻开必记 type；后续步 type 为空字符串；原地翻子标记 `[翻]`。
+    首次翻开必记 type；后续明子步 type 为空字符串。
   ], [本组方案],
   [Q13], [
     吃子后翻开的 type 是否对*吃子方*立即可见、对*被吃方*是否隐藏（见 Q1）？
@@ -1653,7 +1653,7 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
   [EndgameJudge 将死/困毙/和棋], [#ok], [],
   [长将/长捉/40 回合和棋], [#ok], [],
   [暗子被吃信息差], [#warn], [见 Q1；双方广播相同 flipResult],
-  [不应将（允许送将）], [#ok], [见 §9],
+  [禁止送将], [#ok], [见 §9],
   [棋谱 .jieqi 存储], [#ok], [`GameRecordStore`],
   [多盘并发 `Map<String, Game>`], [#ok], [],
 )
@@ -1902,7 +1902,7 @@ public static String parsePayload(String line) {
   [`destination`], [`String`], [是], [目标坐标，如 `"b4"`],
   [`type`], [`int` 或空], [条件], [暗子翻开时由服务器填入 0–6；否则为空字符串],
   [`turnStartTime`], [`long`], [否], [客户端时间戳，*服务器忽略并覆盖*],
-  [`isFlipOnly`], [`int`], [是], [`1` = 原地翻子，`0` = 普通移动],
+  [`isFlipOnly`], [`int`], [是], [`0` = 普通移动；`1` 请求会被拒绝],
 )
 
 *示例*:
@@ -1913,7 +1913,7 @@ public static String parsePayload(String line) {
   align: center + horizon,
   table.header([*msgType*], [*len*], [*source*], [*destination*], [*type*], [*turnStartTime*], [*isFlipOnly*], [*说明*]),
   [`2`], [`10`], [`b1`], [`b3`], [ ], [`0`], [`0`], [正常走子（type 为空，turnStartTime 占位 = 0）],
-  [`2`], [`10`], [`a0`], [`a0`], [ ], [`0`], [`1`], [原地翻子 a0 位置的暗子],
+  [`2`], [`10`], [`a0`], [`a0`], [ ], [`0`], [`1`], [非法：禁止原地翻子],
   [`2`], [`20`], [`c4`], [`e4`], [`3`], [`1700000000`], [`0`], [翻出类型 3（炮），时间戳会被覆盖],
 )
 
@@ -2417,4 +2417,3 @@ public static String parsePayload(String line) {
     附录 B 含 MSG 1–10、BOARD_STATE/Cell 编码、TCP 五组时序图
   ],
 )
-

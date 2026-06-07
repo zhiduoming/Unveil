@@ -85,6 +85,7 @@ class EndgameJudgeTest {
         Board board = emptyBoard();
         board.placePiece(new ChessPiece(ChessPiece.KING, ChessPiece.BLACK, true, 0, 4), 0, 4);
         board.placePiece(new ChessPiece(ChessPiece.KING, ChessPiece.RED, true, 9, 4), 9, 4);
+        board.placePiece(new ChessPiece(ChessPiece.ADVISOR, ChessPiece.RED, true, 6, 4), 6, 4);
         board.placePiece(new ChessPiece(ChessPiece.ROOK, ChessPiece.BLACK, true, 4, 6), 4, 6);
         board.placePiece(new ChessPiece(ChessPiece.PAWN, ChessPiece.RED, true, 4, 4), 4, 4);
 
