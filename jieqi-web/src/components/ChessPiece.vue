@@ -26,7 +26,7 @@ const meanderAngles = Array.from({ length: 24 }, (_, i) => i * 15)
 
 <template>
   <button
-    @click="$emit('click')"
+    @click.stop="$emit('click')"
     class="piece-btn"
     :class="{ 'piece-selected': selected }"
   >

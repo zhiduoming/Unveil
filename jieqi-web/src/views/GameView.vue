@@ -97,12 +97,18 @@ function onResign() {
 
       <!-- ========= 中栏：棋盘 ========= -->
       <main class="board-col">
-        <ChessBoard
-          :pieces="store.board"
-          :is-red-view="isRedView"
-          :selected-coord="store.selectedCoord"
-          @cell-click="onCellClick"
-        />
+        <div class="board-stack">
+          <div v-if="store.lastError" class="error-banner">
+            ⚠️ {{ store.lastError }}
+            <button class="err-close" @click="store.lastError = ''">✕</button>
+          </div>
+          <ChessBoard
+            :pieces="store.board"
+            :is-red-view="isRedView"
+            :selected-coord="store.selectedCoord"
+            @cell-click="onCellClick"
+          />
+        </div>
       </main>
 
       <!-- ========= 右栏：操作 ========= -->
@@ -254,6 +260,34 @@ function onResign() {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.board-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.error-banner {
+  width: 100%;
+  max-width: 880px;
+  margin-bottom: 12px;
+  padding: 10px 16px;
+  background: #fef3c7;
+  border: 2px solid #d97706;
+  border-radius: 8px;
+  color: #78350f;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.err-close {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #78350f;
+  padding: 0 6px;
 }
 
 /* 操作卡 */
