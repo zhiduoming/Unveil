@@ -286,19 +286,13 @@ b
 WebSocket 客户端走子命令格式：
 
 ```text
-move <fromX> <fromY> <toX> <toY> [flip]
+move <fromX> <fromY> <toX> <toY>
 ```
 
 例子：
 
 ```text
 move a 3 a 4
-```
-
-原地翻子：
-
-```text
-move a 3 a 3 flip
 ```
 
 老师 JSON 对应：
@@ -310,7 +304,7 @@ move a 3 a 3 flip
   "fromY": 3,
   "toX": "a",
   "toY": 4,
-  "isFlip": true
+  "isFlip": false
 }
 ```
 
@@ -329,8 +323,9 @@ move a 3 a 3 flip
 注意：
 
 - 必须轮到自己时才能走。
+- 标准揭棋不允许原地翻子，`fromX/fromY == toX/toY` 应返回非法走子。
 - 如果输入坐标不是当前棋盘上的合法着法，会返回错误。
-- 当前实现里 `moveResult.move.isFlip` 主要表示原地翻子；暗子移动后翻开会通过 `flipResult` 表示。若老师严格要求这时 `move.isFlip=true`，还需要补一个小修正。
+- 暗子移动后翻开会通过 `flipResult` 表示，`moveResult.move.isFlip` 保持为 `false`。
 
 ## 10. 非法走法测试
 

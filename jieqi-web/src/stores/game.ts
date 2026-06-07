@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ws, type WsMessage } from '../services/ws'
 import { initialJieqiBoard, type Piece, type PieceType } from '../types/chess'
+import { getMoveErrorMessage, getValidMoves, isInCheck, isCheckmate, isStalemate } from '../utils/chessRules'
 
 export type Color = 'red' | 'black'
 
@@ -60,11 +61,32 @@ export const useGameStore = defineStore('game', {
     lastError: '' as string,
     gameOver: null as { winner: string; reason: string; winnerId?: string } | null,
     connectionStatus: 'closed' as 'connecting' | 'open' | 'closed' | 'error',
+    drawOfferFrom: '' as string,
+    myDrawOffered: false as boolean,
+    drawDeclinedBy: '' as string,
 
     // 棋盘状态
     board: [] as Piece[],
     selectedCoord: '' as string, // 'a0' 之类，空字符串=未选
+    hintCoords: [] as string[],   // 选中棋子时高亮的可走目标
     lastMove: null as { from: string; to: string } | null,
+    battleEffect: null as null | { kind: 'move' | 'capture' | 'check'; seq: number },
+    battleEffectSeq: 0 as number,
+
+    // 将军状态
+    inCheck: null as Color | null,  // 谁正被将军
+    // 终局判定（前端规则推断，仅用于提示，不直接结束对局）
+    endgameVerdict: null as null | { kind: 'checkmate' | 'stalemate'; loserColor: Color },
+
+    // Rematch（再来一局）状态
+    myRematchAsked: false as boolean,   // 本方已请求 rematch
+    rematchOfferFrom: '' as string,     // 收到对方邀请（对方 userId）
+    rematchDeclinedBy: '' as string,    // 对方拒绝了我方邀请（对方 userId）
+
+    // 倒计时
+    turnStartedAt: 0 as number,     // 当前回合开始时刻（毫秒）
+    stepTimeLimitMs: 65000 as number, // 步时上限（与服务端一致）
+    nowMs: 0 as number,             // setInterval 推动的当前毫秒（用于响应式计算剩余）
   }),
 
   getters: {
@@ -73,6 +95,13 @@ export const useGameStore = defineStore('game', {
       const col = COLS.indexOf(state.selectedCoord[0])
       const row = Number(state.selectedCoord.slice(1))
       return state.board.find(p => p.row === row && p.col === col) || null
+    },
+    /** 当前回合剩余秒数（轮到自己/对手都按服务端步时倒数）；游戏未开始返回 -1 */
+    remainSeconds(state): number {
+      if (!state.gameStart || !state.turnStartedAt) return -1
+      const elapsed = Math.max(0, state.nowMs - state.turnStartedAt)
+      const remain = Math.max(0, state.stepTimeLimitMs - elapsed)
+      return Math.floor(remain / 1000)
     },
   },
 
@@ -100,8 +129,41 @@ export const useGameStore = defineStore('game', {
     resign() {
       ws.send({ messageType: 'Resign' })
     },
+    offerDraw() {
+      if (this.gameOver) return
+      if (this.drawOfferFrom) {
+        this.lastError = '对方已经提和，请先同意或拒绝'
+        return
+      }
+      this.myDrawOffered = true
+      this.drawDeclinedBy = ''
+      this.lastError = ''
+      ws.send({ messageType: 'drawOffer' })
+    },
+    acceptDraw() {
+      this.drawOfferFrom = ''
+      this.myDrawOffered = false
+      ws.send({ messageType: 'drawAccept' })
+    },
+    declineDraw() {
+      this.drawOfferFrom = ''
+      ws.send({ messageType: 'drawDecline' })
+    },
     ping() {
       ws.send({ messageType: 'ping', timestamp: Date.now() })
+    },
+
+    // ── Rematch ─────────────────────────────────────────
+    /** 邀请/同意"再来一局"。第一次发表示发起，第二次发（对方已邀请）表示同意。 */
+    requestRematch() {
+      this.myRematchAsked = true
+      this.rematchDeclinedBy = ''
+      ws.send({ messageType: 'rematchRequest' })
+    },
+    /** 拒绝对方的"再来一局"邀请。 */
+    declineRematch() {
+      this.rematchOfferFrom = ''
+      ws.send({ messageType: 'rematchDecline' })
     },
 
     // ── 走子相关 ─────────────────────────────────────────
@@ -118,7 +180,7 @@ export const useGameStore = defineStore('game', {
         currentSelected: this.selectedCoord,
       })
 
-      // 当前没有选中：只能选自己的子
+      // 当前没有选中：自己的子进入走子选择；对方棋子只做查看式选中，不提示可走点。
       if (!this.selectedCoord) {
         if (!piece) {
           this.lastError = `空格 ${coord} 上没有棋子`
@@ -129,31 +191,29 @@ export const useGameStore = defineStore('game', {
           return
         }
         if (piece.color !== yourColor) {
-          this.lastError = `${coord} 是 ${piece.color} 方棋子，不能选`
+          this.selectedCoord = coord
+          this.hintCoords = []
+          this.lastError = ''
           return
         }
         this.selectedCoord = coord
         this.lastError = ''
+        this.computeHints(piece)
         return
       }
 
       // 已经选中一个子：
-      // 1. 再次点击同一格 → 取消选中 / 或发原地翻子
+      // 1. 再次点击同一格 → 取消选中；标准揭棋不允许原地翻子
       if (this.selectedCoord === coord) {
-        const sel = this.selectedPiece
-        if (sel && !sel.revealed) {
-          // 暗子原地翻
-          this.sendMove(sel.col, sel.row, sel.col, sel.row, true)
-          this.selectedCoord = ''
-          return
-        }
         this.selectedCoord = ''
+        this.hintCoords = []
         return
       }
 
       // 2. 点击其他自己的子 → 改选这个
       if (piece && piece.color === yourColor) {
         this.selectedCoord = coord
+        this.computeHints(piece)
         return
       }
 
@@ -162,8 +222,47 @@ export const useGameStore = defineStore('game', {
       const fromRow = Number(this.selectedCoord.slice(1))
       const selected = this.selectedPiece
       const shouldFlipAfterMove = selected ? !selected.revealed : false
+
+      if (!selected || selected.color !== yourColor) {
+        this.lastError = selected
+          ? `${this.selectedCoord} 是对方棋子，不能走`
+          : '未选中本方棋子'
+        this.selectedCoord = ''
+        this.hintCoords = []
+        return
+      }
+
+      // 明暗子统一前端规则预校验：
+      // 揭棋规则下，暗子按 virtualType（=所在位置的初始类型）走，
+      // 前端 piece.type 对暗子已是 virtualType，因此可一致用 hintCoords 校验。
+      if (selected) {
+        const targetCoord = `${COLS[col]}${row}`
+        if (!this.hintCoords.includes(targetCoord)) {
+          this.lastError = getMoveErrorMessage(this.board, selected, row, col) || '不能送将'
+          return
+        }
+      }
+
       this.sendMove(fromCol, fromRow, col, row, shouldFlipAfterMove)
       this.selectedCoord = ''
+      this.hintCoords = []
+    },
+
+    /** 计算选中棋子的可走目标，更新 hintCoords */
+    computeHints(piece: Piece) {
+      const moves = getValidMoves(this.board, piece)
+      this.hintCoords = moves.map(m => `${COLS[m.col]}${m.row}`)
+    },
+
+    /** 重置回合计时器（轮换或新对局时调用） */
+    resetTurnClock() {
+      this.turnStartedAt = Date.now()
+      this.nowMs = Date.now()
+    },
+
+    /** 由 setInterval 推动 nowMs，触发倒计时响应式更新 */
+    tickClock() {
+      this.nowMs = Date.now()
     },
 
     sendMove(fromCol: number, fromRow: number, toCol: number, toRow: number, isFlip: boolean) {
@@ -178,7 +277,10 @@ export const useGameStore = defineStore('game', {
       })
     },
 
-    clearSelection() { this.selectedCoord = '' },
+    clearSelection() {
+      this.selectedCoord = ''
+      this.hintCoords = []
+    },
 
     reset() {
       this.matching = false
@@ -187,9 +289,26 @@ export const useGameStore = defineStore('game', {
       this.room = null
       this.gameStart = null
       this.gameOver = null
+      this.drawOfferFrom = ''
+      this.myDrawOffered = false
+      this.drawDeclinedBy = ''
       this.board = []
       this.selectedCoord = ''
+      this.hintCoords = []
       this.lastMove = null
+      this.battleEffect = null
+      this.battleEffectSeq = 0
+      this.currentTurn = null
+      this.inCheck = null
+      this.endgameVerdict = null
+      this.myRematchAsked = false
+      this.rematchOfferFrom = ''
+      this.rematchDeclinedBy = ''
+    },
+
+    returnToLobby() {
+      this.reset()
+      this.lastError = ''
     },
 
     // ── 消息处理 ─────────────────────────────────────────
@@ -226,7 +345,20 @@ export const useGameStore = defineStore('game', {
             ? parseInitialBoard(msg.initialBoard)
             : initialJieqiBoard()
           this.selectedCoord = ''
+          this.hintCoords = []
           this.lastMove = null
+          this.battleEffect = null
+          this.battleEffectSeq = 0
+          this.inCheck = null
+          this.endgameVerdict = null
+          this.gameOver = null
+          this.drawOfferFrom = ''
+          this.myDrawOffered = false
+          this.drawDeclinedBy = ''
+          this.myRematchAsked = false
+          this.rematchOfferFrom = ''
+          this.rematchDeclinedBy = ''
+          this.resetTurnClock()
           break
 
         case 'moveResult':
@@ -261,6 +393,40 @@ export const useGameStore = defineStore('game', {
         case 'gameOver':
           this.gameOver = { winner: msg.winner, reason: msg.reason, winnerId: msg.winnerId }
           this.selectedCoord = ''
+          this.hintCoords = []
+          this.drawOfferFrom = ''
+          this.myDrawOffered = false
+          this.drawDeclinedBy = ''
+          // 新局 rematch 状态清空（旧局结束）
+          this.myRematchAsked = false
+          this.rematchOfferFrom = ''
+          this.rematchDeclinedBy = ''
+          break
+
+        case 'drawOffered':
+          if (msg.fromUserId === this.userId) {
+            this.myDrawOffered = true
+            this.drawOfferFrom = ''
+          } else {
+            this.drawOfferFrom = msg.fromUserId || '对手'
+            this.myDrawOffered = false
+          }
+          this.drawDeclinedBy = ''
+          break
+
+        case 'drawDeclined':
+          this.myDrawOffered = false
+          this.drawDeclinedBy = msg.fromUserId || '对手'
+          this.lastError = '对方拒绝和棋'
+          break
+
+        case 'rematchOffer':
+          this.rematchOfferFrom = msg.fromUserId || '对手'
+          break
+
+        case 'rematchDeclined':
+          this.rematchDeclinedBy = msg.fromUserId || '对手'
+          this.myRematchAsked = false
           break
 
         case 'error':
@@ -288,8 +454,9 @@ export const useGameStore = defineStore('game', {
         return
       }
       const revealedType = mapType(move.type ?? move.piece ?? flipResult)
+      let captured = false
 
-      // 原地翻子
+      // 兼容旧服务端/旧记录：当前标准规则已禁止原地翻子，正常对局不会进入此分支。
       if (fromCol === toCol && fromRow === toRow) {
         piece.revealed = true
         if (revealedType) piece.type = revealedType
@@ -298,6 +465,7 @@ export const useGameStore = defineStore('game', {
         // 移动：吃掉目标位置上的子（如果有）
         const target = this.board.find(p => p.row === toRow && p.col === toCol)
         if (target) {
+          captured = true
           this.board = this.board.filter(p => p !== target)
         }
         piece.row = toRow
@@ -310,8 +478,30 @@ export const useGameStore = defineStore('game', {
         this.lastMove = { from: coordText(fromCol, fromRow), to: coordText(toCol, toRow) }
       }
 
-      // 切换回合
+      // 切换回合 + 重置计时器
       this.currentTurn = this.currentTurn === 'red' ? 'black' : 'red'
+      this.resetTurnClock()
+
+      // 走完后，新回合方（被走方）的状态：将军 / 将死 / 困毙
+      const sideToMove: Color = this.currentTurn
+      const inCheckNow = isInCheck(this.board, sideToMove)
+      this.inCheck = inCheckNow ? sideToMove : null
+      if (inCheckNow) {
+        this.battleEffect = { kind: 'check', seq: ++this.battleEffectSeq }
+      } else if (captured) {
+        this.battleEffect = { kind: 'capture', seq: ++this.battleEffectSeq }
+      } else if (!(fromCol === toCol && fromRow === toRow)) {
+        this.battleEffect = { kind: 'move', seq: ++this.battleEffectSeq }
+      }
+
+      // 终局判定（只看新回合方有没有合法走法）
+      if (isCheckmate(this.board, sideToMove)) {
+        this.endgameVerdict = { kind: 'checkmate', loserColor: sideToMove }
+      } else if (isStalemate(this.board, sideToMove)) {
+        this.endgameVerdict = { kind: 'stalemate', loserColor: sideToMove }
+      } else {
+        this.endgameVerdict = null
+      }
     },
   },
 })

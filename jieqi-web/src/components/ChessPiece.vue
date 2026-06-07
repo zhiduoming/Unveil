@@ -30,6 +30,7 @@ const meanderAngles = Array.from({ length: 24 }, (_, i) => i * 15)
     class="piece-btn"
     :class="{ 'piece-selected': selected }"
   >
+    <span v-if="hint" class="capture-hint" aria-hidden="true"></span>
     <svg viewBox="0 0 100 100" class="piece-svg" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <!-- 浅枫木：扁平分布，中央与边缘色差很小，只在最外圈轻微暗化 -->
@@ -139,7 +140,22 @@ const meanderAngles = Array.from({ length: 24 }, (_, i) => i * 15)
   background: transparent;
   padding: 0;
   cursor: pointer;
+  position: relative;
   transition: transform 0.12s ease;
+}
+
+.capture-hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 32%;
+  height: 32%;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.78);
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  pointer-events: none;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.22);
 }
 
 .piece-btn:hover:not(.piece-selected) {

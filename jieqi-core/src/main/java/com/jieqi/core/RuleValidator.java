@@ -13,8 +13,8 @@ public class RuleValidator {
         ChessPiece target = board.getPiece(dst[0], dst[1]);
         if (target != null && target.getColor() == currentColor) return false;
 
-        if (move.isFlipOnly()) {
-            return !piece.isRevealed() && src[0] == dst[0] && src[1] == dst[1];
+        if (move.isFlipOnly() || (src[0] == dst[0] && src[1] == dst[1])) {
+            return false;
         }
 
         int moveType = piece.getMoveType();
@@ -141,11 +141,6 @@ public class RuleValidator {
                 ChessPiece piece = board.getPiece(r, c);
                 if (piece == null || piece.getColor() != color) continue;
                 String src = ChessPiece.toCoord(r, c);
-                if (!piece.isRevealed()) {
-                    Move flip = new Move(src, src);
-                    flip.setFlipOnly(true);
-                    moves.add(flip);
-                }
                 for (int dr = 0; dr < 10; dr++) {
                     for (int dc = 0; dc < 9; dc++) {
                         if (dr == r && dc == c) continue;
@@ -172,25 +167,40 @@ public class RuleValidator {
         }
         if (king == null) return true;
         int oppColor = (color == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
+        ChessPiece oppKing = null;
         for (int r = 0; r < 10; r++) {
             for (int c = 0; c < 9; c++) {
                 ChessPiece p = board.getPiece(r, c);
                 if (p == null || p.getColor() != oppColor) continue;
+                if (p.isRevealed() && p.getType() == ChessPiece.KING) {
+                    oppKing = p;
+                }
                 Move testMove = new Move(ChessPiece.toCoord(r, c), ChessPiece.toCoord(king.getRow(), king.getCol()));
                 if (isValidMove(board, testMove, oppColor)) return true;
             }
+        }
+        if (oppKing != null && oppKing.getCol() == king.getCol()) {
+            int minR = Math.min(king.getRow(), oppKing.getRow());
+            int maxR = Math.max(king.getRow(), oppKing.getRow());
+            boolean blocked = false;
+            for (int r = minR + 1; r < maxR; r++) {
+                if (board.getPiece(r, king.getCol()) != null) {
+                    blocked = true;
+                    break;
+                }
+            }
+            if (!blocked) return true;
         }
         return false;
     }
 
     /**
-     * 走子后己方是否仍被将军。仅供 AI/可选提示；服务器与客户端不因本检查拒绝着法（见 Q2 / INTERFACE §11.1）。
+     * 走子后己方是否仍被将军。服务器用本检查拒绝送将。
      */
     public static boolean isMoveLegal(Board board, Move move, int color) {
-        ChessPiece captured = board.executeMove(move);
-        boolean inCheck = isInCheck(board, color);
-        board.undoMove(move, captured);
-        return !inCheck;
+        Board simulated = new Board(board);
+        simulated.executeMove(move);
+        return !isInCheck(simulated, color);
     }
 
     public static boolean isCheckmate(Board board, int color) {

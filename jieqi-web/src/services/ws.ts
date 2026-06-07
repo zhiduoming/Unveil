@@ -8,6 +8,8 @@ export type MessageType =
   | 'Ready' | 'gameStart'
   | 'move' | 'moveResult' | 'flipResult'
   | 'Resign' | 'gameOver' | 'timeout'
+  | 'drawOffer' | 'drawAccept' | 'drawDecline'
+  | 'drawOffered' | 'drawDeclined'
   | 'ping' | 'pong'
   | 'error'
 

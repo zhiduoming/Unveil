@@ -117,6 +117,36 @@ public final class JsonMessages {
         return o;
     }
 
+    public static JsonObject drawOffered(String fromUserId) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.DRAW_OFFERED);
+        o.addProperty("fromUserId", fromUserId);
+        return o;
+    }
+
+    public static JsonObject drawDeclined(String fromUserId) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.DRAW_DECLINED);
+        o.addProperty("fromUserId", fromUserId);
+        return o;
+    }
+
+    /** 转发对方的"再来一局"邀请。 */
+    public static JsonObject rematchOffer(String fromUserId) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.REMATCH_OFFER);
+        o.addProperty("fromUserId", fromUserId);
+        return o;
+    }
+
+    /** 转发对方的"拒绝再来一局"。 */
+    public static JsonObject rematchDeclined(String fromUserId) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.REMATCH_DECLINED);
+        o.addProperty("fromUserId", fromUserId);
+        return o;
+    }
+
     // ── 解析 C→S ──────────────────────────────────────────
 
     public static Move parseMove(JsonObject obj) {
