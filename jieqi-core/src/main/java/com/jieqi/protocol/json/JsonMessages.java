@@ -131,6 +131,28 @@ public final class JsonMessages {
         return o;
     }
 
+    public static JsonObject undoOffered(String fromUserId) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.UNDO_OFFERED);
+        o.addProperty("fromUserId", fromUserId);
+        return o;
+    }
+
+    public static JsonObject undoDeclined(String fromUserId) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.UNDO_DECLINED);
+        o.addProperty("fromUserId", fromUserId);
+        return o;
+    }
+
+    public static JsonObject undoPerformed(Board board, String currentTurn) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.UNDO_PERFORMED);
+        o.add("board", BoardJsonMapper.toInitialBoard(board));
+        o.addProperty("currentTurn", currentTurn);
+        return o;
+    }
+
     /** 转发对方的"再来一局"邀请。 */
     public static JsonObject rematchOffer(String fromUserId) {
         JsonObject o = new JsonObject();

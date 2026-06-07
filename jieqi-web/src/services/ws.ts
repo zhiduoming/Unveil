@@ -3,13 +3,16 @@
 
 export type MessageType =
   | 'Login' | 'loginResult'
-  | 'startMatch' | 'matchSuccess'
+  | 'startMatch' | 'cancelMatch' | 'createRoom' | 'joinRoom' | 'matchSuccess'
   | 'requestFirstHand' | 'roomInfo'
   | 'Ready' | 'gameStart'
   | 'move' | 'moveResult' | 'flipResult'
   | 'Resign' | 'gameOver' | 'timeout'
   | 'drawOffer' | 'drawAccept' | 'drawDecline'
   | 'drawOffered' | 'drawDeclined'
+  | 'undoOffer' | 'undoAccept' | 'undoDecline'
+  | 'undoOffered' | 'undoDeclined' | 'undoPerformed'
+  | 'rematchRequest' | 'rematchDecline' | 'rematchOffer' | 'rematchDeclined'
   | 'ping' | 'pong'
   | 'error'
 
