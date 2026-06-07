@@ -15,7 +15,7 @@ type ToastKind = 'check' | 'error' | 'info'
 const toastMessage = ref<string>('')
 const toastKind = ref<ToastKind>('info')
 let toastTimer: number | undefined
-const pendingConfirm = ref<null | 'draw' | 'resign'>(null)
+const pendingConfirm = ref<null | 'draw' | 'resign' | 'undo'>(null)
 type BattleKind = 'move' | 'capture' | 'check'
 const battleBadge = ref<null | { kind: 'capture' | 'check'; key: number }>(null)
 let battleTimer: number | undefined
@@ -144,6 +144,10 @@ function onOfferDraw() {
   pendingConfirm.value = 'draw'
 }
 
+function onOfferUndo() {
+  pendingConfirm.value = 'undo'
+}
+
 function closeConfirm() {
   pendingConfirm.value = null
 }
@@ -151,6 +155,7 @@ function closeConfirm() {
 function confirmAction() {
   if (pendingConfirm.value === 'resign') store.resign()
   if (pendingConfirm.value === 'draw') store.offerDraw()
+  if (pendingConfirm.value === 'undo') store.offerUndo()
   pendingConfirm.value = null
 }
 
@@ -276,6 +281,13 @@ function backToLobby() {
           >
             {{ store.myDrawOffered ? '等待回应' : '🤝 提 和' }}
           </button>
+          <button
+            @click="onOfferUndo"
+            :disabled="store.myUndoOffered || !!store.undoOfferFrom || !!store.gameOver"
+            class="action-btn btn-undo"
+          >
+            {{ store.myUndoOffered ? '等待回应' : '↩ 悔 棋' }}
+          </button>
           <button class="action-btn btn-chat">💬 聊 天</button>
         </div>
 
@@ -301,6 +313,17 @@ function backToLobby() {
         <div class="modal-actions">
           <button @click="store.acceptDraw()" class="modal-btn modal-btn-primary">同 意</button>
           <button @click="store.declineDraw()" class="modal-btn modal-btn-secondary">拒 绝</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="store.undoOfferFrom && !store.gameOver" class="modal">
+      <div class="modal-card">
+        <h3>对方请求悔棋</h3>
+        <p>{{ store.undoOfferFrom }} 请求撤回上一步走法。</p>
+        <div class="modal-actions">
+          <button @click="store.acceptUndo()" class="modal-btn modal-btn-primary">同 意</button>
+          <button @click="store.declineUndo()" class="modal-btn modal-btn-secondary">拒 绝</button>
         </div>
       </div>
     </div>
@@ -360,11 +383,13 @@ function backToLobby() {
 
     <div v-if="pendingConfirm" class="modal">
       <div class="modal-card confirm-card">
-        <h3>{{ pendingConfirm === 'resign' ? '确认认输' : '确认提和' }}</h3>
+        <h3>{{ pendingConfirm === 'resign' ? '确认认输' : pendingConfirm === 'draw' ? '确认提和' : '确认悔棋' }}</h3>
         <p>
           {{ pendingConfirm === 'resign'
             ? '认输后本局会立即结束，对方获胜。'
-            : '将向对方发送和棋请求，对方同意后本局和棋结束。' }}
+            : pendingConfirm === 'draw'
+              ? '将向对方发送和棋请求，对方同意后本局和棋结束。'
+              : '将向对方发送悔棋请求，对方同意后撤回最近一步走法。' }}
         </p>
         <div class="modal-actions">
           <button
@@ -372,7 +397,7 @@ function backToLobby() {
             class="modal-btn"
             :class="pendingConfirm === 'resign' ? 'modal-btn-danger' : 'modal-btn-primary'"
           >
-            {{ pendingConfirm === 'resign' ? '确认认输' : '发送提和' }}
+            {{ pendingConfirm === 'resign' ? '确认认输' : pendingConfirm === 'draw' ? '发送提和' : '发送悔棋' }}
           </button>
           <button @click="closeConfirm" class="modal-btn modal-btn-secondary">取 消</button>
         </div>
@@ -796,6 +821,8 @@ function backToLobby() {
 .btn-resign:hover { background: #7f1d1d; }
 .btn-draw { background: #c2410c; }
 .btn-draw:hover { background: #9a3412; }
+.btn-undo { background: #8a5a24; }
+.btn-undo:hover { background: #6f4518; }
 .btn-chat { background: #525252; }
 .btn-chat:hover { background: #404040; }
 

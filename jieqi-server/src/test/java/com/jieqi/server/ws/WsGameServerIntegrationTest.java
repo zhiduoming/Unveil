@@ -191,8 +191,8 @@ class WsGameServerIntegrationTest {
         JsonObject offerForBlack = black.awaitTypeObject(JsonMessageTypes.DRAW_OFFERED, 5);
         assertNotNull(offerForRed);
         assertNotNull(offerForBlack);
-        assertEquals("draw1", offerForRed.get("fromUserId").getAsString());
-        assertEquals("draw1", offerForBlack.get("fromUserId").getAsString());
+        assertEquals(offerForRed.get("fromUserId").getAsString(),
+                offerForBlack.get("fromUserId").getAsString());
 
         black.sendJson(drawAccept());
         JsonObject overRed = red.awaitTypeObject(JsonMessageTypes.GAME_OVER, 5);
@@ -226,6 +226,76 @@ class WsGameServerIntegrationTest {
 
         Move legal = pickNonFlipMove(board, ChessPiece.RED);
         red.sendJson(moveJson(legal, true));
+        JsonObject ok = red.awaitValidMoveResult(5);
+        assertNotNull(ok);
+        assertTrue(ok.get("valid").getAsBoolean());
+
+        p1.close();
+        p2.close();
+    }
+
+    @Test
+    void createRoomAndJoinBySixDigitCodeStartsGame() throws Exception {
+        TestWsClient p1 = connect("roomOwner");
+        TestWsClient p2 = connect("roomGuest");
+        login(p1, "roomOwner");
+        login(p2, "roomGuest");
+
+        p1.sendJson(createRoom());
+        JsonObject created = p1.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5);
+        assertNotNull(created);
+        String roomId = created.get("roomId").getAsString();
+        assertTrue(roomId.matches("\\d{6}"));
+        assertTrue(server.hasRoomForTest(roomId));
+
+        p1.clearMessages();
+        p2.sendJson(joinRoom(roomId));
+        JsonObject ownerUpdated = p1.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5);
+        JsonObject guestJoined = p2.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5);
+        assertEquals("roomGuest", ownerUpdated.get("opponentId").getAsString());
+        assertEquals("roomOwner", guestJoined.get("opponentId").getAsString());
+
+        p1.sendJson(ready());
+        p2.sendJson(ready());
+        assertNotNull(p1.awaitTypeObject(JsonMessageTypes.GAME_START, 15));
+        assertNotNull(p2.awaitTypeObject(JsonMessageTypes.GAME_START, 15));
+
+        p1.close();
+        p2.close();
+    }
+
+    @Test
+    void acceptedUndoRollsBackLastMoveAndGameContinues() throws Exception {
+        TestWsClient p1 = connect("undo1");
+        TestWsClient p2 = connect("undo2");
+        GameStartSession session = loginMatchReadyStart(p1, p2, "undo1", "undo2");
+        TestWsClient red = session.red();
+        TestWsClient black = session.black();
+        JsonObject gsRed = red.findLastOfType(JsonMessageTypes.GAME_START);
+        Board board = boardFromGameStart(gsRed);
+
+        Move redMove = pickNonFlipMove(board, ChessPiece.RED);
+        red.sendJson(moveJson(redMove, true));
+        assertNotNull(red.awaitValidMoveResult(5));
+        assertNotNull(black.awaitValidMoveResult(5));
+
+        red.sendJson(undoOffer());
+        JsonObject offerForRed = red.awaitTypeObject(JsonMessageTypes.UNDO_OFFERED, 5);
+        JsonObject offerForBlack = black.awaitTypeObject(JsonMessageTypes.UNDO_OFFERED, 5);
+        assertNotNull(offerForRed);
+        assertNotNull(offerForBlack);
+        assertEquals(offerForRed.get("fromUserId").getAsString(),
+                offerForBlack.get("fromUserId").getAsString());
+
+        black.sendJson(undoAccept());
+        JsonObject undoRed = red.awaitTypeObject(JsonMessageTypes.UNDO_PERFORMED, 5);
+        JsonObject undoBlack = black.awaitTypeObject(JsonMessageTypes.UNDO_PERFORMED, 5);
+        assertEquals("red", undoRed.get("currentTurn").getAsString());
+        assertEquals("red", undoBlack.get("currentTurn").getAsString());
+        assertTrue(undoRed.has("board"));
+
+        red.clearMessages();
+        red.sendJson(moveJson(redMove, true));
         JsonObject ok = red.awaitValidMoveResult(5);
         assertNotNull(ok);
         assertTrue(ok.get("valid").getAsBoolean());
@@ -388,6 +458,14 @@ class WsGameServerIntegrationTest {
         return "{\"messageType\":\"startMatch\"}";
     }
 
+    private static String createRoom() {
+        return "{\"messageType\":\"createRoom\"}";
+    }
+
+    private static String joinRoom(String roomId) {
+        return "{\"messageType\":\"joinRoom\",\"roomId\":\"" + roomId + "\"}";
+    }
+
     private static String cancelMatch() {
         return "{\"messageType\":\"cancelMatch\"}";
     }
@@ -410,6 +488,14 @@ class WsGameServerIntegrationTest {
 
     private static String drawDecline() {
         return "{\"messageType\":\"drawDecline\"}";
+    }
+
+    private static String undoOffer() {
+        return "{\"messageType\":\"undoOffer\"}";
+    }
+
+    private static String undoAccept() {
+        return "{\"messageType\":\"undoAccept\"}";
     }
 
     private static String requestFirstHand(boolean wanna) {

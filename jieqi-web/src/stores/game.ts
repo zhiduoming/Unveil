@@ -64,6 +64,9 @@ export const useGameStore = defineStore('game', {
     drawOfferFrom: '' as string,
     myDrawOffered: false as boolean,
     drawDeclinedBy: '' as string,
+    undoOfferFrom: '' as string,
+    myUndoOffered: false as boolean,
+    undoDeclinedBy: '' as string,
 
     // 棋盘状态
     board: [] as Piece[],
@@ -120,7 +123,27 @@ export const useGameStore = defineStore('game', {
     },
     startMatch() {
       this.matching = true
+      this.lastError = ''
       ws.send({ messageType: 'startMatch' })
+    },
+    createRoom() {
+      this.matching = false
+      this.ready = false
+      this.opponentReady = false
+      this.lastError = ''
+      ws.send({ messageType: 'createRoom' })
+    },
+    joinRoom(roomId: string) {
+      const code = roomId.trim()
+      if (!/^\d{6}$/.test(code)) {
+        this.lastError = '请输入 6 位房间号'
+        return
+      }
+      this.matching = false
+      this.ready = false
+      this.opponentReady = false
+      this.lastError = ''
+      ws.send({ messageType: 'joinRoom', roomId: code })
     },
     setReady() {
       this.ready = true
@@ -148,6 +171,26 @@ export const useGameStore = defineStore('game', {
     declineDraw() {
       this.drawOfferFrom = ''
       ws.send({ messageType: 'drawDecline' })
+    },
+    offerUndo() {
+      if (this.gameOver) return
+      if (this.undoOfferFrom) {
+        this.lastError = '对方已经请求悔棋，请先同意或拒绝'
+        return
+      }
+      this.myUndoOffered = true
+      this.undoDeclinedBy = ''
+      this.lastError = ''
+      ws.send({ messageType: 'undoOffer' })
+    },
+    acceptUndo() {
+      this.undoOfferFrom = ''
+      this.myUndoOffered = false
+      ws.send({ messageType: 'undoAccept' })
+    },
+    declineUndo() {
+      this.undoOfferFrom = ''
+      ws.send({ messageType: 'undoDecline' })
     },
     ping() {
       ws.send({ messageType: 'ping', timestamp: Date.now() })
@@ -292,6 +335,9 @@ export const useGameStore = defineStore('game', {
       this.drawOfferFrom = ''
       this.myDrawOffered = false
       this.drawDeclinedBy = ''
+      this.undoOfferFrom = ''
+      this.myUndoOffered = false
+      this.undoDeclinedBy = ''
       this.board = []
       this.selectedCoord = ''
       this.hintCoords = []
@@ -326,6 +372,8 @@ export const useGameStore = defineStore('game', {
             opponentId: msg.opponentId,
             opponentNickname: msg.opponentNickname || msg.opponentId,
           }
+          this.matching = false
+          this.lastError = ''
           break
 
         case 'roomInfo':
@@ -355,6 +403,9 @@ export const useGameStore = defineStore('game', {
           this.drawOfferFrom = ''
           this.myDrawOffered = false
           this.drawDeclinedBy = ''
+          this.undoOfferFrom = ''
+          this.myUndoOffered = false
+          this.undoDeclinedBy = ''
           this.myRematchAsked = false
           this.rematchOfferFrom = ''
           this.rematchDeclinedBy = ''
@@ -397,6 +448,9 @@ export const useGameStore = defineStore('game', {
           this.drawOfferFrom = ''
           this.myDrawOffered = false
           this.drawDeclinedBy = ''
+          this.undoOfferFrom = ''
+          this.myUndoOffered = false
+          this.undoDeclinedBy = ''
           // 新局 rematch 状态清空（旧局结束）
           this.myRematchAsked = false
           this.rematchOfferFrom = ''
@@ -418,6 +472,39 @@ export const useGameStore = defineStore('game', {
           this.myDrawOffered = false
           this.drawDeclinedBy = msg.fromUserId || '对手'
           this.lastError = '对方拒绝和棋'
+          break
+
+        case 'undoOffered':
+          if (msg.fromUserId === this.userId) {
+            this.myUndoOffered = true
+            this.undoOfferFrom = ''
+          } else {
+            this.undoOfferFrom = msg.fromUserId || '对手'
+            this.myUndoOffered = false
+          }
+          this.undoDeclinedBy = ''
+          break
+
+        case 'undoDeclined':
+          this.myUndoOffered = false
+          this.undoDeclinedBy = msg.fromUserId || '对手'
+          this.lastError = '对方拒绝悔棋'
+          break
+
+        case 'undoPerformed':
+          this.board = msg.board && Array.isArray(msg.board) && msg.board.length > 0
+            ? parseInitialBoard(msg.board)
+            : this.board
+          this.currentTurn = (msg.currentTurn === 'black' ? 'black' : 'red') as Color
+          this.selectedCoord = ''
+          this.hintCoords = []
+          this.lastMove = null
+          this.inCheck = null
+          this.endgameVerdict = null
+          this.myUndoOffered = false
+          this.undoOfferFrom = ''
+          this.undoDeclinedBy = ''
+          this.resetTurnClock()
           break
 
         case 'rematchOffer':
