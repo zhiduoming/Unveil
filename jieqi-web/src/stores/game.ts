@@ -9,6 +9,7 @@ export interface RoomInfo {
   roomId: string
   opponentId: string
   opponentNickname: string
+  mode: 'human' | 'humanAi' | 'aiBattle'
 }
 
 export interface GameStartInfo {
@@ -56,6 +57,7 @@ export const useGameStore = defineStore('game', {
     ready: false as boolean,
     opponentReady: false as boolean,
     room: null as RoomInfo | null,
+    pendingRoomMode: 'human' as 'human' | 'humanAi' | 'aiBattle',
     gameStart: null as GameStartInfo | null,
     currentTurn: null as Color | null,
     lastError: '' as string,
@@ -90,6 +92,9 @@ export const useGameStore = defineStore('game', {
     turnStartedAt: 0 as number,     // 当前回合开始时刻（毫秒）
     stepTimeLimitMs: 65000 as number, // 步时上限（与服务端一致）
     nowMs: 0 as number,             // setInterval 推动的当前毫秒（用于响应式计算剩余）
+
+    // AI 对弈暂停（仅 AI 模式下可见）
+    paused: false as boolean,
   }),
 
   getters: {
@@ -123,13 +128,31 @@ export const useGameStore = defineStore('game', {
     },
     startMatch() {
       this.matching = true
+      this.pendingRoomMode = 'human'
       this.lastError = ''
       ws.send({ messageType: 'startMatch' })
+    },
+    startAiGame() {
+      this.matching = false
+      this.ready = false
+      this.opponentReady = true
+      this.pendingRoomMode = 'humanAi'
+      this.lastError = ''
+      ws.send({ messageType: 'startAiGame' })
+    },
+    startAiBattle() {
+      this.matching = false
+      this.ready = true
+      this.opponentReady = true
+      this.pendingRoomMode = 'aiBattle'
+      this.lastError = ''
+      ws.send({ messageType: 'startAiBattle' })
     },
     createRoom() {
       this.matching = false
       this.ready = false
       this.opponentReady = false
+      this.pendingRoomMode = 'human'
       this.lastError = ''
       ws.send({ messageType: 'createRoom' })
     },
@@ -142,6 +165,7 @@ export const useGameStore = defineStore('game', {
       this.matching = false
       this.ready = false
       this.opponentReady = false
+      this.pendingRoomMode = 'human'
       this.lastError = ''
       ws.send({ messageType: 'joinRoom', roomId: code })
     },
@@ -209,11 +233,34 @@ export const useGameStore = defineStore('game', {
       ws.send({ messageType: 'rematchDecline' })
     },
 
+    /** 主动通知服务端离开房间（清理 AI 房间 / 真人房间认输等）。 */
+    leaveRoom() {
+      if (this.room) {
+        ws.send({ messageType: 'leaveRoom' })
+      }
+    },
+
+    /** 暂停 AI 对弈。不在本地乐观切换，等服务端 gamePaused 确认。 */
+    pauseAi() {
+      ws.send({ messageType: 'pauseGame' })
+    },
+
+    /** 恢复 AI 对弈。等服务端 gameResumed 确认。 */
+    resumeAi() {
+      ws.send({ messageType: 'resumeGame' })
+    },
+
     // ── 走子相关 ─────────────────────────────────────────
     selectCell(row: number, col: number) {
       const coord = `${COLS[col]}${row}`
       const piece = this.board.find(p => p.row === row && p.col === col)
       const yourColor = this.gameStart?.yourColor
+      if (this.room?.mode === 'aiBattle') {
+        this.selectedCoord = coord
+        this.hintCoords = []
+        this.lastError = ''
+        return
+      }
 
       // 调试信息（浏览器 Console 可见）
       console.log('[selectCell]', {
@@ -226,14 +273,15 @@ export const useGameStore = defineStore('game', {
       // 当前没有选中：自己的子进入走子选择；对方棋子只做查看式选中，不提示可走点。
       if (!this.selectedCoord) {
         if (!piece) {
-          this.lastError = `空格 ${coord} 上没有棋子`
+          // 点空格不报错，静默忽略
           return
         }
         if (this.currentTurn !== yourColor) {
-          this.lastError = `未轮到本方（当前轮到 ${this.currentTurn}, 你是 ${yourColor}）`
+          this.lastError = '未轮到本方'
           return
         }
         if (piece.color !== yourColor) {
+          // 查看式选中对方子，不报错
           this.selectedCoord = coord
           this.hintCoords = []
           this.lastError = ''
@@ -267,9 +315,7 @@ export const useGameStore = defineStore('game', {
       const shouldFlipAfterMove = selected ? !selected.revealed : false
 
       if (!selected || selected.color !== yourColor) {
-        this.lastError = selected
-          ? `${this.selectedCoord} 是对方棋子，不能走`
-          : '未选中本方棋子'
+        this.lastError = '不能移动对方的棋子'
         this.selectedCoord = ''
         this.hintCoords = []
         return
@@ -281,7 +327,9 @@ export const useGameStore = defineStore('game', {
       if (selected) {
         const targetCoord = `${COLS[col]}${row}`
         if (!this.hintCoords.includes(targetCoord)) {
-          this.lastError = getMoveErrorMessage(this.board, selected, row, col) || '不能送将'
+          // 送将单独保留精确提示；其他一律归一为"走法错误"
+          const detail = getMoveErrorMessage(this.board, selected, row, col)
+          this.lastError = detail === '不能送将' ? '不能送将' : '走法错误'
           return
         }
       }
@@ -330,6 +378,7 @@ export const useGameStore = defineStore('game', {
       this.ready = false
       this.opponentReady = false
       this.room = null
+      this.pendingRoomMode = 'human'
       this.gameStart = null
       this.gameOver = null
       this.drawOfferFrom = ''
@@ -350,9 +399,12 @@ export const useGameStore = defineStore('game', {
       this.myRematchAsked = false
       this.rematchOfferFrom = ''
       this.rematchDeclinedBy = ''
+      this.paused = false
     },
 
     returnToLobby() {
+      // 先告诉服务端我要离开，避免下次匹配被 [3002] 已在房间中 拦截
+      this.leaveRoom()
       this.reset()
       this.lastError = ''
     },
@@ -371,8 +423,17 @@ export const useGameStore = defineStore('game', {
             roomId: msg.roomId,
             opponentId: msg.opponentId,
             opponentNickname: msg.opponentNickname || msg.opponentId,
+            mode: this.pendingRoomMode,
           }
           this.matching = false
+          if (this.room?.mode === 'aiBattle') {
+            this.ready = true
+            this.opponentReady = true
+          }
+          // 人机对战：无需用户手动准备，匹配成功后自动 Ready 让服务端立刻开局
+          if (this.room?.mode === 'humanAi') {
+            this.setReady()
+          }
           this.lastError = ''
           break
 
@@ -514,6 +575,14 @@ export const useGameStore = defineStore('game', {
         case 'rematchDeclined':
           this.rematchDeclinedBy = msg.fromUserId || '对手'
           this.myRematchAsked = false
+          break
+
+        case 'gamePaused':
+          this.paused = true
+          break
+
+        case 'gameResumed':
+          this.paused = false
           break
 
         case 'error':

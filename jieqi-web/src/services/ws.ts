@@ -3,7 +3,7 @@
 
 export type MessageType =
   | 'Login' | 'loginResult'
-  | 'startMatch' | 'cancelMatch' | 'createRoom' | 'joinRoom' | 'matchSuccess'
+  | 'startMatch' | 'startAiGame' | 'startAiBattle' | 'cancelMatch' | 'createRoom' | 'joinRoom' | 'matchSuccess'
   | 'requestFirstHand' | 'roomInfo'
   | 'Ready' | 'gameStart'
   | 'move' | 'moveResult' | 'flipResult'
