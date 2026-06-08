@@ -10,6 +10,14 @@ const store = useGameStore()
 
 let clockTimer: number | undefined
 
+// 对局结束后"查看棋局"模式：true 时暂时隐藏结算弹窗，让用户复盘终局
+const viewingFinishedBoard = ref(false)
+
+// 对局结束状态变化时（新结束 / 已清空）重置查看模式
+watch(() => store.gameOver, (v) => {
+  if (!v) viewingFinishedBoard.value = false
+})
+
 // ── 屏幕中央浮动 toast（3 秒淡化，半透明，不挡棋盘） ──
 type ToastKind = 'check' | 'error' | 'info'
 const toastMessage = ref<string>('')
@@ -54,6 +62,8 @@ onUnmounted(() => {
 const yourColor = computed(() => store.gameStart?.yourColor)
 const isRedView = computed(() => yourColor.value === 'red')
 const isMyTurn = computed(() => store.currentTurn === yourColor.value)
+const isAiGame = computed(() => store.room?.opponentId === 'ai_bot')
+const isAiBattle = computed(() => store.room?.mode === 'aiBattle')
 
 // 倒计时（mm:ss）
 const remainText = computed(() => {
@@ -250,6 +260,7 @@ function backToLobby() {
             :is-red-view="isRedView"
             :selected-coord="store.selectedCoord"
             :hint-coords="store.hintCoords"
+            :last-move="store.lastMove"
             @cell-click="onCellClick"
           />
           <Transition name="battle-pop">
@@ -273,22 +284,41 @@ function backToLobby() {
       <aside class="side-col">
         <div class="action-card">
           <h3 class="action-title">操作</h3>
-          <button @click="onResign" class="action-btn btn-resign">🏳️ 认 输</button>
-          <button
-            @click="onOfferDraw"
-            :disabled="store.myDrawOffered || !!store.drawOfferFrom || !!store.gameOver"
-            class="action-btn btn-draw"
-          >
-            {{ store.myDrawOffered ? '等待回应' : '🤝 提 和' }}
-          </button>
-          <button
-            @click="onOfferUndo"
-            :disabled="store.myUndoOffered || !!store.undoOfferFrom || !!store.gameOver"
-            class="action-btn btn-undo"
-          >
-            {{ store.myUndoOffered ? '等待回应' : '↩ 悔 棋' }}
-          </button>
-          <button class="action-btn btn-chat">💬 聊 天</button>
+          <!-- AI 对弈（人机 / AI 观战）：暂停/继续 + 结束对局 -->
+          <template v-if="isAiGame || isAiBattle">
+            <button
+              v-if="!store.paused"
+              @click="store.pauseAi()"
+              :disabled="!!store.gameOver"
+              class="action-btn btn-draw"
+            >⏸ 暂停对局</button>
+            <button
+              v-else
+              @click="store.resumeAi()"
+              :disabled="!!store.gameOver"
+              class="action-btn btn-draw"
+            >▶ 继续对局</button>
+            <button @click="backToLobby" class="action-btn btn-resign">🚪 结束对局</button>
+          </template>
+          <!-- 真人对局：完整操作 -->
+          <template v-else>
+            <button @click="onResign" :disabled="!!store.gameOver" class="action-btn btn-resign">🏳️ 认 输</button>
+            <button
+              @click="onOfferDraw"
+              :disabled="store.myDrawOffered || !!store.drawOfferFrom || !!store.gameOver"
+              class="action-btn btn-draw"
+            >
+              {{ store.myDrawOffered ? '等待回应' : '🤝 提 和' }}
+            </button>
+            <button
+              @click="onOfferUndo"
+              :disabled="store.myUndoOffered || !!store.undoOfferFrom || !!store.gameOver"
+              class="action-btn btn-undo"
+            >
+              {{ store.myUndoOffered ? '等待回应' : '↩ 悔 棋' }}
+            </button>
+            <button class="action-btn btn-chat">💬 聊 天</button>
+          </template>
         </div>
 
         <div class="info-card">
@@ -344,10 +374,9 @@ function backToLobby() {
     </div>
 
     <!-- 对局结束弹窗（服务端判定）— 集成 rematch 流程 -->
-    <div v-if="store.gameOver" class="modal">
+    <div v-if="store.gameOver && !viewingFinishedBoard" class="modal">
       <div class="modal-card">
         <h3>{{ store.gameOver.winner === yourColor ? '你赢了！' : (store.gameOver.winner === 'draw' ? '和棋' : '你输了') }}</h3>
-        <p>原因：{{ store.gameOver.reason }}</p>
 
         <!-- 收到对方邀请：接受 / 拒绝 -->
         <div v-if="store.rematchOfferFrom && !store.myRematchAsked" class="rematch-hint">
@@ -371,14 +400,26 @@ function backToLobby() {
           <!-- 场景 2：还未邀请，正常按钮 -->
           <template v-else-if="!store.myRematchAsked">
             <button @click="store.requestRematch()" class="modal-btn modal-btn-primary">🔁 再来一局</button>
+            <button @click="viewingFinishedBoard = true" class="modal-btn modal-btn-secondary">🔍 查看棋局</button>
             <button @click="backToLobby" class="modal-btn modal-btn-secondary">返回大厅</button>
           </template>
           <!-- 场景 3：已邀请等待 / 被拒 -->
           <template v-else>
+            <button @click="viewingFinishedBoard = true" class="modal-btn modal-btn-secondary">🔍 查看棋局</button>
             <button @click="backToLobby" class="modal-btn modal-btn-secondary">返回大厅</button>
           </template>
         </div>
       </div>
+    </div>
+
+    <!-- 查看棋局模式：右下角悬浮"返回结算"按钮，点击重新打开结算弹窗 -->
+    <div v-if="store.gameOver && viewingFinishedBoard" class="finished-bar">
+      <span class="finished-bar-text">
+        {{ store.gameOver.winner === yourColor ? '✓ 你赢了' : (store.gameOver.winner === 'draw' ? '⚖ 和棋' : '✗ 你输了') }}
+        · 复盘模式
+      </span>
+      <button @click="viewingFinishedBoard = false" class="finished-bar-btn">返回结算</button>
+      <button @click="backToLobby" class="finished-bar-btn finished-bar-btn-secondary">返回大厅</button>
     </div>
 
     <div v-if="pendingConfirm" class="modal">
@@ -887,6 +928,47 @@ function backToLobby() {
 }
 .modal-btn-primary:hover {
   background: #166534;
+}
+
+/* 查看棋局（复盘模式）悬浮条 */
+.finished-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: rgba(28, 25, 23, 0.92);
+  border: 1px solid rgba(217, 119, 6, 0.5);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+}
+.finished-bar-text {
+  color: #fef3c7;
+  font-size: 14px;
+  font-weight: 500;
+  padding-right: 4px;
+}
+.finished-bar-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #d97706;
+  color: #fef3c7;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+}
+.finished-bar-btn:hover {
+  background: #b45309;
+}
+.finished-bar-btn-secondary {
+  background: #57534e;
+}
+.finished-bar-btn-secondary:hover {
+  background: #44403c;
 }
 .rematch-hint {
   margin: 12px 0;

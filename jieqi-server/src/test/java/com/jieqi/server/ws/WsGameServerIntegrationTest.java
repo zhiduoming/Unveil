@@ -265,6 +265,87 @@ class WsGameServerIntegrationTest {
     }
 
     @Test
+    void startAiGameLetsServerBotMoveAfterHumanMove() throws Exception {
+        TestWsClient human = connect("humanAi");
+        login(human, "humanAi");
+
+        human.sendJson(startAiGame());
+        JsonObject matched = human.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5);
+        assertNotNull(matched);
+        assertTrue(matched.get("roomId").getAsString().startsWith("ai_"));
+        assertEquals("ai_bot", matched.get("opponentId").getAsString());
+
+        human.sendJson(ready());
+        JsonObject gameStart = human.awaitTypeObject(JsonMessageTypes.GAME_START, 15);
+        assertNotNull(gameStart);
+        assertEquals("red", gameStart.get("yourColor").getAsString());
+        Board board = boardFromGameStart(gameStart);
+
+        Move humanMove = pickNonFlipMove(board, ChessPiece.RED);
+        human.clearMessages();
+        human.sendJson(moveJson(humanMove, true));
+        JsonObject humanResult = human.awaitValidMoveResult(5);
+        assertNotNull(humanResult);
+
+        human.clearMessages();
+        JsonObject aiResult = human.awaitValidMoveResult(10);
+        assertNotNull(aiResult);
+        JsonObject aiMove = aiResult.getAsJsonObject("move");
+        assertNotNull(aiMove);
+
+        human.close();
+    }
+
+    @Test
+    void aiGameAcceptsUndoAfterBotMoveAndReturnsTurnToHuman() throws Exception {
+        TestWsClient human = connect("humanAiUndo");
+        login(human, "humanAiUndo");
+
+        human.sendJson(startAiGame());
+        assertNotNull(human.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5));
+
+        human.sendJson(ready());
+        JsonObject gameStart = human.awaitTypeObject(JsonMessageTypes.GAME_START, 15);
+        Board board = boardFromGameStart(gameStart);
+
+        Move humanMove = pickNonFlipMove(board, ChessPiece.RED);
+        human.clearMessages();
+        human.sendJson(moveJson(humanMove, true));
+        assertNotNull(human.awaitValidMoveResult(5));
+        assertNotNull(human.awaitValidMoveResult(10));
+
+        human.clearMessages();
+        human.sendJson(undoOffer());
+        JsonObject undo = human.awaitTypeObject(JsonMessageTypes.UNDO_PERFORMED, 5);
+        assertNotNull(undo);
+        assertEquals("red", undo.get("currentTurn").getAsString());
+        assertTrue(undo.has("board"));
+
+        human.close();
+    }
+
+    @Test
+    void startAiBattleStreamsBotMovesToViewer() throws Exception {
+        TestWsClient viewer = connect("aiBattleViewer");
+        login(viewer, "aiBattleViewer");
+
+        viewer.sendJson(startAiBattle());
+        JsonObject matched = viewer.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5);
+        assertNotNull(matched);
+        assertTrue(matched.get("roomId").getAsString().startsWith("ai_battle_"));
+
+        JsonObject gameStart = viewer.awaitTypeObject(JsonMessageTypes.GAME_START, 10);
+        assertNotNull(gameStart);
+        assertEquals("ai_red", gameStart.get("redPlayerId").getAsString());
+        assertEquals("ai_black", gameStart.get("blackPlayerId").getAsString());
+
+        assertNotNull(viewer.awaitValidMoveResult(10));
+        assertNotNull(viewer.awaitValidMoveResult(10));
+
+        viewer.close();
+    }
+
+    @Test
     void acceptedUndoRollsBackLastMoveAndGameContinues() throws Exception {
         TestWsClient p1 = connect("undo1");
         TestWsClient p2 = connect("undo2");
@@ -456,6 +537,14 @@ class WsGameServerIntegrationTest {
 
     private static String startMatch() {
         return "{\"messageType\":\"startMatch\"}";
+    }
+
+    private static String startAiGame() {
+        return "{\"messageType\":\"startAiGame\"}";
+    }
+
+    private static String startAiBattle() {
+        return "{\"messageType\":\"startAiBattle\"}";
     }
 
     private static String createRoom() {

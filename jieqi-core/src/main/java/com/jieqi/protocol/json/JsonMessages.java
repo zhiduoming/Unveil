@@ -169,6 +169,18 @@ public final class JsonMessages {
         return o;
     }
 
+    public static JsonObject gamePaused() {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.GAME_PAUSED);
+        return o;
+    }
+
+    public static JsonObject gameResumed() {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.GAME_RESUMED);
+        return o;
+    }
+
     // ── 解析 C→S ──────────────────────────────────────────
 
     public static Move parseMove(JsonObject obj) {

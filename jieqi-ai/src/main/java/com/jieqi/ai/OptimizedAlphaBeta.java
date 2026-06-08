@@ -67,8 +67,11 @@ public class OptimizedAlphaBeta {
                 }
                 board.undoMove(move, captured);
                 if (score > currentBest) { currentBest = score; currentBestMove = move; }
-                if (score > alpha) alpha = score;
-                if (score > alpha) history.recordMove(move, color, depth);
+                if (score > alpha) {
+                    // 记录历史启发：本步推高了 alpha
+                    history.recordMove(move, color, depth);
+                    alpha = score;
+                }
             }
 
             if (!abortSearch) {
@@ -166,12 +169,24 @@ public class OptimizedAlphaBeta {
             if (board.getPiece(m.getDestination()) != null) captureMoves.add(m);
         }
         if (captureMoves.isEmpty()) return standPat;
-        captureMoves.sort((a,b) -> {
-            int vA = board.getPiece(a.getDestination()) != null ? board.getPiece(a.getDestination()).getValue() : 0;
-            int vB = board.getPiece(b.getDestination()) != null ? board.getPiece(b.getDestination()).getValue() : 0;
-            return vB - vA;
-        });
-        for (Move move : captureMoves) {
+        // SEE 排序 + 过滤：把明显赚的吃子排前面，跳过明显亏的吃子（SEE < 0）
+        // 这样 quiescence 不会被 "拿車换兵" 之类的烂交换污染。
+        int[] seeScores = new int[captureMoves.size()];
+        for (int i = 0; i < captureMoves.size(); i++) {
+            seeScores[i] = StaticExchangeEvaluator.see(board, captureMoves.get(i));
+        }
+        // 简单按 SEE 降序排
+        for (int i = 1; i < captureMoves.size(); i++) {
+            for (int j = i; j > 0 && seeScores[j] > seeScores[j - 1]; j--) {
+                int ts = seeScores[j]; seeScores[j] = seeScores[j - 1]; seeScores[j - 1] = ts;
+                Move tm = captureMoves.get(j);
+                captureMoves.set(j, captureMoves.get(j - 1));
+                captureMoves.set(j - 1, tm);
+            }
+        }
+        for (int i = 0; i < captureMoves.size(); i++) {
+            if (seeScores[i] < 0) break;                    // SEE < 0 → 直接跳过
+            Move move = captureMoves.get(i);
             ChessPiece captured = board.executeMove(move);
             int score = -quiescenceSearch(board, color==ChessPiece.RED ? ChessPiece.BLACK : ChessPiece.RED,
                                           -beta, -alpha, depth-1);
@@ -192,13 +207,19 @@ public class OptimizedAlphaBeta {
             int[] src = ChessPiece.fromCoord(move.getSource()), dst = ChessPiece.fromCoord(move.getDestination());
             ChessPiece target = board.getPiece(dst[0], dst[1]);
             ChessPiece piece = board.getPiece(src[0], src[1]);
-            if (target != null) sc += target.getValue() * 10 - (piece != null ? piece.getValue() : 0);
+            // 吃子用便宜的 MVV-LVA（Most Valuable Victim, Least Valuable Attacker）
+            // 排序：吃高价值子 + 用低价值子优先。SEE 在 quiescence 里跑（那里更值）。
+            // 之前在这里跑 SEE 拖垮性能：每个节点 N 次 board copy + generateAllMoves。
+            if (target != null && piece != null) {
+                sc += target.getValue() * 10 - piece.getValue();
+                if (target.isRevealed() && target.getType() == ChessPiece.KING) sc += 100000;
+            }
             if (move.isFlipOnly()) sc += 5000;
-            else if (!piece.isRevealed()) sc += 3000;
+            // 暗子原本加 +3000 过高，会让 AI 优先翻暗子而错过更好的吃子；降到 800
+            else if (piece != null && !piece.isRevealed()) sc += 800;
             sc += killers.getKillerScore(move, depth);
             sc += history.getScore(move, color);
             sc += (8 - (Math.abs(dst[0]-4) + Math.abs(dst[1]-4))) * 3;
-            if (target != null && target.isRevealed() && target.getType() == ChessPiece.KING) sc += 50000;
             scores.put(move, sc);
         }
         moves.sort((a,b) -> scores.getOrDefault(b,0) - scores.getOrDefault(a,0));
