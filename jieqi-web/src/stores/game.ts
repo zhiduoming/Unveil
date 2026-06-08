@@ -21,6 +21,15 @@ export interface GameStartInfo {
 
 const COLS = ['a','b','c','d','e','f','g','h','i']
 
+function defaultServerUrl(): string {
+  const configured = import.meta.env.VITE_WS_URL
+  if (configured) return configured
+  if (typeof window === 'undefined') return 'ws://127.0.0.1:8887'
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.hostname || '127.0.0.1'
+  return `${protocol}//${host}:8887`
+}
+
 // 把老师协议里的英文 type 转成内部 PieceType
 function mapType(t: string | undefined): PieceType | undefined {
   if (!t) return undefined
@@ -50,7 +59,7 @@ function coordText(col: number, row: number): string {
 
 export const useGameStore = defineStore('game', {
   state: () => ({
-    serverUrl: 'ws://127.0.0.1:8887',
+    serverUrl: defaultServerUrl(),
     userId: '' as string,
     loggedIn: false as boolean,
     matching: false as boolean,
