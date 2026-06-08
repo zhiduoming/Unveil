@@ -28,7 +28,6 @@ public final class WsRoom {
 
     // ── Draw offer（对局中提和） ──
     private int drawOfferedByColor = -1; // -1=无提和，红/黑=当前提和发起方
-    private int undoOfferedByColor = -1; // -1=无悔棋请求，红/黑=当前悔棋发起方
 
     // ── Rematch（本组扩展：对局结束后双方可邀请再来一局） ──
     private boolean finished;          // 对局已结束（保留 room 给 rematch 用）
@@ -74,10 +73,6 @@ public final class WsRoom {
     public void setDrawOfferedByColor(int color) { this.drawOfferedByColor = color; }
     public void clearDrawOffer() { this.drawOfferedByColor = -1; }
 
-    public int undoOfferedByColor() { return undoOfferedByColor; }
-    public void setUndoOfferedByColor(int color) { this.undoOfferedByColor = color; }
-    public void clearUndoOffer() { this.undoOfferedByColor = -1; }
-
     /** rematch 同意后清状态，准备进入新局。 */
     public void resetForRematch() {
         this.finished = false;
@@ -90,7 +85,6 @@ public final class WsRoom {
         this.blackWannaFirst = null;
         this.started = false;
         this.drawOfferedByColor = -1;
-        this.undoOfferedByColor = -1;
     }
 
     public String roomId() {

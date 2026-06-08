@@ -19,14 +19,12 @@ public final class JsonMessageTypes {
     public static final String JOIN_ROOM = "joinRoom";
     public static final String REQUEST_FIRST_HAND = "requestFirstHand";
     public static final String MOVE = "move";
+    public static final String CHAT = "chat";
     public static final String PING = "ping";
     public static final String RESIGN = "Resign";
     public static final String DRAW_OFFER = "drawOffer";
     public static final String DRAW_ACCEPT = "drawAccept";
     public static final String DRAW_DECLINE = "drawDecline";
-    public static final String UNDO_OFFER = "undoOffer";
-    public static final String UNDO_ACCEPT = "undoAccept";
-    public static final String UNDO_DECLINE = "undoDecline";
     public static final String READY = "Ready";
     // 本组扩展（非老师协议）：对局结束后邀请再来一局
     public static final String REMATCH_REQUEST = "rematchRequest";
@@ -42,6 +40,7 @@ public final class JsonMessageTypes {
     public static final String MATCH_SUCCESS = "matchSuccess";
     public static final String GAME_START = "gameStart";
     public static final String MOVE_RESULT = "moveResult";
+    public static final String CHAT_MESSAGE = "chatMessage";
     public static final String TIMEOUT = "timeout";
     public static final String GAME_OVER = "gameOver";
     public static final String PONG = "pong";
@@ -49,9 +48,6 @@ public final class JsonMessageTypes {
     public static final String ROOM_INFO = "roomInfo";
     public static final String DRAW_OFFERED = "drawOffered";
     public static final String DRAW_DECLINED = "drawDeclined";
-    public static final String UNDO_OFFERED = "undoOffered";
-    public static final String UNDO_DECLINED = "undoDeclined";
-    public static final String UNDO_PERFORMED = "undoPerformed";
     // 本组扩展：rematch 流程通知
     public static final String REMATCH_OFFER = "rematchOffer";       // 转发对方邀请
     public static final String REMATCH_DECLINED = "rematchDeclined"; // 转发对方拒绝

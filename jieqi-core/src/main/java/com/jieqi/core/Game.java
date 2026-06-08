@@ -19,7 +19,6 @@ public class Game {
     private boolean redConnected, blackConnected;
     private final GameRecord record = new GameRecord();
     private Map<String, Integer> repetitionCount;
-    private final Deque<GameSnapshot> undoStack = new ArrayDeque<>();
 
     public Game(String gameId) {
         this.gameId = gameId;
@@ -31,12 +30,12 @@ public class Game {
     }
 
     public String processMove(Move move, int playerColor) {
-        if (status != GameStatus.PLAYING) return "游戏未在进行中";
-        if (playerColor != currentTurn) return "不是你的回合";
+        if (status != GameStatus.PLAYING) return "对局未开始";
+        if (playerColor != currentTurn) return "还没轮到你";
         if (isTimeout()) {
             status = (currentTurn == ChessPiece.RED) ? GameStatus.BLACK_WIN : GameStatus.RED_WIN;
             gameOverReason = EndgameJudge.ProtocolReason.TIMEOUT;
-            return "超时判负";
+            return "超时";
         }
         if (move.isFlipOnly() || move.getSource().equals(move.getDestination())) {
             return "禁止原地翻子";
@@ -47,8 +46,6 @@ public class Game {
         move.setServerTimestamp(System.currentTimeMillis());
         move.setTurnStartTime(turnStartTime);
 
-        undoStack.push(new GameSnapshot(new Board(board), currentTurn, turnStartTime,
-                status, gameOverReason, new HashMap<>(repetitionCount)));
         ChessPiece captured = board.executeMove(move);
         record.append(move);
 
@@ -66,25 +63,6 @@ public class Game {
         currentTurn = oppColor;
         turnStartTime = System.currentTimeMillis();
         return null;
-    }
-
-    public boolean canUndoLastMove() {
-        return status == GameStatus.PLAYING && !undoStack.isEmpty();
-    }
-
-    public boolean undoLastMove() {
-        if (!canUndoLastMove()) {
-            return false;
-        }
-        GameSnapshot snapshot = undoStack.pop();
-        this.board = new Board(snapshot.board);
-        this.currentTurn = snapshot.currentTurn;
-        this.turnStartTime = System.currentTimeMillis();
-        this.status = snapshot.status;
-        this.gameOverReason = snapshot.gameOverReason;
-        this.repetitionCount = new HashMap<>(snapshot.repetitionCount);
-        this.record.loadFromBoard(this.board);
-        return true;
     }
 
     private String getBoardHash(int sideToMove) {
@@ -174,8 +152,4 @@ public class Game {
     public List<String> getMoveNotation() { return record.getLines(); }
     public void setRedPlayerName(String name) { this.redPlayerName = name; }
     public void setBlackPlayerName(String name) { this.blackPlayerName = name; }
-
-    private record GameSnapshot(Board board, int currentTurn, long turnStartTime,
-                                GameStatus status, int gameOverReason,
-                                Map<String, Integer> repetitionCount) {}
 }

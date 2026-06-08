@@ -36,7 +36,7 @@ async function onLogin() {
   <div class="min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md bg-amber-50/80 border-2 border-amber-900/40 rounded-lg shadow-xl p-8 backdrop-blur">
       <h1 class="text-4xl text-center text-amber-900 mb-2">揭 棋</h1>
-      <p class="text-center text-amber-800/70 mb-6 text-sm">Hidden Chess · Web Client</p>
+      <p class="text-center text-amber-800/70 mb-6 text-sm">揭棋在线对战客户端</p>
 
       <div class="space-y-4">
         <div>
@@ -59,7 +59,7 @@ async function onLogin() {
 
         <p v-if="errorMsg" class="text-red-700 text-sm text-center">{{ errorMsg }}</p>
         <p class="text-xs text-amber-800/60 text-center mt-4">
-          连接状态: {{ store.connectionStatus }}
+          连接状态: {{ store.connectionStatusText }}
         </p>
       </div>
     </div>

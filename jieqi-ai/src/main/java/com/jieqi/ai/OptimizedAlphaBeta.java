@@ -6,6 +6,8 @@ import java.util.*;
 public class OptimizedAlphaBeta {
     private static final int INF = Integer.MAX_VALUE / 2;
     private static final int MAX_DEPTH = 20;
+    private static final int ROOT_TACTICAL_ORDER_DEPTH = MAX_DEPTH - 1;
+    private static final int MAJOR_THREAT_PENALTY_LIMIT = 12000;
     private TranspositionTable tt;
     private HistoryHeuristic history;
     private KillerHeuristic killers;
@@ -40,11 +42,14 @@ public class OptimizedAlphaBeta {
         Move bestMove = null;
         int bestScore = -INF;
         long hash = ZobristHash.computeHash(board);
+        orderMoves(board, moves, color, ROOT_TACTICAL_ORDER_DEPTH, hash);
         Move ttBest = tt.getBestMove(hash);
         if (ttBest != null) orderMoveToFront(moves, ttBest);
 
+        long lastDepthElapsed = 0L;
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
             if (abortSearch) break;
+            long depthStart = System.currentTimeMillis();
             int alpha = -INF, beta = INF;
             int currentBest = -INF;
             Move currentBestMove = null;
@@ -81,6 +86,12 @@ public class OptimizedAlphaBeta {
                 if (bestMove != null) tt.put(hash, depth, bestScore, TranspositionTable.EXACT, bestMove);
                 if (Math.abs(bestScore) > INF - 1000) break;
                 if (depth % 4 == 0) history.age();
+                lastDepthElapsed = System.currentTimeMillis() - depthStart;
+                long elapsed = System.currentTimeMillis() - startTime;
+                long remaining = timeLimit - elapsed;
+                if (depth >= 3 && remaining < lastDepthElapsed * 2) {
+                    break;
+                }
             }
         }
         System.out.println("[AI] 搜索完成: 深度=" + maxDepthReached + ", 节点=" + nodesSearched + ", 分数=" + bestScore);
@@ -220,9 +231,46 @@ public class OptimizedAlphaBeta {
             sc += killers.getKillerScore(move, depth);
             sc += history.getScore(move, color);
             sc += (8 - (Math.abs(dst[0]-4) + Math.abs(dst[1]-4))) * 3;
+            if (depth >= ROOT_TACTICAL_ORDER_DEPTH) {
+                sc -= majorPieceThreatPenaltyAfter(board, move, color);
+            }
             scores.put(move, sc);
         }
         moves.sort((a,b) -> scores.getOrDefault(b,0) - scores.getOrDefault(a,0));
+    }
+
+    private int majorPieceThreatPenaltyAfter(Board board, Move move, int color) {
+        ChessPiece captured = board.executeMove(move);
+        int penalty = majorPieceThreatPenalty(board, color);
+        board.undoMove(move, captured);
+        return penalty;
+    }
+
+    private int majorPieceThreatPenalty(Board board, int color) {
+        int oppColor = (color == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
+        int worstPenalty = 0;
+        for (Move oppMove : RuleValidator.generateAllMoves(board, oppColor)) {
+            int[] src = ChessPiece.fromCoord(oppMove.getSource());
+            int[] dst = ChessPiece.fromCoord(oppMove.getDestination());
+            ChessPiece attacker = board.getPiece(src[0], src[1]);
+            ChessPiece target = board.getPiece(dst[0], dst[1]);
+            if (attacker == null || target == null || target.getColor() != color) {
+                continue;
+            }
+            if (!target.isRevealed() || !isMajorPiece(target.getType())) {
+                continue;
+            }
+            int targetValue = target.getValue();
+            int attackerValue = Math.max(1, attacker.getValue());
+            int exchangeGap = targetValue - attackerValue;
+            int penalty = exchangeGap > 0 ? exchangeGap * 8 : targetValue / 3;
+            worstPenalty = Math.max(worstPenalty, penalty);
+        }
+        return Math.min(worstPenalty, MAJOR_THREAT_PENALTY_LIMIT);
+    }
+
+    private boolean isMajorPiece(int type) {
+        return type == ChessPiece.ROOK || type == ChessPiece.CANNON || type == ChessPiece.KNIGHT;
     }
 
     private void orderMoveToFront(List<Move> moves, Move best) {

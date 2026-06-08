@@ -19,6 +19,17 @@ export interface GameStartInfo {
   firstHand: boolean
 }
 
+export type ConnectionStatus = 'connecting' | 'open' | 'closed' | 'error'
+
+export interface ChatMessage {
+  id: string
+  fromUserId: string
+  fromColor: Color
+  content: string
+  timestamp: number
+  mine: boolean
+}
+
 const COLS = ['a','b','c','d','e','f','g','h','i']
 
 function defaultServerUrl(): string {
@@ -40,6 +51,14 @@ function mapType(t: string | undefined): PieceType | undefined {
   return m[t.toLowerCase()]
 }
 
+function mapColor(c: string | undefined): Color | undefined {
+  if (!c) return undefined
+  const normalized = c.toLowerCase()
+  if (normalized === 'red') return 'red'
+  if (normalized === 'black') return 'black'
+  return undefined
+}
+
 function colToIdx(x: string | number): number {
   if (typeof x === 'number') return x
   return COLS.indexOf(String(x).toLowerCase())
@@ -57,6 +76,45 @@ function coordText(col: number, row: number): string {
   return `${COLS[col] ?? '?'}${row}`
 }
 
+function connectionStatusText(status: ConnectionStatus): string {
+  const labels: Record<ConnectionStatus, string> = {
+    connecting: '连接中',
+    open: '已连接',
+    closed: '未连接',
+    error: '连接异常',
+  }
+  return labels[status]
+}
+
+function gameOverReasonText(reason?: string): string {
+  const labels: Record<string, string> = {
+    checkmate: '将死',
+    stalemate: '困毙',
+    timeout: '超时',
+    resign: '认输',
+    disconnect: '断线',
+    king_captured: '吃将',
+    draw_no_capture: '无吃子和棋',
+    repetition_loss: '重复局面判负',
+    repetition_draw: '重复局面和棋',
+    draw_agreed: '双方同意和棋',
+    unknown: '未知原因',
+  }
+  return labels[reason || ''] || '未知原因'
+}
+
+function normalizeServerMessage(message: string | undefined): string {
+  if (!message) return '未知错误'
+  return message
+    .replaceAll('请先 Login', '请先登录')
+    .replaceAll('move 字段不完整', '走法数据不完整')
+    .replaceAll('未轮到本方走子', '还没轮到你走棋')
+    .replaceAll('不是你的回合', '还没轮到你')
+    .replaceAll('游戏未在进行中', '对局未开始')
+    .replaceAll('AI 对战观战模式', 'AI 自动对弈')
+    .replaceAll('AI 对战不支持提和', 'AI 对局不支持提和')
+}
+
 export const useGameStore = defineStore('game', {
   state: () => ({
     serverUrl: defaultServerUrl(),
@@ -71,13 +129,11 @@ export const useGameStore = defineStore('game', {
     currentTurn: null as Color | null,
     lastError: '' as string,
     gameOver: null as { winner: string; reason: string; winnerId?: string } | null,
-    connectionStatus: 'closed' as 'connecting' | 'open' | 'closed' | 'error',
+    connectionStatus: 'closed' as ConnectionStatus,
     drawOfferFrom: '' as string,
     myDrawOffered: false as boolean,
     drawDeclinedBy: '' as string,
-    undoOfferFrom: '' as string,
-    myUndoOffered: false as boolean,
-    undoDeclinedBy: '' as string,
+    chatMessages: [] as ChatMessage[],
 
     // 棋盘状态
     board: [] as Piece[],
@@ -119,6 +175,12 @@ export const useGameStore = defineStore('game', {
       const elapsed = Math.max(0, state.nowMs - state.turnStartedAt)
       const remain = Math.max(0, state.stepTimeLimitMs - elapsed)
       return Math.floor(remain / 1000)
+    },
+    connectionStatusText(state): string {
+      return connectionStatusText(state.connectionStatus)
+    },
+    gameOverReasonText(state): string {
+      return gameOverReasonText(state.gameOver?.reason)
     },
   },
 
@@ -188,7 +250,7 @@ export const useGameStore = defineStore('game', {
     offerDraw() {
       if (this.gameOver) return
       if (this.drawOfferFrom) {
-        this.lastError = '对方已经提和，请先同意或拒绝'
+        this.lastError = '对方已请求提和，请先同意或拒绝'
         return
       }
       this.myDrawOffered = true
@@ -205,25 +267,17 @@ export const useGameStore = defineStore('game', {
       this.drawOfferFrom = ''
       ws.send({ messageType: 'drawDecline' })
     },
-    offerUndo() {
-      if (this.gameOver) return
-      if (this.undoOfferFrom) {
-        this.lastError = '对方已经请求悔棋，请先同意或拒绝'
+    sendChat(content: string) {
+      if (this.room?.mode !== 'human') {
+        this.lastError = '仅真人对局支持聊天'
         return
       }
-      this.myUndoOffered = true
-      this.undoDeclinedBy = ''
-      this.lastError = ''
-      ws.send({ messageType: 'undoOffer' })
-    },
-    acceptUndo() {
-      this.undoOfferFrom = ''
-      this.myUndoOffered = false
-      ws.send({ messageType: 'undoAccept' })
-    },
-    declineUndo() {
-      this.undoOfferFrom = ''
-      ws.send({ messageType: 'undoDecline' })
+      const text = content.replace(/\s+/g, ' ').trim()
+      if (!text) {
+        this.lastError = '聊天内容不能为空'
+        return
+      }
+      ws.send({ messageType: 'chat', content: text.slice(0, 120) })
     },
     ping() {
       ws.send({ messageType: 'ping', timestamp: Date.now() })
@@ -286,7 +340,7 @@ export const useGameStore = defineStore('game', {
           return
         }
         if (this.currentTurn !== yourColor) {
-          this.lastError = '未轮到本方'
+          this.lastError = '还没轮到你'
           return
         }
         if (piece.color !== yourColor) {
@@ -324,7 +378,7 @@ export const useGameStore = defineStore('game', {
       const shouldFlipAfterMove = selected ? !selected.revealed : false
 
       if (!selected || selected.color !== yourColor) {
-        this.lastError = '不能移动对方的棋子'
+        this.lastError = '不能移动对方棋子'
         this.selectedCoord = ''
         this.hintCoords = []
         return
@@ -336,9 +390,9 @@ export const useGameStore = defineStore('game', {
       if (selected) {
         const targetCoord = `${COLS[col]}${row}`
         if (!this.hintCoords.includes(targetCoord)) {
-          // 送将单独保留精确提示；其他一律归一为"走法错误"
+          // 送将单独保留精确提示；其他一律归一为"走法无效"
           const detail = getMoveErrorMessage(this.board, selected, row, col)
-          this.lastError = detail === '不能送将' ? '不能送将' : '走法错误'
+          this.lastError = detail === '不能送将' ? '不能送将' : '走法无效'
           return
         }
       }
@@ -393,9 +447,7 @@ export const useGameStore = defineStore('game', {
       this.drawOfferFrom = ''
       this.myDrawOffered = false
       this.drawDeclinedBy = ''
-      this.undoOfferFrom = ''
-      this.myUndoOffered = false
-      this.undoDeclinedBy = ''
+      this.chatMessages = []
       this.board = []
       this.selectedCoord = ''
       this.hintCoords = []
@@ -423,7 +475,7 @@ export const useGameStore = defineStore('game', {
       switch (msg.messageType) {
         case 'loginResult':
           this.loggedIn = msg.success === true
-          if (!msg.success) this.lastError = msg.message || '登录失败'
+          if (!msg.success) this.lastError = normalizeServerMessage(msg.message) || '登录失败'
           break
 
         case 'matchSuccess':
@@ -473,9 +525,7 @@ export const useGameStore = defineStore('game', {
           this.drawOfferFrom = ''
           this.myDrawOffered = false
           this.drawDeclinedBy = ''
-          this.undoOfferFrom = ''
-          this.myUndoOffered = false
-          this.undoDeclinedBy = ''
+          this.chatMessages = []
           this.myRematchAsked = false
           this.rematchOfferFrom = ''
           this.rematchDeclinedBy = ''
@@ -485,7 +535,7 @@ export const useGameStore = defineStore('game', {
         case 'moveResult':
           console.log('[moveResult]', msg)
           if (msg.valid === false || msg.success === false) {
-            this.lastError = msg.message || '着法无效：请确认是否轮到本方、源格是否有自己的棋子、目标格是否符合揭棋规则。'
+            this.lastError = normalizeServerMessage(msg.message) || '走法无效'
             this.selectedCoord = ''
             break
           }
@@ -507,8 +557,25 @@ export const useGameStore = defineStore('game', {
           break
         }
 
+        case 'chatMessage': {
+          const content = String(msg.content || '').trim()
+          if (!content) break
+          this.chatMessages.push({
+            id: `${msg.timestamp || Date.now()}-${this.chatMessages.length}`,
+            fromUserId: msg.fromUserId || '对手',
+            fromColor: mapColor(msg.fromColor) || 'red',
+            content,
+            timestamp: Number(msg.timestamp || Date.now()),
+            mine: msg.fromUserId === this.userId,
+          })
+          if (this.chatMessages.length > 60) {
+            this.chatMessages = this.chatMessages.slice(-60)
+          }
+          break
+        }
+
         case 'timeout':
-          this.lastError = `超时：${msg.loserId} 判负`
+          this.lastError = `超时：${msg.loserId || '当前玩家'} 判负`
           break
 
         case 'gameOver':
@@ -518,9 +585,6 @@ export const useGameStore = defineStore('game', {
           this.drawOfferFrom = ''
           this.myDrawOffered = false
           this.drawDeclinedBy = ''
-          this.undoOfferFrom = ''
-          this.myUndoOffered = false
-          this.undoDeclinedBy = ''
           // 新局 rematch 状态清空（旧局结束）
           this.myRematchAsked = false
           this.rematchOfferFrom = ''
@@ -541,40 +605,7 @@ export const useGameStore = defineStore('game', {
         case 'drawDeclined':
           this.myDrawOffered = false
           this.drawDeclinedBy = msg.fromUserId || '对手'
-          this.lastError = '对方拒绝和棋'
-          break
-
-        case 'undoOffered':
-          if (msg.fromUserId === this.userId) {
-            this.myUndoOffered = true
-            this.undoOfferFrom = ''
-          } else {
-            this.undoOfferFrom = msg.fromUserId || '对手'
-            this.myUndoOffered = false
-          }
-          this.undoDeclinedBy = ''
-          break
-
-        case 'undoDeclined':
-          this.myUndoOffered = false
-          this.undoDeclinedBy = msg.fromUserId || '对手'
-          this.lastError = '对方拒绝悔棋'
-          break
-
-        case 'undoPerformed':
-          this.board = msg.board && Array.isArray(msg.board) && msg.board.length > 0
-            ? parseInitialBoard(msg.board)
-            : this.board
-          this.currentTurn = (msg.currentTurn === 'black' ? 'black' : 'red') as Color
-          this.selectedCoord = ''
-          this.hintCoords = []
-          this.lastMove = null
-          this.inCheck = null
-          this.endgameVerdict = null
-          this.myUndoOffered = false
-          this.undoOfferFrom = ''
-          this.undoDeclinedBy = ''
-          this.resetTurnClock()
+          this.lastError = '对方拒绝提和'
           break
 
         case 'rematchOffer':
@@ -595,7 +626,7 @@ export const useGameStore = defineStore('game', {
           break
 
         case 'error':
-          this.lastError = `[${msg.code}] ${msg.message || '未知错误'}`
+          this.lastError = normalizeServerMessage(msg.message)
           this.matching = false
           this.selectedCoord = ''
           break
@@ -609,7 +640,7 @@ export const useGameStore = defineStore('game', {
       const toCol = colToIdx(move.toX)
       const toRow = protocolYToRow(move.toY)
       if (fromCol < 0 || toCol < 0 || Number.isNaN(fromRow) || Number.isNaN(toRow)) {
-        this.lastError = `服务端返回的走子坐标无法解析：${JSON.stringify(move)}`
+        this.lastError = '服务端走法数据异常'
         return
       }
 
@@ -676,7 +707,8 @@ export const useGameStore = defineStore('game', {
 // 老师 JSON 协议：
 //   { x: 'a'-'i', y: 0-9, piece: 'king'/'rook'/..., visible: bool }
 // 这里的 y 与前端内部 row 都采用棋盘显示行号：0=红方底线，9=黑方底线。
-// 服务端不发 color 时，按显示行号推断：row < 5 → 红方，row >= 5 → 黑方。
+// 服务端新版会发 color；兼容旧服务端时才按初始半区推断。
+// 注意：棋子可能已经跨河，不能长期依赖行号推断颜色。
 function parseInitialBoard(cells: any[]): Piece[] {
   const result: Piece[] = []
   for (const cell of cells) {
@@ -685,7 +717,7 @@ function parseInitialBoard(cells: any[]): Piece[] {
     const y = Number(cell.y ?? cell.row)
     if (col < 0 || isNaN(y)) continue
     const row = protocolYToRow(y)
-    const color: Color = row < 5 ? 'red' : 'black'
+    const color: Color = mapColor(cell.color) || (row < 5 ? 'red' : 'black')
     const t = mapType(cell.piece ?? cell.type) || 'pawn'    // 字段名是 piece 不是 type
     const visible = cell.visible === true || cell.revealed === true
     result.push({ type: t, color, row, col, revealed: visible })
