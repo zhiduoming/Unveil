@@ -28,7 +28,6 @@ public final class WsRoom {
 
     // ── Draw offer（对局中提和） ──
     private int drawOfferedByColor = -1; // -1=无提和，红/黑=当前提和发起方
-    private int undoOfferedByColor = -1; // -1=无悔棋请求，红/黑=当前悔棋发起方
 
     // ── Rematch（本组扩展：对局结束后双方可邀请再来一局） ──
     private boolean finished;          // 对局已结束（保留 room 给 rematch 用）
@@ -38,6 +37,7 @@ public final class WsRoom {
 
     // ── Pause（本组扩展：AI 对弈暂停） ──
     private boolean paused;            // true 时 AI 调度线程不下一步
+    private long pauseStartTime;       // 进入暂停的时刻，用于恢复时把回合开始时间往后挪
 
     public WsRoom(String roomId, Game game) {
         this.roomId = roomId;
@@ -69,14 +69,12 @@ public final class WsRoom {
 
     public boolean isPaused() { return paused; }
     public void setPaused(boolean paused) { this.paused = paused; }
+    public long pauseStartTime() { return pauseStartTime; }
+    public void setPauseStartTime(long t) { this.pauseStartTime = t; }
 
     public int drawOfferedByColor() { return drawOfferedByColor; }
     public void setDrawOfferedByColor(int color) { this.drawOfferedByColor = color; }
     public void clearDrawOffer() { this.drawOfferedByColor = -1; }
-
-    public int undoOfferedByColor() { return undoOfferedByColor; }
-    public void setUndoOfferedByColor(int color) { this.undoOfferedByColor = color; }
-    public void clearUndoOffer() { this.undoOfferedByColor = -1; }
 
     /** rematch 同意后清状态，准备进入新局。 */
     public void resetForRematch() {
@@ -90,7 +88,6 @@ public final class WsRoom {
         this.blackWannaFirst = null;
         this.started = false;
         this.drawOfferedByColor = -1;
-        this.undoOfferedByColor = -1;
     }
 
     public String roomId() {

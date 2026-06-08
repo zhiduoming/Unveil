@@ -106,11 +106,11 @@ function onReady() {
       <div v-else-if="panel === 'human'" class="space-y-3">
         <button @click="onMatch" :disabled="store.matching || !!store.room"
           class="w-full py-4 bg-amber-800 text-amber-50 rounded hover:bg-amber-900 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ store.matching ? '匹配中...' : '开始匹配' }}
+          {{ store.matching ? '匹配中...' : '随机匹配' }}
         </button>
         <button @click="openRoomPanel" :disabled="store.matching || !!store.room"
           class="w-full py-4 bg-amber-700 text-amber-50 rounded hover:bg-amber-800 disabled:opacity-50 disabled:cursor-not-allowed">
-          房间号匹配
+          房间对战
         </button>
         <button @click="backMain" :disabled="store.matching || !!store.room"
           class="w-full py-3 bg-white/60 border border-amber-900/25 text-amber-900 rounded hover:bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed">

@@ -37,7 +37,7 @@ class GameServerIllegalMoveIntegrationTest extends AbstractGameServerIntegration
 
             FrameDecoder.DecodedFrame err = awaitError(blackReader, Protocol.ERR_ILLEGAL_MOVE);
             assertNotNull(err);
-            assertTrue(err.payload().contains("回合") || err.payload().contains("不是"));
+            assertTrue(err.payload().contains("轮到") || err.payload().contains("回合"));
         }
     }
 }
