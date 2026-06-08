@@ -30,12 +30,12 @@ public class Game {
     }
 
     public String processMove(Move move, int playerColor) {
-        if (status != GameStatus.PLAYING) return "游戏未在进行中";
-        if (playerColor != currentTurn) return "不是你的回合";
+        if (status != GameStatus.PLAYING) return "对局未开始";
+        if (playerColor != currentTurn) return "还没轮到你";
         if (isTimeout()) {
             status = (currentTurn == ChessPiece.RED) ? GameStatus.BLACK_WIN : GameStatus.RED_WIN;
             gameOverReason = EndgameJudge.ProtocolReason.TIMEOUT;
-            return "超时判负";
+            return "超时";
         }
         if (move.isFlipOnly() || move.getSource().equals(move.getDestination())) {
             return "禁止原地翻子";

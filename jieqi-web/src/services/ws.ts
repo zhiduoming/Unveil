@@ -3,13 +3,15 @@
 
 export type MessageType =
   | 'Login' | 'loginResult'
-  | 'startMatch' | 'matchSuccess'
+  | 'startMatch' | 'startAiGame' | 'startAiBattle' | 'cancelMatch' | 'createRoom' | 'joinRoom' | 'matchSuccess'
   | 'requestFirstHand' | 'roomInfo'
   | 'Ready' | 'gameStart'
   | 'move' | 'moveResult' | 'flipResult'
+  | 'chat' | 'chatMessage'
   | 'Resign' | 'gameOver' | 'timeout'
   | 'drawOffer' | 'drawAccept' | 'drawDecline'
   | 'drawOffered' | 'drawDeclined'
+  | 'rematchRequest' | 'rematchDecline' | 'rematchOffer' | 'rematchDeclined'
   | 'ping' | 'pong'
   | 'error'
 

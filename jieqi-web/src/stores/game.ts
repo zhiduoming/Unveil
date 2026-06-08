@@ -9,6 +9,7 @@ export interface RoomInfo {
   roomId: string
   opponentId: string
   opponentNickname: string
+  mode: 'human' | 'humanAi' | 'aiBattle'
 }
 
 export interface GameStartInfo {
@@ -18,7 +19,27 @@ export interface GameStartInfo {
   firstHand: boolean
 }
 
+export type ConnectionStatus = 'connecting' | 'open' | 'closed' | 'error'
+
+export interface ChatMessage {
+  id: string
+  fromUserId: string
+  fromColor: Color
+  content: string
+  timestamp: number
+  mine: boolean
+}
+
 const COLS = ['a','b','c','d','e','f','g','h','i']
+
+function defaultServerUrl(): string {
+  const configured = import.meta.env.VITE_WS_URL
+  if (configured) return configured
+  if (typeof window === 'undefined') return 'ws://127.0.0.1:8887'
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.hostname || '127.0.0.1'
+  return `${protocol}//${host}:8887`
+}
 
 // 把老师协议里的英文 type 转成内部 PieceType
 function mapType(t: string | undefined): PieceType | undefined {
@@ -28,6 +49,14 @@ function mapType(t: string | undefined): PieceType | undefined {
     rook: 'rook', knight: 'knight', cannon: 'cannon', pawn: 'pawn',
   }
   return m[t.toLowerCase()]
+}
+
+function mapColor(c: string | undefined): Color | undefined {
+  if (!c) return undefined
+  const normalized = c.toLowerCase()
+  if (normalized === 'red') return 'red'
+  if (normalized === 'black') return 'black'
+  return undefined
 }
 
 function colToIdx(x: string | number): number {
@@ -47,23 +76,64 @@ function coordText(col: number, row: number): string {
   return `${COLS[col] ?? '?'}${row}`
 }
 
+function connectionStatusText(status: ConnectionStatus): string {
+  const labels: Record<ConnectionStatus, string> = {
+    connecting: '连接中',
+    open: '已连接',
+    closed: '未连接',
+    error: '连接异常',
+  }
+  return labels[status]
+}
+
+function gameOverReasonText(reason?: string): string {
+  const labels: Record<string, string> = {
+    checkmate: '将死',
+    stalemate: '困毙',
+    timeout: '超时',
+    resign: '认输',
+    disconnect: '断线',
+    king_captured: '吃将',
+    draw_no_capture: '无吃子和棋',
+    repetition_loss: '重复局面判负',
+    repetition_draw: '重复局面和棋',
+    draw_agreed: '双方同意和棋',
+    unknown: '未知原因',
+  }
+  return labels[reason || ''] || '未知原因'
+}
+
+function normalizeServerMessage(message: string | undefined): string {
+  if (!message) return '未知错误'
+  return message
+    .replaceAll('请先 Login', '请先登录')
+    .replaceAll('move 字段不完整', '走法数据不完整')
+    .replaceAll('未轮到本方走子', '还没轮到你走棋')
+    .replaceAll('不是你的回合', '还没轮到你')
+    .replaceAll('游戏未在进行中', '对局未开始')
+    .replaceAll('AI 对战观战模式', 'AI 自动对弈')
+    .replaceAll('AI 对战不支持提和', 'AI 对局不支持提和')
+}
+
 export const useGameStore = defineStore('game', {
   state: () => ({
-    serverUrl: 'ws://127.0.0.1:8887',
+    serverUrl: defaultServerUrl(),
     userId: '' as string,
     loggedIn: false as boolean,
     matching: false as boolean,
     ready: false as boolean,
     opponentReady: false as boolean,
     room: null as RoomInfo | null,
+    pendingRoomMode: 'human' as 'human' | 'humanAi' | 'aiBattle',
     gameStart: null as GameStartInfo | null,
     currentTurn: null as Color | null,
     lastError: '' as string,
     gameOver: null as { winner: string; reason: string; winnerId?: string } | null,
-    connectionStatus: 'closed' as 'connecting' | 'open' | 'closed' | 'error',
+    connectionStatus: 'closed' as ConnectionStatus,
     drawOfferFrom: '' as string,
     myDrawOffered: false as boolean,
     drawDeclinedBy: '' as string,
+    chatMessages: [] as ChatMessage[],
 
     // 棋盘状态
     board: [] as Piece[],
@@ -87,6 +157,9 @@ export const useGameStore = defineStore('game', {
     turnStartedAt: 0 as number,     // 当前回合开始时刻（毫秒）
     stepTimeLimitMs: 65000 as number, // 步时上限（与服务端一致）
     nowMs: 0 as number,             // setInterval 推动的当前毫秒（用于响应式计算剩余）
+
+    // AI 对弈暂停（仅 AI 模式下可见）
+    paused: false as boolean,
   }),
 
   getters: {
@@ -102,6 +175,12 @@ export const useGameStore = defineStore('game', {
       const elapsed = Math.max(0, state.nowMs - state.turnStartedAt)
       const remain = Math.max(0, state.stepTimeLimitMs - elapsed)
       return Math.floor(remain / 1000)
+    },
+    connectionStatusText(state): string {
+      return connectionStatusText(state.connectionStatus)
+    },
+    gameOverReasonText(state): string {
+      return gameOverReasonText(state.gameOver?.reason)
     },
   },
 
@@ -120,7 +199,46 @@ export const useGameStore = defineStore('game', {
     },
     startMatch() {
       this.matching = true
+      this.pendingRoomMode = 'human'
+      this.lastError = ''
       ws.send({ messageType: 'startMatch' })
+    },
+    startAiGame() {
+      this.matching = false
+      this.ready = false
+      this.opponentReady = true
+      this.pendingRoomMode = 'humanAi'
+      this.lastError = ''
+      ws.send({ messageType: 'startAiGame' })
+    },
+    startAiBattle() {
+      this.matching = false
+      this.ready = true
+      this.opponentReady = true
+      this.pendingRoomMode = 'aiBattle'
+      this.lastError = ''
+      ws.send({ messageType: 'startAiBattle' })
+    },
+    createRoom() {
+      this.matching = false
+      this.ready = false
+      this.opponentReady = false
+      this.pendingRoomMode = 'human'
+      this.lastError = ''
+      ws.send({ messageType: 'createRoom' })
+    },
+    joinRoom(roomId: string) {
+      const code = roomId.trim()
+      if (!/^\d{6}$/.test(code)) {
+        this.lastError = '请输入 6 位房间号'
+        return
+      }
+      this.matching = false
+      this.ready = false
+      this.opponentReady = false
+      this.pendingRoomMode = 'human'
+      this.lastError = ''
+      ws.send({ messageType: 'joinRoom', roomId: code })
     },
     setReady() {
       this.ready = true
@@ -132,7 +250,7 @@ export const useGameStore = defineStore('game', {
     offerDraw() {
       if (this.gameOver) return
       if (this.drawOfferFrom) {
-        this.lastError = '对方已经提和，请先同意或拒绝'
+        this.lastError = '对方已请求提和，请先同意或拒绝'
         return
       }
       this.myDrawOffered = true
@@ -148,6 +266,18 @@ export const useGameStore = defineStore('game', {
     declineDraw() {
       this.drawOfferFrom = ''
       ws.send({ messageType: 'drawDecline' })
+    },
+    sendChat(content: string) {
+      if (this.room?.mode !== 'human') {
+        this.lastError = '仅真人对局支持聊天'
+        return
+      }
+      const text = content.replace(/\s+/g, ' ').trim()
+      if (!text) {
+        this.lastError = '聊天内容不能为空'
+        return
+      }
+      ws.send({ messageType: 'chat', content: text.slice(0, 120) })
     },
     ping() {
       ws.send({ messageType: 'ping', timestamp: Date.now() })
@@ -166,11 +296,34 @@ export const useGameStore = defineStore('game', {
       ws.send({ messageType: 'rematchDecline' })
     },
 
+    /** 主动通知服务端离开房间（清理 AI 房间 / 真人房间认输等）。 */
+    leaveRoom() {
+      if (this.room) {
+        ws.send({ messageType: 'leaveRoom' })
+      }
+    },
+
+    /** 暂停 AI 对弈。不在本地乐观切换，等服务端 gamePaused 确认。 */
+    pauseAi() {
+      ws.send({ messageType: 'pauseGame' })
+    },
+
+    /** 恢复 AI 对弈。等服务端 gameResumed 确认。 */
+    resumeAi() {
+      ws.send({ messageType: 'resumeGame' })
+    },
+
     // ── 走子相关 ─────────────────────────────────────────
     selectCell(row: number, col: number) {
       const coord = `${COLS[col]}${row}`
       const piece = this.board.find(p => p.row === row && p.col === col)
       const yourColor = this.gameStart?.yourColor
+      if (this.room?.mode === 'aiBattle') {
+        this.selectedCoord = coord
+        this.hintCoords = []
+        this.lastError = ''
+        return
+      }
 
       // 调试信息（浏览器 Console 可见）
       console.log('[selectCell]', {
@@ -183,14 +336,15 @@ export const useGameStore = defineStore('game', {
       // 当前没有选中：自己的子进入走子选择；对方棋子只做查看式选中，不提示可走点。
       if (!this.selectedCoord) {
         if (!piece) {
-          this.lastError = `空格 ${coord} 上没有棋子`
+          // 点空格不报错，静默忽略
           return
         }
         if (this.currentTurn !== yourColor) {
-          this.lastError = `未轮到本方（当前轮到 ${this.currentTurn}, 你是 ${yourColor}）`
+          this.lastError = '还没轮到你'
           return
         }
         if (piece.color !== yourColor) {
+          // 查看式选中对方子，不报错
           this.selectedCoord = coord
           this.hintCoords = []
           this.lastError = ''
@@ -224,9 +378,7 @@ export const useGameStore = defineStore('game', {
       const shouldFlipAfterMove = selected ? !selected.revealed : false
 
       if (!selected || selected.color !== yourColor) {
-        this.lastError = selected
-          ? `${this.selectedCoord} 是对方棋子，不能走`
-          : '未选中本方棋子'
+        this.lastError = '不能移动对方棋子'
         this.selectedCoord = ''
         this.hintCoords = []
         return
@@ -238,7 +390,9 @@ export const useGameStore = defineStore('game', {
       if (selected) {
         const targetCoord = `${COLS[col]}${row}`
         if (!this.hintCoords.includes(targetCoord)) {
-          this.lastError = getMoveErrorMessage(this.board, selected, row, col) || '不能送将'
+          // 送将单独保留精确提示；其他一律归一为"走法无效"
+          const detail = getMoveErrorMessage(this.board, selected, row, col)
+          this.lastError = detail === '不能送将' ? '不能送将' : '走法无效'
           return
         }
       }
@@ -287,11 +441,13 @@ export const useGameStore = defineStore('game', {
       this.ready = false
       this.opponentReady = false
       this.room = null
+      this.pendingRoomMode = 'human'
       this.gameStart = null
       this.gameOver = null
       this.drawOfferFrom = ''
       this.myDrawOffered = false
       this.drawDeclinedBy = ''
+      this.chatMessages = []
       this.board = []
       this.selectedCoord = ''
       this.hintCoords = []
@@ -304,9 +460,12 @@ export const useGameStore = defineStore('game', {
       this.myRematchAsked = false
       this.rematchOfferFrom = ''
       this.rematchDeclinedBy = ''
+      this.paused = false
     },
 
     returnToLobby() {
+      // 先告诉服务端我要离开，避免下次匹配被 [3002] 已在房间中 拦截
+      this.leaveRoom()
       this.reset()
       this.lastError = ''
     },
@@ -316,7 +475,7 @@ export const useGameStore = defineStore('game', {
       switch (msg.messageType) {
         case 'loginResult':
           this.loggedIn = msg.success === true
-          if (!msg.success) this.lastError = msg.message || '登录失败'
+          if (!msg.success) this.lastError = normalizeServerMessage(msg.message) || '登录失败'
           break
 
         case 'matchSuccess':
@@ -325,7 +484,18 @@ export const useGameStore = defineStore('game', {
             roomId: msg.roomId,
             opponentId: msg.opponentId,
             opponentNickname: msg.opponentNickname || msg.opponentId,
+            mode: this.pendingRoomMode,
           }
+          this.matching = false
+          if (this.room?.mode === 'aiBattle') {
+            this.ready = true
+            this.opponentReady = true
+          }
+          // 人机对战：无需用户手动准备，匹配成功后自动 Ready 让服务端立刻开局
+          if (this.room?.mode === 'humanAi') {
+            this.setReady()
+          }
+          this.lastError = ''
           break
 
         case 'roomInfo':
@@ -355,6 +525,7 @@ export const useGameStore = defineStore('game', {
           this.drawOfferFrom = ''
           this.myDrawOffered = false
           this.drawDeclinedBy = ''
+          this.chatMessages = []
           this.myRematchAsked = false
           this.rematchOfferFrom = ''
           this.rematchDeclinedBy = ''
@@ -364,7 +535,7 @@ export const useGameStore = defineStore('game', {
         case 'moveResult':
           console.log('[moveResult]', msg)
           if (msg.valid === false || msg.success === false) {
-            this.lastError = msg.message || '着法无效：请确认是否轮到本方、源格是否有自己的棋子、目标格是否符合揭棋规则。'
+            this.lastError = normalizeServerMessage(msg.message) || '走法无效'
             this.selectedCoord = ''
             break
           }
@@ -386,8 +557,25 @@ export const useGameStore = defineStore('game', {
           break
         }
 
+        case 'chatMessage': {
+          const content = String(msg.content || '').trim()
+          if (!content) break
+          this.chatMessages.push({
+            id: `${msg.timestamp || Date.now()}-${this.chatMessages.length}`,
+            fromUserId: msg.fromUserId || '对手',
+            fromColor: mapColor(msg.fromColor) || 'red',
+            content,
+            timestamp: Number(msg.timestamp || Date.now()),
+            mine: msg.fromUserId === this.userId,
+          })
+          if (this.chatMessages.length > 60) {
+            this.chatMessages = this.chatMessages.slice(-60)
+          }
+          break
+        }
+
         case 'timeout':
-          this.lastError = `超时：${msg.loserId} 判负`
+          this.lastError = `超时：${msg.loserId || '当前玩家'} 判负`
           break
 
         case 'gameOver':
@@ -417,7 +605,7 @@ export const useGameStore = defineStore('game', {
         case 'drawDeclined':
           this.myDrawOffered = false
           this.drawDeclinedBy = msg.fromUserId || '对手'
-          this.lastError = '对方拒绝和棋'
+          this.lastError = '对方拒绝提和'
           break
 
         case 'rematchOffer':
@@ -429,8 +617,16 @@ export const useGameStore = defineStore('game', {
           this.myRematchAsked = false
           break
 
+        case 'gamePaused':
+          this.paused = true
+          break
+
+        case 'gameResumed':
+          this.paused = false
+          break
+
         case 'error':
-          this.lastError = `[${msg.code}] ${msg.message || '未知错误'}`
+          this.lastError = normalizeServerMessage(msg.message)
           this.matching = false
           this.selectedCoord = ''
           break
@@ -444,7 +640,7 @@ export const useGameStore = defineStore('game', {
       const toCol = colToIdx(move.toX)
       const toRow = protocolYToRow(move.toY)
       if (fromCol < 0 || toCol < 0 || Number.isNaN(fromRow) || Number.isNaN(toRow)) {
-        this.lastError = `服务端返回的走子坐标无法解析：${JSON.stringify(move)}`
+        this.lastError = '服务端走法数据异常'
         return
       }
 
@@ -511,7 +707,8 @@ export const useGameStore = defineStore('game', {
 // 老师 JSON 协议：
 //   { x: 'a'-'i', y: 0-9, piece: 'king'/'rook'/..., visible: bool }
 // 这里的 y 与前端内部 row 都采用棋盘显示行号：0=红方底线，9=黑方底线。
-// 服务端不发 color 时，按显示行号推断：row < 5 → 红方，row >= 5 → 黑方。
+// 服务端新版会发 color；兼容旧服务端时才按初始半区推断。
+// 注意：棋子可能已经跨河，不能长期依赖行号推断颜色。
 function parseInitialBoard(cells: any[]): Piece[] {
   const result: Piece[] = []
   for (const cell of cells) {
@@ -520,7 +717,7 @@ function parseInitialBoard(cells: any[]): Piece[] {
     const y = Number(cell.y ?? cell.row)
     if (col < 0 || isNaN(y)) continue
     const row = protocolYToRow(y)
-    const color: Color = row < 5 ? 'red' : 'black'
+    const color: Color = mapColor(cell.color) || (row < 5 ? 'red' : 'black')
     const t = mapType(cell.piece ?? cell.type) || 'pawn'    // 字段名是 piece 不是 type
     const visible = cell.visible === true || cell.revealed === true
     result.push({ type: t, color, row, col, revealed: visible })

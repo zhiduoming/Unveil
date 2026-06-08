@@ -77,6 +77,16 @@ public final class JsonMessages {
         return o;
     }
 
+    public static JsonObject chatMessage(String fromUserId, String fromColor, String content, long timestamp) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.CHAT_MESSAGE);
+        o.addProperty("fromUserId", fromUserId);
+        o.addProperty("fromColor", fromColor);
+        o.addProperty("content", content);
+        o.addProperty("timestamp", timestamp);
+        return o;
+    }
+
     public static JsonObject timeout(String loserId, String winnerId) {
         JsonObject o = new JsonObject();
         o.addProperty("messageType", JsonMessageTypes.TIMEOUT);
@@ -144,6 +154,18 @@ public final class JsonMessages {
         JsonObject o = new JsonObject();
         o.addProperty("messageType", JsonMessageTypes.REMATCH_DECLINED);
         o.addProperty("fromUserId", fromUserId);
+        return o;
+    }
+
+    public static JsonObject gamePaused() {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.GAME_PAUSED);
+        return o;
+    }
+
+    public static JsonObject gameResumed() {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.GAME_RESUMED);
         return o;
     }
 

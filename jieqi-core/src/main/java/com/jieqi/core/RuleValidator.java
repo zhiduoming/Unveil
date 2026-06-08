@@ -153,6 +153,16 @@ public class RuleValidator {
         return moves;
     }
 
+    public static List<Move> generateLegalMoves(Board board, int color) {
+        List<Move> legalMoves = new ArrayList<>();
+        for (Move move : generateAllMoves(board, color)) {
+            if (isMoveLegal(board, move, color)) {
+                legalMoves.add(move);
+            }
+        }
+        return legalMoves;
+    }
+
     public static boolean isInCheck(Board board, int color) {
         ChessPiece king = null;
         for (int r = 0; r < 10; r++) {

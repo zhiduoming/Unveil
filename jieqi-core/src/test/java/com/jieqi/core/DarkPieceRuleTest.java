@@ -60,6 +60,17 @@ class DarkPieceRuleTest {
         assertFalse(RuleValidator.generateAllMoves(board, ChessPiece.RED).stream().anyMatch(Move::isFlipOnly));
     }
 
+    @Test
+    void generatedLegalMovesNeverLeaveOwnKingInCheck() {
+        Board board = new Board();
+        for (Move move : RuleValidator.generateLegalMoves(board, ChessPiece.RED)) {
+            assertTrue(RuleValidator.isValidMove(board, move, ChessPiece.RED));
+            assertTrue(RuleValidator.isMoveLegal(board, move, ChessPiece.RED));
+            assertFalse(move.isFlipOnly());
+            assertNotEquals(move.getSource(), move.getDestination());
+        }
+    }
+
     private static ChessPiece findUnrevealed(Board board, int color, int type) {
         for (int r = 0; r < 10; r++) {
             for (int c = 0; c < 9; c++) {

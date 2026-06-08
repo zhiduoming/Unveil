@@ -19,6 +19,10 @@
             <artifactId>jieqi-core</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.unveil</groupId>
+            <artifactId>jieqi-ai</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.java-websocket</groupId>
             <artifactId>Java-WebSocket</artifactId>
         </dependency>
