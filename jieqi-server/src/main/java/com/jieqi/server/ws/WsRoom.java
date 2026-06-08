@@ -37,6 +37,7 @@ public final class WsRoom {
 
     // ── Pause（本组扩展：AI 对弈暂停） ──
     private boolean paused;            // true 时 AI 调度线程不下一步
+    private long pauseStartTime;       // 进入暂停的时刻，用于恢复时把回合开始时间往后挪
 
     public WsRoom(String roomId, Game game) {
         this.roomId = roomId;
@@ -68,6 +69,8 @@ public final class WsRoom {
 
     public boolean isPaused() { return paused; }
     public void setPaused(boolean paused) { this.paused = paused; }
+    public long pauseStartTime() { return pauseStartTime; }
+    public void setPauseStartTime(long t) { this.pauseStartTime = t; }
 
     public int drawOfferedByColor() { return drawOfferedByColor; }
     public void setDrawOfferedByColor(int color) { this.drawOfferedByColor = color; }

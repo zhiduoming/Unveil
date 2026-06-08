@@ -771,6 +771,9 @@ public class WsGameServer extends WebSocketServer {
                     if (game.getStatus() != Game.GameStatus.PLAYING || !room.isStarted()) {
                         continue;
                     }
+                    if (room.isPaused()) {
+                        continue;
+                    }
                     if (!game.isTimeout()) {
                         continue;
                     }
@@ -907,6 +910,7 @@ public class WsGameServer extends WebSocketServer {
         }
         if (room.isPaused()) return;
         room.setPaused(true);
+        room.setPauseStartTime(System.currentTimeMillis());
         broadcastRoom(room, JsonMessages.gamePaused());
         System.out.println("[WS] AI 对弈已暂停 roomId=" + room.roomId());
     }
@@ -917,9 +921,17 @@ public class WsGameServer extends WebSocketServer {
         if (room == null || !room.isStarted()) return;
         if (!(room.isAiBattle() || room.hasAiOpponent())) return;
         if (!room.isPaused()) return;
+        long pausedMs = room.pauseStartTime() > 0
+                ? System.currentTimeMillis() - room.pauseStartTime()
+                : 0;
+        if (pausedMs > 0) {
+            // 暂停期间不应消耗步时，将回合起点往后挪等长的时间
+            room.game().setTurnStartTime(room.game().getTurnStartTime() + pausedMs);
+        }
         room.setPaused(false);
+        room.setPauseStartTime(0);
         broadcastRoom(room, JsonMessages.gameResumed());
-        System.out.println("[WS] AI 对弈已恢复 roomId=" + room.roomId());
+        System.out.println("[WS] AI 对弈已恢复 roomId=" + room.roomId() + "，补偿步时 " + pausedMs + "ms");
         // 主动触发当前回合的 AI 走子（若该 AI 走）
         scheduleAiMoveIfNeeded(room);
     }
