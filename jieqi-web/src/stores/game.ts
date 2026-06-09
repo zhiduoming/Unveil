@@ -160,6 +160,7 @@ export const useGameStore = defineStore('game', {
 
     // AI 对弈暂停（仅 AI 模式下可见）
     paused: false as boolean,
+    pausedAt: 0 as number,          // 进入暂停的时刻，用于恢复时把回合起点同步往后挪
   }),
 
   getters: {
@@ -414,8 +415,9 @@ export const useGameStore = defineStore('game', {
       this.nowMs = Date.now()
     },
 
-    /** 由 setInterval 推动 nowMs，触发倒计时响应式更新 */
+    /** 由 setInterval 推动 nowMs，触发倒计时响应式更新；暂停时冻结 */
     tickClock() {
+      if (this.paused) return
       this.nowMs = Date.now()
     },
 
@@ -461,6 +463,7 @@ export const useGameStore = defineStore('game', {
       this.rematchOfferFrom = ''
       this.rematchDeclinedBy = ''
       this.paused = false
+      this.pausedAt = 0
     },
 
     returnToLobby() {
@@ -619,10 +622,17 @@ export const useGameStore = defineStore('game', {
 
         case 'gamePaused':
           this.paused = true
+          this.pausedAt = Date.now()
           break
 
         case 'gameResumed':
+          if (this.pausedAt > 0 && this.turnStartedAt > 0) {
+            // 同步服务端：把回合起点往后挪一段暂停时长，倒计时从冻结处继续
+            this.turnStartedAt += Date.now() - this.pausedAt
+          }
           this.paused = false
+          this.pausedAt = 0
+          this.nowMs = Date.now()
           break
 
         case 'error':
