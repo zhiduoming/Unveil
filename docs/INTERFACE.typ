@@ -591,7 +591,7 @@ public class Move {
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
   align: (center + horizon, center + horizon, left, left, center),
   table.header([*messageType*], [*方向*], [*说明*], [*字段*], [*状态*]),
-  [`Login`], [C→S], [登录], [`userId`, `password`], [#ok],
+  [`Login`], [C→S], [登录], [`userId`, `password`, `nickname`?, `avatar`?], [#ok],
   [`register`], [C→S], [注册], [`userId`, `password`, `nickname`], [#ok],
   [`startMatch`], [C→S], [开始匹配], [无额外字段], [#ok],
   [`cancelMatch`], [C→S], [取消匹配], [无额外字段], [#ok],
@@ -609,6 +609,7 @@ public class Move {
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
   table.header([*字段*], [*类型*], [*必填*], [*说明*]),
   [`userId` / `password` / `nickname`], [String], [是], [账号信息],
+  [`avatar`], [String], [否], [Login 可选：内置头像标识（如 emoji 字符），随匹配回传给对手],
   [`wannaFirst`], [boolean], [是], [true=请求红方先手],
   [`fromX` / `toX`], [String], [是], [列 `a`–`i`],
   [`fromY` / `toY`], [int], [是], [行 `0`–`9`],
@@ -621,7 +622,9 @@ public class Move {
 #json-snippet("Login", "{
   \"messageType\": \"Login\",
   \"userId\": \"u1\",
-  \"password\": \"123456\"
+  \"password\": \"123456\",
+  \"nickname\": \"摸鱼的过河卒\",
+  \"avatar\": \"\u{1F42F}\"
 }")
 
 #json-snippet("register", "{
@@ -674,7 +677,7 @@ public class Move {
   align: (center + horizon, center + horizon, left, left, center),
   table.header([*messageType*], [*方向*], [*说明*], [*字段*], [*状态*]),
   [`loginResult`], [S→C], [登录结果], [`success`, `message`, `userId`（成功时）], [#ok],
-  [`matchSuccess`], [S→C], [匹配成功], [`roomId`, `opponentId`, `opponentNickname`], [#ok],
+  [`matchSuccess`], [S→C], [匹配成功], [`roomId`, `opponentId`, `opponentNickname`, `opponentAvatar`?], [#ok],
   [`roomInfo`], [S→C], [房间状态], [`opponentReady`: true/false], [#ok],
   [`gameStart`], [S→C], [开局], [`redPlayerId`, `blackPlayerId`, `yourColor`, `firstHand`, `initialBoard`], [#ok],
   [`moveResult`], [S→C], [走子结果], [`success`, `valid`, `move`, `flipResult`?, `captured`?], [#ok],
@@ -699,7 +702,8 @@ public class Move {
   \"messageType\": \"matchSuccess\",
   \"roomId\": \"room_123\",
   \"opponentId\": \"user456\",
-  \"opponentNickname\": \"象棋高手\"
+  \"opponentNickname\": \"象棋高手\",
+  \"opponentAvatar\": \"\u{1F43C}\"
 }")
 
 #json-snippet("roomInfo", "{
@@ -880,7 +884,8 @@ public class Move {
   \"messageType\": \"matchSuccess\",
   \"roomId\": \"room_123\",
   \"opponentId\": \"user456\",
-  \"opponentNickname\": \"象棋高手\"
+  \"opponentNickname\": \"象棋高手\",
+  \"opponentAvatar\": \"\u{1F43C}\"
 }
 
 // C→S 请求先手
@@ -1754,13 +1759,13 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
   stroke: (x, y) => if y < 1 { (bottom: 0.5pt + black) },
   align: (center + horizon, left, left),
   table.header([*messageType*], [*方向*], [*关键字段*]),
-  [Login], [C→S], [`userId`, `password`],
+  [Login], [C→S], [`userId`, `password`, `nickname`?, `avatar`?],
   [register], [C→S], [`userId`, `password`, `nickname`],
   [startMatch], [C→S], [—],
   [Ready], [C→S], [—],
   [move], [C→S], [`fromX`, `fromY`, `toX`, `toY`, `isFlip`],
   [loginResult], [S→C], [`success`, `message`, `userId`],
-  [matchSuccess], [S→C], [`roomId`, `opponentId`, `opponentNickname`],
+  [matchSuccess], [S→C], [`roomId`, `opponentId`, `opponentNickname`, `opponentAvatar`?],
   [gameStart], [S→C], [`yourColor`, `firstHand`, `initialBoard`],
   [moveResult], [S→C], [`valid`, `move`, `flipResult`?, `captured`?],
   [timeout], [S→C], [`loserId`, `winnerId`],
