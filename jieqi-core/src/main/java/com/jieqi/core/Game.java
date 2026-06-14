@@ -20,6 +20,11 @@ public class Game {
     private final GameRecord record = new GameRecord();
     private Map<String, Integer> repetitionCount;
 
+    // 被吃棋子记录（揭棋信息差用）：lastCaptured 供本步 moveResult 差异化广播；
+    // capturedPieces 累积全部被吃子，供终局 capturedReveal 揭晓真实身份。
+    private ChessPiece lastCaptured;
+    private final List<ChessPiece> capturedPieces = new ArrayList<>();
+
     public Game(String gameId) {
         this.gameId = gameId;
         this.board = new Board();
@@ -47,6 +52,10 @@ public class Game {
         move.setTurnStartTime(turnStartTime);
 
         ChessPiece captured = board.executeMove(move);
+        lastCaptured = captured;
+        if (captured != null) {
+            capturedPieces.add(captured);
+        }
         record.append(move);
 
         int nextTurn = (playerColor == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
@@ -146,6 +155,12 @@ public class Game {
     public String getRedPlayerName() { return redPlayerName; }
     public String getBlackPlayerName() { return blackPlayerName; }
     public GameRecord getRecord() { return record; }
+
+    /** 上一步被吃的棋子（含真实 type/color/revealed），无吃子时为 null。供差异化广播使用。 */
+    public ChessPiece getLastCaptured() { return lastCaptured; }
+
+    /** 本局已被吃的全部棋子（真实身份），供终局揭晓。 */
+    public List<ChessPiece> getCapturedPieces() { return capturedPieces; }
 
     /** @deprecated 使用 {@link #getRecord()} */
     @Deprecated
