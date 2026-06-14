@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ws, type WsMessage } from '../services/ws'
-import { initialJieqiBoard, type Piece, type PieceType } from '../types/chess'
+import { initialJieqiBoard, type Piece, type PieceType, type CapturedEntry } from '../types/chess'
 import { getMoveErrorMessage, getValidMoves, isInCheck, isCheckmate, isStalemate } from '../utils/chessRules'
 
 export type Color = 'red' | 'black'
@@ -142,6 +142,12 @@ export const useGameStore = defineStore('game', {
     lastMove: null as { from: string; to: string } | null,
     battleEffect: null as null | { kind: 'move' | 'capture' | 'check'; seq: number },
     battleEffectSeq: 0 as number,
+
+    // 被吃棋子展示（揭棋信息差）：
+    //   capturedByMe   = 我方吃掉对方的子（棋盘左下「战利品」，可见真实身份）
+    //   capturedFromMe = 对方吃掉我方的子（棋盘右上「损失」，暗子被吃不显身份）
+    capturedByMe: [] as CapturedEntry[],
+    capturedFromMe: [] as CapturedEntry[],
 
     // 将军状态
     inCheck: null as Color | null,  // 谁正被将军
@@ -522,6 +528,8 @@ export const useGameStore = defineStore('game', {
           this.lastMove = null
           this.battleEffect = null
           this.battleEffectSeq = 0
+          this.capturedByMe = []
+          this.capturedFromMe = []
           this.inCheck = null
           this.endgameVerdict = null
           this.gameOver = null
@@ -543,6 +551,7 @@ export const useGameStore = defineStore('game', {
             break
           }
           if (msg.move) this.applyMove(msg.move, msg.flipResult)
+          if (msg.captured) this.recordCapture(msg.captured)
           this.lastError = ''
           break
 
@@ -583,6 +592,13 @@ export const useGameStore = defineStore('game', {
 
         case 'gameOver':
           this.gameOver = { winner: msg.winner, reason: msg.reason, winnerId: msg.winnerId }
+          // 终局揭晓：用 capturedReveal（全部真实身份）重建两个展示区，
+          // 把对局中右上角的「未知暗子」展开为真实棋子（复盘可见）。
+          if (Array.isArray(msg.capturedReveal)) {
+            this.capturedByMe = []
+            this.capturedFromMe = []
+            for (const cap of msg.capturedReveal) this.recordCapture(cap)
+          }
           this.selectedCoord = ''
           this.hintCoords = []
           this.drawOfferFrom = ''
@@ -640,6 +656,23 @@ export const useGameStore = defineStore('game', {
           this.matching = false
           this.selectedCoord = ''
           break
+      }
+    },
+
+    // 记录一次吃子（来自 moveResult.captured 或 gameOver.capturedReveal）。
+    // 按被吃子颜色相对「我方」归入左下战利品 / 右上损失区；观战者无 yourColor，
+    // 固定把红方损失视为「我方损失」（红方视角），保证两侧展示稳定。
+    recordCapture(cap: any) {
+      if (!cap) return
+      const color = mapColor(cap.color)
+      if (!color) return
+      const type = cap.piece != null ? (mapType(cap.piece) ?? null) : null
+      const entry: CapturedEntry = { color, type, wasDark: cap.wasDark === true }
+      const myColor = this.gameStart?.yourColor ?? 'red'
+      if (color === myColor) {
+        this.capturedFromMe.push(entry)  // 我方的子被吃 → 右上「损失」
+      } else {
+        this.capturedByMe.push(entry)    // 对方的子被我吃 → 左下「战利品」
       }
     },
 

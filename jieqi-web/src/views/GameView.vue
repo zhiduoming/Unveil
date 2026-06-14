@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game'
 import { initialJieqiBoard } from '../types/chess'
 import ChessBoard from '../components/ChessBoard.vue'
+import CapturedTray from '../components/CapturedTray.vue'
 
 const router = useRouter()
 const store = useGameStore()
@@ -270,6 +271,10 @@ function backToLobby() {
       <!-- ========= 中栏：棋盘 ========= -->
       <main class="board-col">
         <div class="board-stack">
+          <!-- 右上：我方被吃的棋子（损失）。暗子被吃倒扣不显身份。 -->
+          <div class="captured-bar captured-bar-top">
+            <CapturedTray :entries="store.capturedFromMe" variant="loss" />
+          </div>
           <ChessBoard
             :pieces="store.board"
             :is-red-view="isRedView"
@@ -278,6 +283,10 @@ function backToLobby() {
             :last-move="store.lastMove"
             @cell-click="onCellClick"
           />
+          <!-- 左下：我方吃掉对方的棋子（战利品）。暗子被吃可见身份但变暗。 -->
+          <div class="captured-bar captured-bar-bottom">
+            <CapturedTray :entries="store.capturedByMe" variant="trophy" />
+          </div>
           <Transition name="battle-pop">
             <div
               v-if="battleBadge"
@@ -693,6 +702,16 @@ function backToLobby() {
   align-items: center;
   width: 100%;
 }
+
+/* 被吃棋子展示条：上方（损失）靠右、下方（战利品）靠左 */
+.captured-bar {
+  width: 100%;
+  max-width: 880px;
+  padding: 4px 7%;
+  box-sizing: border-box;
+}
+.captured-bar-top { margin-bottom: 4px; }
+.captured-bar-bottom { margin-top: 4px; }
 
 .battle-overlay {
   position: absolute;
