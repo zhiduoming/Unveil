@@ -1,5 +1,6 @@
 package com.jieqi.server.ws;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.jieqi.core.ChessPiece;
 import com.jieqi.core.Game;
@@ -417,8 +418,15 @@ public class WsGameServer extends WebSocketServer {
             if (move.getType() != null) {
                 flipResult = PieceJsonMapper.toJsonName(move.getType());
             }
-            JsonObject result = JsonMessages.moveResult(true, move, true, flipResult);
-            broadcastRoom(room, result);
+            // 揭棋信息差：被吃子身份按接收方视角差异化下发——吃子方/观战者看真实身份，
+            // 被吃方暗子被吃时不显示真实身份（见 INTERFACE.typ Q1 方案 B）。
+            ChessPiece captured = game.getLastCaptured();
+            send(room.red(), JsonMessages.moveResult(true, move, true, flipResult,
+                    JsonMessages.capturedJson(captured, ChessPiece.RED)));
+            send(room.black(), JsonMessages.moveResult(true, move, true, flipResult,
+                    JsonMessages.capturedJson(captured, ChessPiece.BLACK)));
+            send(room.observer(), JsonMessages.moveResult(true, move, true, flipResult,
+                    JsonMessages.capturedJson(captured, -1)));
 
             Game.GameStatus status = game.getStatus();
             if (status != Game.GameStatus.PLAYING) {
@@ -805,7 +813,9 @@ public class WsGameServer extends WebSocketServer {
             reasonCode = Protocol.REASON_CHECKMATE;
         }
         String reason = JsonMessages.reasonFromProtocolCode(reasonCode);
-        broadcastRoom(room, JsonMessages.gameOver(winnerStr, reason, winnerId));
+        // 终局揭晓：把全部被吃子的真实身份发给双方与观战者（复盘可见，含被吃方暗子损失）。
+        JsonArray capturedReveal = JsonMessages.capturedReveal(room.game().getCapturedPieces());
+        broadcastRoom(room, JsonMessages.gameOver(winnerStr, reason, winnerId, capturedReveal));
         persistRecord(room.game());
         // 不立即销毁 room，标记 finished：保留 REMATCH_WINDOW_MS 等待双方决定是否再来一局。
         // 超时由 rematchCleanupLoop 回收。

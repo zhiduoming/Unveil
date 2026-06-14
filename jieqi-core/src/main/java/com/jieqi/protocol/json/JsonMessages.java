@@ -9,6 +9,8 @@ import com.jieqi.core.Board;
 import com.jieqi.core.ChessPiece;
 import com.jieqi.core.Move;
 
+import java.util.List;
+
 /** 老师公共接口 JSON 消息构建与解析。 */
 public final class JsonMessages {
 
@@ -77,6 +79,40 @@ public final class JsonMessages {
         return o;
     }
 
+    /** moveResult 重载：附带已按视角脱敏的 captured 对象（可为 null）。 */
+    public static JsonObject moveResult(boolean success, Move move, boolean valid,
+                                        String flipResult, JsonObject captured) {
+        JsonObject o = moveResult(success, move, valid, flipResult);
+        if (captured != null) {
+            o.add("captured", captured);
+        }
+        return o;
+    }
+
+    /**
+     * 构造按接收方视角脱敏的 captured 对象（揭棋信息差）。
+     *
+     * @param captured    被吃子（真实身份），为 null 时返回 null
+     * @param viewerColor 接收方颜色（{@link ChessPiece#RED}/{@link ChessPiece#BLACK}）；
+     *                    传 -1 表示观战者/上帝视角，看全部真实身份
+     * @return {color, piece?, wasDark}；被吃方且暗子被吃时省略 piece
+     */
+    public static JsonObject capturedJson(ChessPiece captured, int viewerColor) {
+        if (captured == null) {
+            return null;
+        }
+        JsonObject c = new JsonObject();
+        c.addProperty("color", PieceJsonMapper.colorToString(captured.getColor()));
+        boolean wasDark = !captured.isRevealed();
+        c.addProperty("wasDark", wasDark);
+        // 被吃方（viewerColor == 被吃子颜色）且为暗子被吃时隐藏真实身份；其余一律可见。
+        boolean hide = wasDark && viewerColor == captured.getColor();
+        if (!hide) {
+            c.addProperty("piece", PieceJsonMapper.toJsonName(captured.getType()));
+        }
+        return c;
+    }
+
     public static JsonObject chatMessage(String fromUserId, String fromColor, String content, long timestamp) {
         JsonObject o = new JsonObject();
         o.addProperty("messageType", JsonMessageTypes.CHAT_MESSAGE);
@@ -103,6 +139,32 @@ public final class JsonMessages {
         o.addProperty("reason", reason);
         o.addProperty("winnerId", winnerId);
         return o;
+    }
+
+    /** gameOver 重载：附带终局揭晓的被吃子列表（可为 null）。 */
+    public static JsonObject gameOver(String winnerColor, String reason, String winnerId,
+                                      JsonArray capturedReveal) {
+        JsonObject o = gameOver(winnerColor, reason, winnerId);
+        if (capturedReveal != null) {
+            o.add("capturedReveal", capturedReveal);
+        }
+        return o;
+    }
+
+    /** 把已被吃棋子序列化为 capturedReveal 数组（全部真实身份，用于终局揭晓）。 */
+    public static JsonArray capturedReveal(List<ChessPiece> capturedPieces) {
+        JsonArray arr = new JsonArray();
+        if (capturedPieces == null) {
+            return arr;
+        }
+        for (ChessPiece p : capturedPieces) {
+            JsonObject c = new JsonObject();
+            c.addProperty("color", PieceJsonMapper.colorToString(p.getColor()));
+            c.addProperty("wasDark", !p.isRevealed());
+            c.addProperty("piece", PieceJsonMapper.toJsonName(p.getType()));
+            arr.add(c);
+        }
+        return arr;
     }
 
     public static JsonObject pong(long timestamp) {
