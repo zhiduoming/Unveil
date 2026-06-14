@@ -75,8 +75,8 @@ function charOf(item: TrayItem) {
 .cap-tray {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  min-height: 30px;
+  gap: 6px;
+  min-height: 62px;
   align-items: center;
   width: 100%;
 }
@@ -87,8 +87,8 @@ function charOf(item: TrayItem) {
 
 .cap-slot {
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: 60px;
+  height: 60px;
   flex: 0 0 auto;
 }
 
@@ -118,7 +118,7 @@ function charOf(item: TrayItem) {
 
 .cap-char {
   font-family: STKaiti, KaiTi, '楷体', serif;
-  font-size: 17px;
+  font-size: 28px;
   font-weight: 900;
   line-height: 1;
 }
@@ -128,18 +128,18 @@ function charOf(item: TrayItem) {
 /* 右上角数字角标 */
 .cap-badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 3px;
-  border-radius: 8px;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
   background: #b91c1c;
   color: #fff;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
-  line-height: 15px;
+  line-height: 20px;
   text-align: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 </style>
