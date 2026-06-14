@@ -152,7 +152,9 @@ public class WsGameServer extends WebSocketServer {
     private void handleLogin(WsPlayerContext ctx, JsonObject json) {
         String userId = json.has("userId") ? json.get("userId").getAsString() : null;
         String password = json.has("password") ? json.get("password").getAsString() : "";
-        UserRegistry.UserAccount acc = users.loginOrCreate(userId, password);
+        String nickname = json.has("nickname") ? json.get("nickname").getAsString() : null;
+        String avatar = json.has("avatar") ? json.get("avatar").getAsString() : null;
+        UserRegistry.UserAccount acc = users.loginOrCreate(userId, password, nickname, avatar);
         if (acc == null) {
             send(ctx, JsonMessages.loginResult(false, "登录失败", null));
             return;
@@ -163,7 +165,7 @@ public class WsGameServer extends WebSocketServer {
             send(ctx, JsonMessages.error(JsonErrorCodes.DUPLICATE_LOGIN, "重复登录"));
             return;
         }
-        ctx.setUser(acc.userId(), acc.nickname());
+        ctx.setUser(acc.userId(), acc.nickname(), acc.avatar());
         send(ctx, JsonMessages.loginResult(true, "登录成功", acc.userId()));
     }
 
@@ -287,8 +289,8 @@ public class WsGameServer extends WebSocketServer {
                 return;
             }
             room.bindPlayer(ctx, ChessPiece.BLACK);
-            send(room.red(), JsonMessages.matchSuccess(roomId, ctx.userId(), ctx.nickname()));
-            send(ctx, JsonMessages.matchSuccess(roomId, room.red().userId(), room.red().nickname()));
+            send(room.red(), JsonMessages.matchSuccess(roomId, ctx.userId(), ctx.nickname(), ctx.avatar()));
+            send(ctx, JsonMessages.matchSuccess(roomId, room.red().userId(), room.red().nickname(), room.red().avatar()));
             System.out.println("[WS] 加入房间 roomId=" + roomId + " " + room.red().userId() + " vs " + ctx.userId());
         }
     }
@@ -681,8 +683,8 @@ public class WsGameServer extends WebSocketServer {
             rooms.put(roomId, room);
             room.bindPlayer(p1, ChessPiece.RED);
             room.bindPlayer(p2, ChessPiece.BLACK);
-            send(p1, JsonMessages.matchSuccess(roomId, u2, users.nickname(u2)));
-            send(p2, JsonMessages.matchSuccess(roomId, u1, users.nickname(u1)));
+            send(p1, JsonMessages.matchSuccess(roomId, u2, users.nickname(u2), users.avatar(u2)));
+            send(p2, JsonMessages.matchSuccess(roomId, u1, users.nickname(u1), users.avatar(u1)));
             System.out.println("[WS] 匹配成功 roomId=" + roomId + " " + u1 + " vs " + u2);
         }
     }

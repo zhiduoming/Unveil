@@ -44,11 +44,19 @@ public final class JsonMessages {
     }
 
     public static JsonObject matchSuccess(String roomId, String opponentId, String opponentNickname) {
+        return matchSuccess(roomId, opponentId, opponentNickname, null);
+    }
+
+    public static JsonObject matchSuccess(String roomId, String opponentId, String opponentNickname,
+                                          String opponentAvatar) {
         JsonObject o = new JsonObject();
         o.addProperty("messageType", JsonMessageTypes.MATCH_SUCCESS);
         o.addProperty("roomId", roomId);
         o.addProperty("opponentId", opponentId);
         o.addProperty("opponentNickname", opponentNickname);
+        if (opponentAvatar != null && !opponentAvatar.isBlank()) {
+            o.addProperty("opponentAvatar", opponentAvatar);
+        }
         return o;
     }
 
