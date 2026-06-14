@@ -526,7 +526,17 @@ public class Move {
   [`valid`], [boolean], [走子是否符合规则], [#ok],
   [`move`], [object], [同客户端 move 结构], [#ok],
   [`flipResult`], [String?], [isFlip 为真时，翻出棋子 `piece` 枚举], [#ok],
+  [`captured`], [object?], [本步若有吃子才出现，见下方"被吃子可见性"], [#ok],
 )
+
+*被吃子信息差（揭棋规则，方案 B）*：`captured` 对象按*接收方视角*差异化下发，字段为
+`{ color, piece?, wasDark }`。`color` 为被吃子颜色；`wasDark` 表示被吃前是否为暗子；
+`piece` 为被吃子*真实身份*枚举。可见性规则：
+
+- *吃子方*与*观战者*：始终收到真实 `piece`（吃子方可看清自己吃掉的暗子，观战者上帝视角）。
+- *被吃方*：明子被吃（`wasDark=false`）收到真实 `piece`；暗子被吃（`wasDark=true`）`piece` 省略/为 `null`——
+  被吃方只知"丢了一枚暗子"，不知其身份。
+- 对局结束时由 `gameOver.capturedReveal` 统一揭晓全部真实身份（复盘可见）。
 
 完整 WS 消息定义见第 6 章。
 
@@ -667,9 +677,9 @@ public class Move {
   [`matchSuccess`], [S→C], [匹配成功], [`roomId`, `opponentId`, `opponentNickname`], [#ok],
   [`roomInfo`], [S→C], [房间状态], [`opponentReady`: true/false], [#ok],
   [`gameStart`], [S→C], [开局], [`redPlayerId`, `blackPlayerId`, `yourColor`, `firstHand`, `initialBoard`], [#ok],
-  [`moveResult`], [S→C], [走子结果], [`success`, `valid`, `move`, `flipResult`?], [#ok],
+  [`moveResult`], [S→C], [走子结果], [`success`, `valid`, `move`, `flipResult`?, `captured`?], [#ok],
   [`timeout`], [S→C], [超时判负], [`loserId`, `winnerId`, `reason`], [#ok],
-  [`gameOver`], [S→C], [终局], [`winner`, `reason`, `winnerId`], [#ok],
+  [`gameOver`], [S→C], [终局], [`winner`, `reason`, `winnerId`, `capturedReveal`?], [#ok],
   [`pong`], [S→C], [心跳回复], [`timestamp`], [#ok],
   [`error`], [S→C], [错误], [`code`, `message`], [#ok],
 )
@@ -713,7 +723,7 @@ public class Move {
   ]
 }")
 
-#json-snippet("moveResult（valid=true，双方广播）", "{
+#json-snippet("moveResult（valid=true；captured 按视角差异化）", "{
   \"messageType\": \"moveResult\",
   \"success\": true,
   \"valid\": true,
@@ -724,7 +734,12 @@ public class Move {
     \"toY\": 1,
     \"isFlip\": true
   },
-  \"flipResult\": \"cannon\"
+  \"flipResult\": \"cannon\",
+  \"captured\": {
+    \"color\": \"black\",
+    \"piece\": \"rook\",
+    \"wasDark\": true
+  }
 }")
 
 #json-snippet("timeout", "{
@@ -734,11 +749,15 @@ public class Move {
   \"reason\": \"timeout\"
 }")
 
-#json-snippet("gameOver", "{
+#json-snippet("gameOver（capturedReveal 揭晓全部真实身份）", "{
   \"messageType\": \"gameOver\",
   \"winner\": \"red\",
   \"reason\": \"checkmate\",
-  \"winnerId\": \"user123\"
+  \"winnerId\": \"user123\",
+  \"capturedReveal\": [
+    { \"color\": \"black\", \"piece\": \"rook\", \"wasDark\": true },
+    { \"color\": \"red\", \"piece\": \"pawn\", \"wasDark\": false }
+  ]
 }")
 
 #json-snippet("pong", "{
@@ -802,7 +821,13 @@ public class Move {
   [`valid`], [boolean], [走子是否符合规则], [#ok],
   [`move`], [object], [同客户端 move 结构], [#ok],
   [`flipResult`], [String?], [isFlip 为真时，翻出棋子 `piece` 枚举], [#ok],
+  [`captured`], [object?], [本步若吃子才出现；`{color, piece?, wasDark}`，按接收方视角脱敏（见 §5.5 与 Q1）], [#ok],
 )
+
+=== gameOver 揭晓被吃子（`capturedReveal`）
+
+终局消息可附带 `capturedReveal` 数组，每项 `{color, piece, wasDark}` 均为*真实身份*，
+用于复盘揭晓被吃方的暗子损失。前端据此把对局中"未知暗子"展开为真实棋子。
 
 == 错误码（§6.7）
 
@@ -907,7 +932,9 @@ public class Move {
     \"isFlip\": true
   },
   \"flipResult\": \"cannon\",
-  \"valid\": true
+  \"valid\": true,
+  // 本步吃子时附带；piece 按接收方视角脱敏
+  \"captured\": { \"color\": \"black\", \"piece\": \"rook\", \"wasDark\": true }
 }
 ")
 
@@ -1310,9 +1337,10 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
   [Q1], [
     吃暗子时，被吃方是否应知道被吃子的*真实*类型？规则写「被吃方不知道」，但 MOVE 广播含 type。
   ], [
-    方案 A：双方广播相同（实现简单）；\
-    方案 B：对被吃方发送 type 置空的 MOVE（与规则一致，需双通道广播）。
-  ], [待确认],
+    *已采用方案 B*：`moveResult.captured` 按接收方视角差异化下发——吃子方/观战者收到真实
+    `piece`，被吃方在暗子被吃时 `piece` 置空（仅知丢了暗子）；终局 `gameOver.capturedReveal`
+    统一揭晓。见 §5.5 / §6 moveResult。
+  ], [本组方案],
   [Q2], [
     题目写「不考虑不应将」，走子后己方被将军是否仍一律拒绝？若对方未应将，是否允许直接吃帅结束？
   ], [
@@ -1380,8 +1408,8 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
   [Q13], [
     吃子后翻开的 type 是否对*吃子方*立即可见、对*被吃方*是否隐藏（见 Q1）？
   ], [
-    与 Q1 联动；当前协议对双方广播相同 MOVE。
-  ], [待确认],
+    与 Q1 联动并采用方案 B：吃子方立即可见被吃暗子真实身份，被吃方隐藏，终局揭晓。
+  ], [本组方案],
 )
 
 == 网络、计时与互操作
@@ -1652,7 +1680,7 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
   [RuleValidator 走法/虚拟类型], [#ok], [],
   [EndgameJudge 将死/困毙/和棋], [#ok], [],
   [长将/长捉/40 回合和棋], [#ok], [],
-  [暗子被吃信息差], [#warn], [见 Q1；双方广播相同 flipResult],
+  [暗子被吃信息差], [#ok], [方案 B：`captured` 按视角脱敏，终局 `capturedReveal` 揭晓],
   [禁止送将], [#ok], [见 §9],
   [棋谱 .jieqi 存储], [#ok], [`GameRecordStore`],
   [多盘并发 `Map<String, Game>`], [#ok], [],
@@ -1734,9 +1762,9 @@ if (serverCurrentTime − serverTurnStartTime > 60000 + 5000) {
   [loginResult], [S→C], [`success`, `message`, `userId`],
   [matchSuccess], [S→C], [`roomId`, `opponentId`, `opponentNickname`],
   [gameStart], [S→C], [`yourColor`, `firstHand`, `initialBoard`],
-  [moveResult], [S→C], [`valid`, `move`, `flipResult`?],
+  [moveResult], [S→C], [`valid`, `move`, `flipResult`?, `captured`?],
   [timeout], [S→C], [`loserId`, `winnerId`],
-  [gameOver], [S→C], [`winner`, `reason`, `winnerId`],
+  [gameOver], [S→C], [`winner`, `reason`, `winnerId`, `capturedReveal`?],
   [error], [S→C], [`code`, `message`],
   [ping / pong], [双向], [`timestamp`],
 )
