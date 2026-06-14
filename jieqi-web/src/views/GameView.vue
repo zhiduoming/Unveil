@@ -5,6 +5,7 @@ import { useGameStore } from '../stores/game'
 import { initialJieqiBoard } from '../types/chess'
 import ChessBoard from '../components/ChessBoard.vue'
 import CapturedTray from '../components/CapturedTray.vue'
+import { QUICK_MESSAGES, CHAT_EMOJIS } from '../utils/chatPresets'
 
 const router = useRouter()
 const store = useGameStore()
@@ -27,6 +28,7 @@ let toastTimer: number | undefined
 const pendingConfirm = ref<null | 'draw' | 'resign'>(null)
 const chatDraft = ref('')
 const chatLogRef = ref<HTMLElement | null>(null)
+const chatPanel = ref<'' | 'quick' | 'emoji'>('')  // 快捷消息 / 表情面板（互斥展开）
 type BattleKind = 'move' | 'capture' | 'check'
 const battleBadge = ref<null | { kind: 'capture' | 'check'; key: number }>(null)
 let battleTimer: number | undefined
@@ -183,6 +185,18 @@ function sendChat() {
   const text = chatDraft.value
   store.sendChat(text)
   if (text.trim()) chatDraft.value = ''
+}
+
+function toggleChatPanel(mode: 'quick' | 'emoji') {
+  chatPanel.value = chatPanel.value === mode ? '' : mode
+}
+function sendQuick(msg: string) {
+  if (store.gameOver) return
+  store.sendChat(msg)
+  chatPanel.value = ''
+}
+function insertEmoji(e: string) {
+  chatDraft.value = (chatDraft.value + e).slice(0, 120)
 }
 
 function backToLobby() {
@@ -344,6 +358,11 @@ function backToLobby() {
           <div class="chat-head">
             <h3 class="chat-title">局内聊天</h3>
             <span class="chat-count">{{ store.chatMessages.length }}</span>
+            <button
+              class="chat-sound"
+              :title="store.chatSoundOn ? '消息提示音：开' : '消息提示音：关'"
+              @click="store.toggleChatSound()"
+            >{{ store.chatSoundOn ? '🔔' : '🔕' }}</button>
           </div>
           <div ref="chatLogRef" class="chat-log">
             <div v-if="store.chatMessages.length === 0" class="chat-empty">还没有消息</div>
@@ -362,6 +381,39 @@ function backToLobby() {
               <div class="chat-bubble">{{ msg.content }}</div>
             </div>
           </div>
+          <!-- 快捷消息 / 表情 展开面板 -->
+          <div v-if="chatPanel === 'quick'" class="chat-panel">
+            <button
+              v-for="m in QUICK_MESSAGES"
+              :key="m"
+              class="quick-chip"
+              :disabled="!!store.gameOver"
+              @click="sendQuick(m)"
+            >{{ m }}</button>
+          </div>
+          <div v-else-if="chatPanel === 'emoji'" class="chat-panel emoji-panel">
+            <button
+              v-for="e in CHAT_EMOJIS"
+              :key="e"
+              class="emoji-chip"
+              @click="insertEmoji(e)"
+            >{{ e }}</button>
+          </div>
+
+          <div class="chat-tools">
+            <button
+              class="chat-tool"
+              :class="{ active: chatPanel === 'quick' }"
+              :disabled="!!store.gameOver"
+              @click="toggleChatPanel('quick')"
+            >💬 快捷</button>
+            <button
+              class="chat-tool"
+              :class="{ active: chatPanel === 'emoji' }"
+              @click="toggleChatPanel('emoji')"
+            >😀 表情</button>
+          </div>
+
           <div class="chat-input-row">
             <input
               v-model="chatDraft"
@@ -929,9 +981,79 @@ function backToLobby() {
 .chat-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
 }
+.chat-head .chat-title { margin-right: auto; }
+.chat-sound {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: background 0.12s ease;
+}
+.chat-sound:hover { background: rgba(120, 53, 15, 0.12); }
+
+/* 快捷消息 / 表情 面板 */
+.chat-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 132px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  padding: 6px;
+  border: 1px dashed rgba(120, 53, 15, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+.quick-chip {
+  font-size: 12px;
+  color: #5d2f0d;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(120, 53, 15, 0.3);
+  border-radius: 14px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+.quick-chip:hover:not(:disabled) { background: rgba(253, 230, 138, 0.85); }
+.quick-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+.emoji-panel { max-height: 110px; }
+.emoji-chip {
+  font-size: 20px;
+  line-height: 1;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+.emoji-chip:hover { background: rgba(253, 230, 138, 0.7); transform: scale(1.12); }
+
+.chat-tools {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.chat-tool {
+  font-size: 12px;
+  color: #5d2f0d;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(120, 53, 15, 0.3);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.chat-tool:hover:not(:disabled) { background: rgba(253, 230, 138, 0.7); }
+.chat-tool.active { background: rgba(245, 158, 11, 0.35); border-color: rgba(120, 53, 15, 0.5); }
+.chat-tool:disabled { opacity: 0.5; cursor: not-allowed; }
 .chat-title {
   font-size: 14px;
   font-weight: 800;

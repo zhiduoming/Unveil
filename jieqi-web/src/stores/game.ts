@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ws, type WsMessage } from '../services/ws'
 import { initialJieqiBoard, type Piece, type PieceType, type CapturedEntry } from '../types/chess'
 import { getMoveErrorMessage, getValidMoves, isInCheck, isCheckmate, isStalemate } from '../utils/chessRules'
+import { playMessageBeep } from '../utils/sound'
 
 export type Color = 'red' | 'black'
 
@@ -137,6 +138,7 @@ export const useGameStore = defineStore('game', {
     myDrawOffered: false as boolean,
     drawDeclinedBy: '' as string,
     chatMessages: [] as ChatMessage[],
+    chatSoundOn: true as boolean,  // 新消息提示音开关
 
     // 棋盘状态
     board: [] as Piece[],
@@ -290,6 +292,9 @@ export const useGameStore = defineStore('game', {
         return
       }
       ws.send({ messageType: 'chat', content: text.slice(0, 120) })
+    },
+    toggleChatSound() {
+      this.chatSoundOn = !this.chatSoundOn
     },
     ping() {
       ws.send({ messageType: 'ping', timestamp: Date.now() })
@@ -588,6 +593,10 @@ export const useGameStore = defineStore('game', {
           })
           if (this.chatMessages.length > 60) {
             this.chatMessages = this.chatMessages.slice(-60)
+          }
+          // 收到对方消息时播放提示音（自己发的不响）
+          if (this.chatSoundOn && msg.fromUserId !== this.userId) {
+            playMessageBeep()
           }
           break
         }
