@@ -9,6 +9,7 @@ export interface RoomInfo {
   roomId: string
   opponentId: string
   opponentNickname: string
+  opponentAvatar: string
   mode: 'human' | 'humanAi' | 'aiBattle'
 }
 
@@ -119,6 +120,8 @@ export const useGameStore = defineStore('game', {
   state: () => ({
     serverUrl: defaultServerUrl(),
     userId: '' as string,
+    myNickname: '' as string,   // 我的显示昵称（随机生成）
+    myAvatar: '' as string,     // 我的 emoji 头像
     loggedIn: false as boolean,
     matching: false as boolean,
     ready: false as boolean,
@@ -200,9 +203,11 @@ export const useGameStore = defineStore('game', {
       this.serverUrl = url
       await ws.connect(url)
     },
-    login(userId: string, password: string) {
+    login(userId: string, password: string, nickname?: string, avatar?: string) {
       this.userId = userId
-      ws.send({ messageType: 'Login', userId, password })
+      this.myNickname = nickname || userId
+      this.myAvatar = avatar || ''
+      ws.send({ messageType: 'Login', userId, password, nickname, avatar })
     },
     startMatch() {
       this.matching = true
@@ -493,6 +498,7 @@ export const useGameStore = defineStore('game', {
             roomId: msg.roomId,
             opponentId: msg.opponentId,
             opponentNickname: msg.opponentNickname || msg.opponentId,
+            opponentAvatar: msg.opponentAvatar || '',
             mode: this.pendingRoomMode,
           }
           this.matching = false

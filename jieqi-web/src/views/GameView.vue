@@ -204,11 +204,13 @@ function backToLobby() {
           <div class="card-head">
             <div
               class="avatar"
-              :class="(yourColor === 'red') ? 'avatar-black' : 'avatar-red'"
+              :class="[(yourColor === 'red') ? 'avatar-black' : 'avatar-red',
+                       store.room?.opponentAvatar ? 'avatar-emoji' : '']"
             >
-              {{ ((yourColor === 'red')
-                  ? store.gameStart?.blackPlayerId
-                  : store.gameStart?.redPlayerId)?.[0]?.toUpperCase() || '?' }}
+              {{ store.room?.opponentAvatar
+                  || ((yourColor === 'red')
+                      ? store.gameStart?.blackPlayerId
+                      : store.gameStart?.redPlayerId)?.[0]?.toUpperCase() || '?' }}
             </div>
             <span
               class="side-tag"
@@ -249,9 +251,10 @@ function backToLobby() {
           <div class="card-head">
             <div
               class="avatar"
-              :class="yourColor === 'red' ? 'avatar-red' : 'avatar-black'"
+              :class="[yourColor === 'red' ? 'avatar-red' : 'avatar-black',
+                       store.myAvatar ? 'avatar-emoji' : '']"
             >
-              {{ store.userId?.[0]?.toUpperCase() || '?' }}
+              {{ store.myAvatar || store.userId?.[0]?.toUpperCase() || '?' }}
             </div>
             <span
               class="side-tag"
@@ -261,7 +264,7 @@ function backToLobby() {
             </span>
             <span class="side-tag tag-you">你</span>
           </div>
-          <div class="player-name">{{ store.userId }}</div>
+          <div class="player-name">{{ store.myNickname || store.userId }}</div>
           <div class="player-role">
             {{ store.gameStart?.firstHand ? '先手' : '后手' }}
           </div>
@@ -568,6 +571,8 @@ function backToLobby() {
 }
 .avatar-red { background: linear-gradient(135deg, #dc2626, #991b1b); }
 .avatar-black { background: linear-gradient(135deg, #44403c, #1c1917); }
+/* emoji 头像放大些，并去掉文字阴影干扰 */
+.avatar-emoji { font-size: 22px; }
 
 .side-tag {
   font-size: 11px;
