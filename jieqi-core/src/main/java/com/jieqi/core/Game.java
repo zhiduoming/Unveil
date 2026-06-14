@@ -75,16 +75,12 @@ public class Game {
     }
 
     private String getBoardHash(int sideToMove) {
-        StringBuilder sb = new StringBuilder();
-        for (int r = 0; r < 10; r++) {
-            for (int c = 0; c < 9; c++) {
-                ChessPiece p = board.getPiece(r, c);
-                if (p == null) sb.append(".");
-                else sb.append(p.getColor()).append(p.isRevealed() ? p.getType() : "?");
-            }
-        }
-        sb.append('|').append(sideToMove);
-        return sb.toString();
+        return Board.positionKey(board, sideToMove);
+    }
+
+    /** 当前重复局面计数快照（key 同 {@link Board#positionKey}），供 AI 规避长将。 */
+    public Map<String, Integer> getRepetitionCount() {
+        return new HashMap<>(repetitionCount);
     }
 
     /** 测试用：调整回合开始时间以触发超时。 */

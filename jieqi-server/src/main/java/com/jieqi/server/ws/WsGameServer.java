@@ -477,7 +477,8 @@ public class WsGameServer extends WebSocketServer {
                 long budget = room.isAiBattle() ? AI_BUDGET_AI_BATTLE_MS : AI_BUDGET_HUMAN_VS_AI_MS;
                 Move aiMove = null;
                 try {
-                    aiMove = aiBot.selectMove(game.getBoard(), aiColor, budget);
+                    // 传入重复局面计数，让 AI 规避长将自判负。
+                    aiMove = aiBot.selectMove(game.getBoard(), aiColor, budget, game.getRepetitionCount());
                 } catch (Exception ex) {
                     System.err.println("[WS] JieqiAgent 异常，降级到 RuleBasedBot: " + ex);
                 }
@@ -782,6 +783,11 @@ public class WsGameServer extends WebSocketServer {
                         continue;
                     }
                     if (room.isPaused()) {
+                        continue;
+                    }
+                    // AI 回合不判超时：AI 是本地计算，思考慢是引擎问题，不应判它负；
+                    // 步时只约束真人玩家（AI 有自己的搜索时间预算 + fallback 兜底）。
+                    if (isAiTurn(room, game.getCurrentTurn())) {
                         continue;
                     }
                     if (!game.isTimeout()) {

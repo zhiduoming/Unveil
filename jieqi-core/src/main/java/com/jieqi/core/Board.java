@@ -258,6 +258,24 @@ public class Board {
         return color == ChessPiece.RED ? redPieces : blackPieces;
     }
 
+    /**
+     * 局面键：棋子布局 + 待走方。暗子以 "?" 占位（不泄露真实身份），
+     * 与长将/长捉重复判定（{@link Game} 的 repetitionCount）使用同一编码，
+     * 供 AI 规避重复局面时复用。
+     */
+    public static String positionKey(Board board, int sideToMove) {
+        StringBuilder sb = new StringBuilder();
+        for (int r = 0; r < 10; r++) {
+            for (int c = 0; c < 9; c++) {
+                ChessPiece p = board.getPiece(r, c);
+                if (p == null) sb.append('.');
+                else sb.append(p.getColor()).append(p.isRevealed() ? p.getType() : "?");
+            }
+        }
+        sb.append('|').append(sideToMove);
+        return sb.toString();
+    }
+
     /** 清空棋盘（测试/残局摆子）。 */
     public void clearAllPieces() {
         for (int r = 0; r < 10; r++) {
