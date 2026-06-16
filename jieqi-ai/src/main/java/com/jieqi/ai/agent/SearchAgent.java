@@ -31,10 +31,8 @@ public class SearchAgent implements JieqiSubAgent {
     @Override
     public Move contribute(AgentContext ctx) {
         long limit = ctx.getTimeLimitMs();
-        if (ctx.getProbabilityBias() != 0) {
-            limit = Math.max(5_000L, limit - 2_000L);
-        }
-        OptimizedAlphaBeta.SearchResult result = search.search(ctx.getBoard(), ctx.getColor(), limit);
+        OptimizedAlphaBeta.SearchResult result =
+                search.search(ctx.getBoard(), ctx.getColor(), limit, ctx.getRepetitionCount());
         return result.bestMove;
     }
 }

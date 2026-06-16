@@ -8,10 +8,12 @@ const props = withDefaults(defineProps<{
   isRedView?: boolean
   selectedCoord?: string
   hintCoords?: string[]
+  lastMove?: { from: string; to: string } | null
 }>(), {
   isRedView: true,
   selectedCoord: '',
   hintCoords: () => [],
+  lastMove: null,
 })
 
 defineEmits<{
@@ -27,10 +29,40 @@ const allCells = computed(() => {
   return cells
 })
 
-const colLabels = computed(() => {
-  // 顶部/底部都显示 1-9，但根据视角左右翻转
-  return props.isRedView ? [1,2,3,4,5,6,7,8,9] : [9,8,7,6,5,4,3,2,1]
-})
+// 传统象棋记谱：每方从自己右手起数 1→9，同一列两端编号之和为 10。
+// 离观看者近的一方（底部）自左向右 9→1；对方（顶部）自左向右 1→9。
+// 与视角无关——翻转视角时整盘转 180°，底部永远是当前看棋方的 9→1。
+const bottomColLabels = [9, 8, 7, 6, 5, 4, 3, 2, 1]
+const topColLabels = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+// 兵/炮初始点位的传统象棋星位标记（L 形拐角）。
+// 用固定 SVG 坐标（viewBox 800×900，格距 100）；兵炮在上下半场镜像对称，
+// 故红/黑视角都正确，无需翻转。边缘点（x=0 / x=800）只画朝棋盘内侧的角。
+const starMarks = (() => {
+  const gap = 9   // 角点离交叉点的间距
+  const arm = 20  // L 形每条臂的长度
+  const points: { x: number; y: number }[] = []
+  // 炮位：col 1/7（x=100/700），y=200/700
+  for (const x of [100, 700]) for (const y of [200, 700]) points.push({ x, y })
+  // 兵/卒位：col 0/2/4/6/8（x=0/200/400/600/800），y=300/600
+  for (const x of [0, 200, 400, 600, 800]) for (const y of [300, 600]) points.push({ x, y })
+
+  // 每个角 = 一条 3 点折线（竖臂端点 → 角点 → 横臂端点）
+  const lines: string[] = []
+  for (const { x, y } of points) {
+    const left = x > 0      // col0 无左侧角
+    const right = x < 800   // col8 无右侧角
+    if (left) {
+      lines.push(`${x - gap},${y - gap - arm} ${x - gap},${y - gap} ${x - gap - arm},${y - gap}`) // 左上
+      lines.push(`${x - gap},${y + gap + arm} ${x - gap},${y + gap} ${x - gap - arm},${y + gap}`) // 左下
+    }
+    if (right) {
+      lines.push(`${x + gap},${y - gap - arm} ${x + gap},${y - gap} ${x + gap + arm},${y - gap}`) // 右上
+      lines.push(`${x + gap},${y + gap + arm} ${x + gap},${y + gap} ${x + gap + arm},${y + gap}`) // 右下
+    }
+  }
+  return lines
+})()
 
 // 视角换算：把逻辑坐标 (row, col) 转成屏幕显示坐标 (x%, y%)
 function toScreenPos(row: number, col: number) {
@@ -48,6 +80,20 @@ function isSelected(row: number, col: number) {
 function isHint(row: number, col: number) {
   return props.hintCoords.includes(`${'abcdefghi'[col]}${row}`)
 }
+function coordToCell(coord: string) {
+  const col = 'abcdefghi'.indexOf(coord[0])
+  const row = Number(coord.slice(1))
+  if (col < 0 || Number.isNaN(row)) return null
+  return { row, col }
+}
+const lastMoveMarks = computed(() => {
+  if (!props.lastMove) return []
+  const from = coordToCell(props.lastMove.from)
+  return from ? [from] : []
+})
+function isLastMoveTarget(row: number, col: number) {
+  return props.lastMove?.to === `${'abcdefghi'[col]}${row}`
+}
 
 // 用于找某格上是否有棋子
 const piecesMap = computed(() => {
@@ -59,9 +105,9 @@ const piecesMap = computed(() => {
 
 <template>
   <div class="board-outer">
-    <!-- 顶部列号 -->
+    <!-- 顶部列号（对方一侧，自左向右 1→9） -->
     <div class="col-labels">
-      <span v-for="n in colLabels" :key="`top-${n}`">{{ n }}</span>
+      <span v-for="n in topColLabels" :key="`top-${n}`">{{ n }}</span>
     </div>
 
     <!-- 棋盘主体（木纹背景） -->
@@ -90,6 +136,11 @@ const piecesMap = computed(() => {
           <line x1="500" y1="0" x2="300" y2="200" stroke="#5d2f0d" stroke-width="2"/>
           <line x1="300" y1="700" x2="500" y2="900" stroke="#5d2f0d" stroke-width="2"/>
           <line x1="500" y1="700" x2="300" y2="900" stroke="#5d2f0d" stroke-width="2"/>
+
+          <!-- 兵/炮初始点位的星位标记（L 形拐角） -->
+          <polyline v-for="(pts, i) in starMarks" :key="`star-${i}`"
+            :points="pts" fill="none" stroke="#5d2f0d" stroke-width="3"
+            stroke-linecap="round" stroke-linejoin="round"/>
 
           <!-- 楚河汉界（左右居中对称） -->
           <text x="200" y="478" font-size="58" fill="#5d2f0d"
@@ -125,15 +176,24 @@ const piecesMap = computed(() => {
             :piece="p"
             :selected="isSelected(p.row, p.col)"
             :hint="isHint(p.row, p.col)"
+            :last-move-target="isLastMoveTarget(p.row, p.col)"
             @click="$emit('cell-click', p.row, p.col)"
           />
         </div>
+
+        <!-- 上一步起点：红色标记，终点由棋子光晕强调 -->
+        <div
+          v-for="mark in lastMoveMarks"
+          :key="`last-from-${mark.row}-${mark.col}`"
+          class="last-move-mark"
+          :style="toScreenPos(mark.row, mark.col)"
+        ></div>
       </div>
     </div>
 
-    <!-- 底部列号 -->
+    <!-- 底部列号（我方一侧，自左向右 9→1） -->
     <div class="col-labels">
-      <span v-for="n in colLabels" :key="`bot-${n}`">{{ n }}</span>
+      <span v-for="n in bottomColLabels" :key="`bot-${n}`">{{ n }}</span>
     </div>
   </div>
 </template>
@@ -215,5 +275,19 @@ const piecesMap = computed(() => {
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
+}
+
+.last-move-mark {
+  position: absolute;
+  width: 4.4%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(220, 38, 38, 0.88);
+  border: 2px solid rgba(255, 235, 190, 0.95);
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.22), 0 2px 8px rgba(80, 20, 10, 0.35);
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0.72;
 }
 </style>

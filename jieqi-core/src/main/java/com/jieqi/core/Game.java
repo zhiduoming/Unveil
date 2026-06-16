@@ -20,6 +20,11 @@ public class Game {
     private final GameRecord record = new GameRecord();
     private Map<String, Integer> repetitionCount;
 
+    // 被吃棋子记录（揭棋信息差用）：lastCaptured 供本步 moveResult 差异化广播；
+    // capturedPieces 累积全部被吃子，供终局 capturedReveal 揭晓真实身份。
+    private ChessPiece lastCaptured;
+    private final List<ChessPiece> capturedPieces = new ArrayList<>();
+
     public Game(String gameId) {
         this.gameId = gameId;
         this.board = new Board();
@@ -30,12 +35,12 @@ public class Game {
     }
 
     public String processMove(Move move, int playerColor) {
-        if (status != GameStatus.PLAYING) return "游戏未在进行中";
-        if (playerColor != currentTurn) return "不是你的回合";
+        if (status != GameStatus.PLAYING) return "对局未开始";
+        if (playerColor != currentTurn) return "还没轮到你";
         if (isTimeout()) {
             status = (currentTurn == ChessPiece.RED) ? GameStatus.BLACK_WIN : GameStatus.RED_WIN;
             gameOverReason = EndgameJudge.ProtocolReason.TIMEOUT;
-            return "超时判负";
+            return "超时";
         }
         if (move.isFlipOnly() || move.getSource().equals(move.getDestination())) {
             return "禁止原地翻子";
@@ -47,6 +52,10 @@ public class Game {
         move.setTurnStartTime(turnStartTime);
 
         ChessPiece captured = board.executeMove(move);
+        lastCaptured = captured;
+        if (captured != null) {
+            capturedPieces.add(captured);
+        }
         record.append(move);
 
         int nextTurn = (playerColor == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
@@ -66,16 +75,12 @@ public class Game {
     }
 
     private String getBoardHash(int sideToMove) {
-        StringBuilder sb = new StringBuilder();
-        for (int r = 0; r < 10; r++) {
-            for (int c = 0; c < 9; c++) {
-                ChessPiece p = board.getPiece(r, c);
-                if (p == null) sb.append(".");
-                else sb.append(p.getColor()).append(p.isRevealed() ? p.getType() : "?");
-            }
-        }
-        sb.append('|').append(sideToMove);
-        return sb.toString();
+        return Board.positionKey(board, sideToMove);
+    }
+
+    /** 当前重复局面计数快照（key 同 {@link Board#positionKey}），供 AI 规避长将。 */
+    public Map<String, Integer> getRepetitionCount() {
+        return new HashMap<>(repetitionCount);
     }
 
     /** 测试用：调整回合开始时间以触发超时。 */
@@ -146,6 +151,12 @@ public class Game {
     public String getRedPlayerName() { return redPlayerName; }
     public String getBlackPlayerName() { return blackPlayerName; }
     public GameRecord getRecord() { return record; }
+
+    /** 上一步被吃的棋子（含真实 type/color/revealed），无吃子时为 null。供差异化广播使用。 */
+    public ChessPiece getLastCaptured() { return lastCaptured; }
+
+    /** 本局已被吃的全部棋子（真实身份），供终局揭晓。 */
+    public List<ChessPiece> getCapturedPieces() { return capturedPieces; }
 
     /** @deprecated 使用 {@link #getRecord()} */
     @Deprecated

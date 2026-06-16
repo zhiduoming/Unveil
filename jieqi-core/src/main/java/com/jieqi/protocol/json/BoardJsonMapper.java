@@ -22,6 +22,7 @@ public final class BoardJsonMapper {
                 JsonObject cell = new JsonObject();
                 cell.addProperty("x", String.valueOf((char) ('a' + c)));
                 cell.addProperty("y", 9 - r);
+                cell.addProperty("color", PieceJsonMapper.colorToString(p.getColor()));
                 if (p.isRevealed()) {
                     cell.addProperty("piece", PieceJsonMapper.toJsonName(p.getType()));
                     cell.addProperty("visible", true);

@@ -1,14 +1,24 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game'
 import { initialJieqiBoard } from '../types/chess'
 import ChessBoard from '../components/ChessBoard.vue'
+import CapturedTray from '../components/CapturedTray.vue'
+import { QUICK_MESSAGES, CHAT_EMOJIS } from '../utils/chatPresets'
 
 const router = useRouter()
 const store = useGameStore()
 
 let clockTimer: number | undefined
+
+// 对局结束后"查看棋局"模式：true 时暂时隐藏结算弹窗，让用户复盘终局
+const viewingFinishedBoard = ref(false)
+
+// 对局结束状态变化时（新结束 / 已清空）重置查看模式
+watch(() => store.gameOver, (v) => {
+  if (!v) viewingFinishedBoard.value = false
+})
 
 // ── 屏幕中央浮动 toast（3 秒淡化，半透明，不挡棋盘） ──
 type ToastKind = 'check' | 'error' | 'info'
@@ -16,6 +26,9 @@ const toastMessage = ref<string>('')
 const toastKind = ref<ToastKind>('info')
 let toastTimer: number | undefined
 const pendingConfirm = ref<null | 'draw' | 'resign'>(null)
+const chatDraft = ref('')
+const chatLogRef = ref<HTMLElement | null>(null)
+const chatPanel = ref<'' | 'quick' | 'emoji'>('')  // 快捷消息 / 表情面板（互斥展开）
 type BattleKind = 'move' | 'capture' | 'check'
 const battleBadge = ref<null | { kind: 'capture' | 'check'; key: number }>(null)
 let battleTimer: number | undefined
@@ -54,6 +67,14 @@ onUnmounted(() => {
 const yourColor = computed(() => store.gameStart?.yourColor)
 const isRedView = computed(() => yourColor.value === 'red')
 const isMyTurn = computed(() => store.currentTurn === yourColor.value)
+const isAiGame = computed(() => store.room?.opponentId === 'ai_bot')
+const isAiBattle = computed(() => store.room?.mode === 'aiBattle')
+const isHumanGame = computed(() => store.room?.mode === 'human')
+const gameOverTitle = computed(() => {
+  if (!store.gameOver) return ''
+  if (store.gameOver.winner === 'draw') return '和棋'
+  return store.gameOver.winner === yourColor.value ? '你赢了' : '你输了'
+})
 
 // 倒计时（mm:ss）
 const remainText = computed(() => {
@@ -79,6 +100,12 @@ watch(() => store.battleEffectSeq, () => {
   battleTimer = window.setTimeout(() => {
     battleBadge.value = null
   }, effect.kind === 'check' ? 1450 : 1150)
+})
+watch(() => store.chatMessages.length, async () => {
+  await nextTick()
+  if (chatLogRef.value) {
+    chatLogRef.value.scrollTop = chatLogRef.value.scrollHeight
+  }
 })
 
 function preloadBattleSounds() {
@@ -114,8 +141,8 @@ const endgameModal = computed(() => {
   const youLose = v.loserColor === yourColor.value
   if (v.kind === 'checkmate') {
     return youLose
-      ? { title: '你被将死了', desc: '没有任何合法走法可以解除将军。点击认输结束对局。', canResign: true }
-      : { title: '将死对手！', desc: '对方已无任何合法走法解将。等待服务端判定，或对方认输。', canResign: false }
+      ? { title: '你被将死', desc: '没有任何合法走法可以解除将军。点击认输结束对局。', canResign: true }
+      : { title: '对方被将死', desc: '对方已无任何合法走法解将。等待服务端判定，或对方认输。', canResign: false }
   }
   // stalemate
   return youLose
@@ -154,6 +181,24 @@ function confirmAction() {
   pendingConfirm.value = null
 }
 
+function sendChat() {
+  const text = chatDraft.value
+  store.sendChat(text)
+  if (text.trim()) chatDraft.value = ''
+}
+
+function toggleChatPanel(mode: 'quick' | 'emoji') {
+  chatPanel.value = chatPanel.value === mode ? '' : mode
+}
+function sendQuick(msg: string) {
+  if (store.gameOver) return
+  store.sendChat(msg)
+  chatPanel.value = ''
+}
+function insertEmoji(e: string) {
+  chatDraft.value = (chatDraft.value + e).slice(0, 120)
+}
+
 function backToLobby() {
   store.returnToLobby()
   router.push('/lobby')
@@ -173,11 +218,13 @@ function backToLobby() {
           <div class="card-head">
             <div
               class="avatar"
-              :class="(yourColor === 'red') ? 'avatar-black' : 'avatar-red'"
+              :class="[(yourColor === 'red') ? 'avatar-black' : 'avatar-red',
+                       store.room?.opponentAvatar ? 'avatar-emoji' : '']"
             >
-              {{ ((yourColor === 'red')
-                  ? store.gameStart?.blackPlayerId
-                  : store.gameStart?.redPlayerId)?.[0]?.toUpperCase() || '?' }}
+              {{ store.room?.opponentAvatar
+                  || ((yourColor === 'red')
+                      ? store.gameStart?.blackPlayerId
+                      : store.gameStart?.redPlayerId)?.[0]?.toUpperCase() || '?' }}
             </div>
             <span
               class="side-tag"
@@ -218,9 +265,10 @@ function backToLobby() {
           <div class="card-head">
             <div
               class="avatar"
-              :class="yourColor === 'red' ? 'avatar-red' : 'avatar-black'"
+              :class="[yourColor === 'red' ? 'avatar-red' : 'avatar-black',
+                       store.myAvatar ? 'avatar-emoji' : '']"
             >
-              {{ store.userId?.[0]?.toUpperCase() || '?' }}
+              {{ store.myAvatar || store.userId?.[0]?.toUpperCase() || '?' }}
             </div>
             <span
               class="side-tag"
@@ -230,7 +278,7 @@ function backToLobby() {
             </span>
             <span class="side-tag tag-you">你</span>
           </div>
-          <div class="player-name">{{ store.userId }}</div>
+          <div class="player-name">{{ store.myNickname || store.userId }}</div>
           <div class="player-role">
             {{ store.gameStart?.firstHand ? '先手' : '后手' }}
           </div>
@@ -240,13 +288,22 @@ function backToLobby() {
       <!-- ========= 中栏：棋盘 ========= -->
       <main class="board-col">
         <div class="board-stack">
+          <!-- 右上：我方被吃的棋子（损失）。暗子被吃倒扣不显身份。 -->
+          <div class="captured-bar captured-bar-top">
+            <CapturedTray :entries="store.capturedFromMe" variant="loss" />
+          </div>
           <ChessBoard
             :pieces="store.board"
             :is-red-view="isRedView"
             :selected-coord="store.selectedCoord"
             :hint-coords="store.hintCoords"
+            :last-move="store.lastMove"
             @cell-click="onCellClick"
           />
+          <!-- 左下：我方吃掉对方的棋子（战利品）。暗子被吃可见身份但变暗。 -->
+          <div class="captured-bar captured-bar-bottom">
+            <CapturedTray :entries="store.capturedByMe" variant="trophy" />
+          </div>
           <Transition name="battle-pop">
             <div
               v-if="battleBadge"
@@ -268,20 +325,111 @@ function backToLobby() {
       <aside class="side-col">
         <div class="action-card">
           <h3 class="action-title">操作</h3>
-          <button @click="onResign" class="action-btn btn-resign">🏳️ 认 输</button>
-          <button
-            @click="onOfferDraw"
-            :disabled="store.myDrawOffered || !!store.drawOfferFrom || !!store.gameOver"
-            class="action-btn btn-draw"
-          >
-            {{ store.myDrawOffered ? '等待回应' : '🤝 提 和' }}
-          </button>
-          <button class="action-btn btn-chat">💬 聊 天</button>
+          <!-- AI 对弈（人机 / AI 观战）：暂停/继续 + 结束对局 -->
+          <template v-if="isAiGame || isAiBattle">
+            <button
+              v-if="!store.paused"
+              @click="store.pauseAi()"
+              :disabled="!!store.gameOver"
+              class="action-btn btn-draw"
+            >⏸ 暂停对局</button>
+            <button
+              v-else
+              @click="store.resumeAi()"
+              :disabled="!!store.gameOver"
+              class="action-btn btn-draw"
+            >▶ 继续对局</button>
+            <button @click="backToLobby" class="action-btn btn-resign">🚪 结束对局</button>
+          </template>
+          <!-- 真人对局：完整操作 -->
+          <template v-else>
+            <button @click="onResign" :disabled="!!store.gameOver" class="action-btn btn-resign">🏳️ 认 输</button>
+            <button
+              @click="onOfferDraw"
+              :disabled="store.myDrawOffered || !!store.drawOfferFrom || !!store.gameOver"
+              class="action-btn btn-draw"
+            >
+              {{ store.myDrawOffered ? '等待回应' : '🤝 提 和' }}
+            </button>
+          </template>
+        </div>
+
+        <div v-if="isHumanGame" class="chat-card">
+          <div class="chat-head">
+            <h3 class="chat-title">局内聊天</h3>
+            <span class="chat-count">{{ store.chatMessages.length }}</span>
+            <button
+              class="chat-sound"
+              :title="store.chatSoundOn ? '消息提示音：开' : '消息提示音：关'"
+              @click="store.toggleChatSound()"
+            >{{ store.chatSoundOn ? '🔔' : '🔕' }}</button>
+          </div>
+          <div ref="chatLogRef" class="chat-log">
+            <div v-if="store.chatMessages.length === 0" class="chat-empty">还没有消息</div>
+            <div
+              v-for="msg in store.chatMessages"
+              :key="msg.id"
+              class="chat-row"
+              :class="msg.mine ? 'chat-row-mine' : 'chat-row-opponent'"
+            >
+              <div class="chat-meta">
+                <span class="chat-side" :class="msg.fromColor === 'red' ? 'chat-side-red' : 'chat-side-black'">
+                  {{ msg.fromColor === 'red' ? '红方' : '黑方' }}
+                </span>
+                <span class="chat-name">{{ msg.mine ? '你' : msg.fromUserId }}</span>
+              </div>
+              <div class="chat-bubble">{{ msg.content }}</div>
+            </div>
+          </div>
+          <!-- 快捷消息 / 表情 展开面板 -->
+          <div v-if="chatPanel === 'quick'" class="chat-panel">
+            <button
+              v-for="m in QUICK_MESSAGES"
+              :key="m"
+              class="quick-chip"
+              :disabled="!!store.gameOver"
+              @click="sendQuick(m)"
+            >{{ m }}</button>
+          </div>
+          <div v-else-if="chatPanel === 'emoji'" class="chat-panel emoji-panel">
+            <button
+              v-for="e in CHAT_EMOJIS"
+              :key="e"
+              class="emoji-chip"
+              @click="insertEmoji(e)"
+            >{{ e }}</button>
+          </div>
+
+          <div class="chat-tools">
+            <button
+              class="chat-tool"
+              :class="{ active: chatPanel === 'quick' }"
+              :disabled="!!store.gameOver"
+              @click="toggleChatPanel('quick')"
+            >💬 快捷</button>
+            <button
+              class="chat-tool"
+              :class="{ active: chatPanel === 'emoji' }"
+              @click="toggleChatPanel('emoji')"
+            >😀 表情</button>
+          </div>
+
+          <div class="chat-input-row">
+            <input
+              v-model="chatDraft"
+              class="chat-input"
+              maxlength="120"
+              placeholder="输入消息"
+              :disabled="!!store.gameOver"
+              @keydown.enter.prevent="sendChat"
+            />
+            <button class="chat-send" :disabled="!!store.gameOver || !chatDraft.trim()" @click="sendChat">发送</button>
+          </div>
         </div>
 
         <div class="info-card">
           <p>房间: {{ store.room?.roomId?.slice(-6) }}</p>
-          <p>状态: {{ store.connectionStatus }}</p>
+          <p>状态: {{ store.connectionStatusText }}</p>
         </div>
       </aside>
     </div>
@@ -297,7 +445,7 @@ function backToLobby() {
     <div v-if="store.drawOfferFrom && !store.gameOver" class="modal">
       <div class="modal-card">
         <h3>对方提和</h3>
-        <p>{{ store.drawOfferFrom }} 请求和棋。</p>
+        <p>{{ store.drawOfferFrom }} 请求提和。</p>
         <div class="modal-actions">
           <button @click="store.acceptDraw()" class="modal-btn modal-btn-primary">同 意</button>
           <button @click="store.declineDraw()" class="modal-btn modal-btn-secondary">拒 绝</button>
@@ -321,10 +469,10 @@ function backToLobby() {
     </div>
 
     <!-- 对局结束弹窗（服务端判定）— 集成 rematch 流程 -->
-    <div v-if="store.gameOver" class="modal">
+    <div v-if="store.gameOver && !viewingFinishedBoard" class="modal">
       <div class="modal-card">
-        <h3>{{ store.gameOver.winner === yourColor ? '你赢了！' : (store.gameOver.winner === 'draw' ? '和棋' : '你输了') }}</h3>
-        <p>原因：{{ store.gameOver.reason }}</p>
+        <h3>{{ gameOverTitle }}</h3>
+        <p class="rematch-hint">原因：{{ store.gameOverReasonText }}</p>
 
         <!-- 收到对方邀请：接受 / 拒绝 -->
         <div v-if="store.rematchOfferFrom && !store.myRematchAsked" class="rematch-hint">
@@ -348,14 +496,27 @@ function backToLobby() {
           <!-- 场景 2：还未邀请，正常按钮 -->
           <template v-else-if="!store.myRematchAsked">
             <button @click="store.requestRematch()" class="modal-btn modal-btn-primary">🔁 再来一局</button>
+            <button @click="viewingFinishedBoard = true" class="modal-btn modal-btn-secondary">🔍 查看棋局</button>
             <button @click="backToLobby" class="modal-btn modal-btn-secondary">返回大厅</button>
           </template>
           <!-- 场景 3：已邀请等待 / 被拒 -->
           <template v-else>
+            <button @click="viewingFinishedBoard = true" class="modal-btn modal-btn-secondary">🔍 查看棋局</button>
             <button @click="backToLobby" class="modal-btn modal-btn-secondary">返回大厅</button>
           </template>
         </div>
       </div>
+    </div>
+
+    <!-- 查看棋局模式：右下角悬浮"返回结算"按钮，点击重新打开结算弹窗 -->
+    <div v-if="store.gameOver && viewingFinishedBoard" class="finished-bar">
+      <span class="finished-bar-text">
+        {{ store.gameOver.winner === yourColor ? '✓ 你赢了' : (store.gameOver.winner === 'draw' ? '⚖ 和棋' : '✗ 你输了') }}
+        · 原因：{{ store.gameOverReasonText }}
+        · 复盘模式
+      </span>
+      <button @click="viewingFinishedBoard = false" class="finished-bar-btn">返回结算</button>
+      <button @click="backToLobby" class="finished-bar-btn finished-bar-btn-secondary">返回大厅</button>
     </div>
 
     <div v-if="pendingConfirm" class="modal">
@@ -363,8 +524,8 @@ function backToLobby() {
         <h3>{{ pendingConfirm === 'resign' ? '确认认输' : '确认提和' }}</h3>
         <p>
           {{ pendingConfirm === 'resign'
-            ? '认输后本局会立即结束，对方获胜。'
-            : '将向对方发送和棋请求，对方同意后本局和棋结束。' }}
+            ? '认输后对局会立即结束，对方获胜。'
+            : '将向对方发送提和请求，对方同意后对局将以和棋结束。' }}
         </p>
         <div class="modal-actions">
           <button
@@ -394,7 +555,7 @@ function backToLobby() {
   max-width: 1400px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 210px minmax(620px, 1fr) 190px;
+  grid-template-columns: 210px minmax(620px, 1fr) 270px;
   gap: 28px;
   align-items: stretch;
   min-height: calc(100vh - 32px);
@@ -462,6 +623,8 @@ function backToLobby() {
 }
 .avatar-red { background: linear-gradient(135deg, #dc2626, #991b1b); }
 .avatar-black { background: linear-gradient(135deg, #44403c, #1c1917); }
+/* emoji 头像放大些，并去掉文字阴影干扰 */
+.avatar-emoji { font-size: 22px; }
 
 .side-tag {
   font-size: 11px;
@@ -596,6 +759,16 @@ function backToLobby() {
   align-items: center;
   width: 100%;
 }
+
+/* 被吃棋子展示条：上方（损失）靠右、下方（战利品）靠左 */
+.captured-bar {
+  width: 100%;
+  max-width: 880px;
+  padding: 4px 7%;
+  box-sizing: border-box;
+}
+.captured-bar-top { margin-bottom: 4px; }
+.captured-bar-bottom { margin-top: 4px; }
 
 .battle-overlay {
   position: absolute;
@@ -796,8 +969,230 @@ function backToLobby() {
 .btn-resign:hover { background: #7f1d1d; }
 .btn-draw { background: #c2410c; }
 .btn-draw:hover { background: #9a3412; }
-.btn-chat { background: #525252; }
-.btn-chat:hover { background: #404040; }
+.chat-card {
+  background:
+    linear-gradient(180deg, rgba(255, 248, 230, 0.96), rgba(250, 239, 213, 0.9));
+  border: 2px solid rgba(74, 36, 16, 0.38);
+  border-radius: 10px;
+  padding: 12px;
+  color: #5d2f0d;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36);
+}
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.chat-head .chat-title { margin-right: auto; }
+.chat-sound {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: background 0.12s ease;
+}
+.chat-sound:hover { background: rgba(120, 53, 15, 0.12); }
+
+/* 快捷消息 / 表情 面板 */
+.chat-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 132px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  padding: 6px;
+  border: 1px dashed rgba(120, 53, 15, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+.quick-chip {
+  font-size: 12px;
+  color: #5d2f0d;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(120, 53, 15, 0.3);
+  border-radius: 14px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+.quick-chip:hover:not(:disabled) { background: rgba(253, 230, 138, 0.85); }
+.quick-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+.emoji-panel { max-height: 110px; }
+.emoji-chip {
+  font-size: 20px;
+  line-height: 1;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+.emoji-chip:hover { background: rgba(253, 230, 138, 0.7); transform: scale(1.12); }
+
+.chat-tools {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.chat-tool {
+  font-size: 12px;
+  color: #5d2f0d;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(120, 53, 15, 0.3);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.chat-tool:hover:not(:disabled) { background: rgba(253, 230, 138, 0.7); }
+.chat-tool.active { background: rgba(245, 158, 11, 0.35); border-color: rgba(120, 53, 15, 0.5); }
+.chat-tool:disabled { opacity: 0.5; cursor: not-allowed; }
+.chat-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #5d2f0d;
+}
+.chat-count {
+  min-width: 24px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(120, 53, 15, 0.14);
+  color: rgba(93, 47, 13, 0.76);
+  font-size: 12px;
+  font-weight: 800;
+}
+.chat-log {
+  height: clamp(250px, 38vh, 430px);
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid rgba(74, 36, 16, 0.2);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 235, 0.76), rgba(254, 243, 199, 0.5));
+}
+.chat-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(93, 47, 13, 0.48);
+  font-size: 13px;
+  font-weight: 700;
+}
+.chat-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+.chat-row:last-child {
+  margin-bottom: 0;
+}
+.chat-row-mine {
+  align-items: flex-end;
+}
+.chat-row-opponent {
+  align-items: flex-start;
+}
+.chat-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  margin-bottom: 3px;
+  font-size: 11px;
+  color: rgba(93, 47, 13, 0.64);
+}
+.chat-side {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 800;
+  color: #fff7ed;
+}
+.chat-side-red {
+  background: #991b1b;
+}
+.chat-side-black {
+  background: #292524;
+}
+.chat-name {
+  max-width: 118px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.chat-bubble {
+  max-width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: pre-wrap;
+  border: 1px solid rgba(74, 36, 16, 0.18);
+}
+.chat-row-mine .chat-bubble {
+  background: #7c2d12;
+  color: #fff7ed;
+  border-color: rgba(124, 45, 18, 0.45);
+}
+.chat-row-opponent .chat-bubble {
+  background: rgba(255, 251, 235, 0.92);
+  color: #5d2f0d;
+}
+.chat-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px;
+  gap: 8px;
+  margin-top: 10px;
+}
+.chat-input {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid rgba(74, 36, 16, 0.28);
+  border-radius: 6px;
+  padding: 0 9px;
+  background: rgba(255, 251, 235, 0.94);
+  color: #5d2f0d;
+  font-size: 13px;
+  outline: none;
+}
+.chat-input:focus {
+  border-color: #92400e;
+  box-shadow: 0 0 0 2px rgba(146, 64, 14, 0.18);
+}
+.chat-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.chat-send {
+  height: 34px;
+  border: none;
+  border-radius: 6px;
+  background: #5d2f0d;
+  color: #fef3c7;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.chat-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.chat-send:not(:disabled):hover {
+  background: #78350f;
+}
 
 .info-card {
   background: rgba(255, 248, 230, 0.6);
@@ -860,6 +1255,47 @@ function backToLobby() {
 }
 .modal-btn-primary:hover {
   background: #166534;
+}
+
+/* 查看棋局（复盘模式）悬浮条 */
+.finished-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: rgba(28, 25, 23, 0.92);
+  border: 1px solid rgba(217, 119, 6, 0.5);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+}
+.finished-bar-text {
+  color: #fef3c7;
+  font-size: 14px;
+  font-weight: 500;
+  padding-right: 4px;
+}
+.finished-bar-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #d97706;
+  color: #fef3c7;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+}
+.finished-bar-btn:hover {
+  background: #b45309;
+}
+.finished-bar-btn-secondary {
+  background: #57534e;
+}
+.finished-bar-btn-secondary:hover {
+  background: #44403c;
 }
 .rematch-hint {
   margin: 12px 0;

@@ -7,6 +7,7 @@ const props = defineProps<{
   piece: Piece
   selected?: boolean
   hint?: boolean
+  lastMoveTarget?: boolean
 }>()
 
 defineEmits<{ (e: 'click'): void }>()
@@ -28,7 +29,7 @@ const meanderAngles = Array.from({ length: 24 }, (_, i) => i * 15)
   <button
     @click.stop="$emit('click')"
     class="piece-btn"
-    :class="{ 'piece-selected': selected }"
+    :class="{ 'piece-selected': selected, 'piece-last-target': lastMoveTarget }"
   >
     <span v-if="hint" class="capture-hint" aria-hidden="true"></span>
     <svg viewBox="0 0 100 100" class="piece-svg" xmlns="http://www.w3.org/2000/svg">
@@ -165,6 +166,25 @@ const meanderAngles = Array.from({ length: 24 }, (_, i) => i * 15)
 .piece-selected {
   transform: translateY(-4px) scale(1.06);
   filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.9));
+}
+
+.piece-last-target:not(.piece-selected) {
+  transform: scale(1.07);
+  filter:
+    drop-shadow(0 0 5px rgba(220, 38, 38, 0.9))
+    drop-shadow(0 0 12px rgba(248, 113, 113, 0.55));
+}
+
+.piece-last-target::after {
+  content: '';
+  position: absolute;
+  inset: -7%;
+  border: 3px solid rgba(220, 38, 38, 0.9);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 3px rgba(255, 245, 220, 0.35),
+    0 0 14px rgba(220, 38, 38, 0.75);
+  pointer-events: none;
 }
 
 .piece-svg {

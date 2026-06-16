@@ -71,12 +71,12 @@ public class ChessPiece {
     public static int getBaseValue(int type) {
         switch (type) {
             case KING:   return 10000;
-            case ROOK:   return 600;
-            case KNIGHT: return 270;
-            case CANNON: return 285;
-            case PAWN:   return 30;
-            case ADVISOR:return 120;
-            case BISHOP: return 120;
+            case ROOK:   return 900;
+            case KNIGHT: return 400;
+            case CANNON: return 450;
+            case PAWN:   return 50;
+            case ADVISOR:return 200;
+            case BISHOP: return 200;
             default:     return 0;
         }
     }
