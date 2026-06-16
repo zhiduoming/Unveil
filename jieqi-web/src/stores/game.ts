@@ -139,6 +139,8 @@ export const useGameStore = defineStore('game', {
     drawDeclinedBy: '' as string,
     chatMessages: [] as ChatMessage[],
     chatSoundOn: true as boolean,  // 新消息提示音开关
+    aiLevel: 'medium' as 'easy' | 'medium' | 'hard',
+    aiThinking: false as boolean,
 
     // 棋盘状态
     board: [] as Piece[],
@@ -168,6 +170,7 @@ export const useGameStore = defineStore('game', {
     turnStartedAt: 0 as number,     // 当前回合开始时刻（毫秒）
     stepTimeLimitMs: 65000 as number, // 步时上限（与服务端一致）
     nowMs: 0 as number,             // setInterval 推动的当前毫秒（用于响应式计算剩余）
+    timeBonusUsed: 0 as number,     // 本步已手动加时次数（每步最多 2 次）
 
     // AI 对弈暂停（仅 AI 模式下可见）
     paused: false as boolean,
@@ -194,6 +197,12 @@ export const useGameStore = defineStore('game', {
     gameOverReasonText(state): string {
       return gameOverReasonText(state.gameOver?.reason)
     },
+    /** 真人对局：本步是否还能手动加时 */
+    canRequestTimeBonus(state): boolean {
+      if (!state.gameStart || state.gameOver || state.room?.mode !== 'human') return false
+      if (state.currentTurn !== state.gameStart.yourColor) return false
+      return state.timeBonusUsed < 2
+    },
   },
 
   actions: {
@@ -217,13 +226,14 @@ export const useGameStore = defineStore('game', {
       this.lastError = ''
       ws.send({ messageType: 'startMatch' })
     },
-    startAiGame() {
+    startAiGame(level?: 'easy' | 'medium' | 'hard') {
       this.matching = false
       this.ready = false
       this.opponentReady = true
       this.pendingRoomMode = 'humanAi'
+      this.aiLevel = level || this.aiLevel || 'medium'
       this.lastError = ''
-      ws.send({ messageType: 'startAiGame' })
+      ws.send({ messageType: 'startAiGame', aiLevel: this.aiLevel })
     },
     startAiBattle() {
       this.matching = false
@@ -328,6 +338,16 @@ export const useGameStore = defineStore('game', {
     /** 恢复 AI 对弈。等服务端 gameResumed 确认。 */
     resumeAi() {
       ws.send({ messageType: 'resumeGame' })
+    },
+
+    /** 真人对局：本步手动加时 +30s（每步最多 2 次） */
+    addTime() {
+      if (!this.canRequestTimeBonus) {
+        this.lastError = '本步加时次数已用完或尚未轮到你'
+        return
+      }
+      this.lastError = ''
+      ws.send({ messageType: 'addTime', seconds: 30 })
     },
 
     // ── 走子相关 ─────────────────────────────────────────
@@ -439,6 +459,9 @@ export const useGameStore = defineStore('game', {
 
     sendMove(fromCol: number, fromRow: number, toCol: number, toRow: number, isFlip: boolean) {
       this.lastError = ''
+      if (this.room?.mode === 'humanAi') {
+        this.aiThinking = true
+      }
       ws.send({
         messageType: 'move',
         fromX: COLS[fromCol],
@@ -480,6 +503,7 @@ export const useGameStore = defineStore('game', {
       this.rematchDeclinedBy = ''
       this.paused = false
       this.pausedAt = 0
+      this.timeBonusUsed = 0
     },
 
     returnToLobby() {
@@ -551,6 +575,7 @@ export const useGameStore = defineStore('game', {
           this.myRematchAsked = false
           this.rematchOfferFrom = ''
           this.rematchDeclinedBy = ''
+          this.timeBonusUsed = 0
           this.resetTurnClock()
           break
 
@@ -563,6 +588,7 @@ export const useGameStore = defineStore('game', {
           }
           if (msg.move) this.applyMove(msg.move, msg.flipResult)
           if (msg.captured) this.recordCapture(msg.captured)
+          this.aiThinking = false
           this.lastError = ''
           break
 
@@ -666,6 +692,19 @@ export const useGameStore = defineStore('game', {
           this.nowMs = Date.now()
           break
 
+        case 'timeBonus': {
+          const ts = Number(msg.turnStartTime)
+          if (ts > 0) {
+            this.turnStartedAt = ts
+            this.nowMs = Date.now()
+          }
+          const forColor = mapColor(msg.forColor)
+          if (forColor && forColor === this.gameStart?.yourColor) {
+            this.timeBonusUsed = Math.min(2, this.timeBonusUsed + 1)
+          }
+          break
+        }
+
         case 'error':
           this.lastError = normalizeServerMessage(msg.message)
           this.matching = false
@@ -734,6 +773,7 @@ export const useGameStore = defineStore('game', {
 
       // 切换回合 + 重置计时器
       this.currentTurn = this.currentTurn === 'red' ? 'black' : 'red'
+      this.timeBonusUsed = 0
       this.resetTurnClock()
 
       // 走完后，新回合方（被走方）的状态：将军 / 将死 / 困毙

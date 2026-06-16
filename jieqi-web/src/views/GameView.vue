@@ -254,7 +254,9 @@ function backToLobby() {
           >
             <span class="clock-text">{{ remainText }}</span>
           </div>
-          <div class="clock-state">{{ isMyTurn ? '轮到你走' : '等待对手' }}</div>
+          <div class="clock-state">
+            {{ store.aiThinking ? 'AI 思考中…' : (isMyTurn ? '轮到你走' : '等待对手') }}
+          </div>
         </div>
 
         <!-- 自己卡片 -->
@@ -344,6 +346,14 @@ function backToLobby() {
           <!-- 真人对局：完整操作 -->
           <template v-else>
             <button @click="onResign" :disabled="!!store.gameOver" class="action-btn btn-resign">🏳️ 认 输</button>
+            <button
+              @click="store.addTime()"
+              :disabled="!store.canRequestTimeBonus || !!store.gameOver"
+              class="action-btn btn-draw"
+              :title="store.canRequestTimeBonus ? '本步加时 +30 秒（每步最多 2 次）' : '加时不可用'"
+            >
+              ⏱ 加时 +30s（{{ 2 - store.timeBonusUsed }}/2）
+            </button>
             <button
               @click="onOfferDraw"
               :disabled="store.myDrawOffered || !!store.drawOfferFrom || !!store.gameOver"
