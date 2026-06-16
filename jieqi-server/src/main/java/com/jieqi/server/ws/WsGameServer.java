@@ -11,6 +11,9 @@ import com.jieqi.protocol.json.JsonErrorCodes;
 import com.jieqi.protocol.json.JsonMessageTypes;
 import com.jieqi.protocol.json.JsonMessages;
 import com.jieqi.protocol.json.PieceJsonMapper;
+import com.jieqi.ai.bot.AiBot;
+import com.jieqi.ai.bot.AiBotFactory;
+import com.jieqi.ai.bot.AiLevel;
 import com.jieqi.server.GameRecordStore;
 import com.jieqi.server.MatchmakingService;
 import org.java_websocket.WebSocket;
@@ -45,10 +48,6 @@ public class WsGameServer extends WebSocketServer {
     private final Queue<String> matchQueue = new ArrayDeque<>();
     private final GameRecordStore recordStore = new GameRecordStore("records");
     private final RandomRevealService revealService = new RandomRevealService();
-    // 真正的 AI：Alpha-Beta + 揭棋评估（含 SEE / KingHunt / 挂子惩罚等）。
-    // RuleBasedBot 留作降级备用（若 JieqiAgent 抛出异常或超时返回 null）。
-    private final com.jieqi.ai.JieqiAgent aiBot = new com.jieqi.ai.JieqiAgent();
-    private final RuleBasedBot fallbackBot = new RuleBasedBot();
     // 时间预算：人机对战每步 5s（响应不卡），AI 自动对弈每步 2.5s（看着不无聊）
     // 评估器一次 evaluate 已优化为 2 次 generateAllMoves，5s 在中盘能搜到 4-5 层
     private static final long AI_BUDGET_HUMAN_VS_AI_MS = 5_000L;
@@ -90,7 +89,7 @@ public class WsGameServer extends WebSocketServer {
                 case JsonMessageTypes.LOGIN -> handleLogin(ctx, json);
                 case JsonMessageTypes.REGISTER -> handleRegister(ctx, json);
                 case JsonMessageTypes.START_MATCH -> handleStartMatch(ctx);
-                case JsonMessageTypes.START_AI_GAME -> handleStartAiGame(ctx);
+                case JsonMessageTypes.START_AI_GAME -> handleStartAiGame(ctx, json);
                 case JsonMessageTypes.START_AI_BATTLE -> handleStartAiBattle(ctx);
                 case JsonMessageTypes.CANCEL_MATCH -> handleCancelMatch(ctx);
                 case JsonMessageTypes.CREATE_ROOM -> handleCreateRoom(ctx);
@@ -110,6 +109,7 @@ public class WsGameServer extends WebSocketServer {
                 case JsonMessageTypes.LEAVE_ROOM -> handleLeaveRoom(ctx);
                 case JsonMessageTypes.PAUSE_GAME -> handlePauseGame(ctx);
                 case JsonMessageTypes.RESUME_GAME -> handleResumeGame(ctx);
+                case JsonMessageTypes.ADD_TIME -> handleAddTime(ctx, json);
                 default -> send(conn, JsonMessages.error(JsonErrorCodes.JSON_FORMAT, "未知消息类型"));
             }
         } catch (Exception e) {
@@ -218,7 +218,7 @@ public class WsGameServer extends WebSocketServer {
         }
     }
 
-    private void handleStartAiGame(WsPlayerContext ctx) {
+    private void handleStartAiGame(WsPlayerContext ctx, JsonObject json) {
         if (!ctx.isLoggedIn()) {
             send(ctx, JsonMessages.error(JsonErrorCodes.LOGIN_FAILED, "请先登录"));
             return;
@@ -233,9 +233,13 @@ public class WsGameServer extends WebSocketServer {
             WsRoom room = new WsRoom(roomId, game);
             rooms.put(roomId, room);
             room.bindPlayer(ctx, ChessPiece.RED);
-            room.enableAiOpponent(ChessPiece.BLACK, "ai_bot", "规则托管 AI");
+            String aiLevel = json.has("aiLevel") ? json.get("aiLevel").getAsString() : "medium";
+            AiLevel level = AiLevel.fromId(aiLevel);
+            String nick = level.label() + " AI";
+            room.enableAiOpponent(ChessPiece.BLACK, "ai_bot", nick, level.id());
             send(ctx, JsonMessages.matchSuccess(roomId, room.aiUserId(), room.aiNickname()));
-            System.out.println("[WS] 创建人机房间 roomId=" + roomId + " human=" + ctx.userId());
+            System.out.println("[WS] 创建人机房间 roomId=" + roomId + " human=" + ctx.userId()
+                    + " aiLevel=" + level.id());
         }
     }
 
@@ -434,6 +438,7 @@ public class WsGameServer extends WebSocketServer {
             if (status != Game.GameStatus.PLAYING) {
                 broadcastGameOver(room, status);
             } else {
+                room.resetTimeBonusForTurn(game.getCurrentTurn());
                 scheduleAiMoveIfNeeded(room);
             }
             return true;
@@ -475,16 +480,10 @@ public class WsGameServer extends WebSocketServer {
                 }
                 int aiColor = game.getCurrentTurn();
                 long budget = room.isAiBattle() ? AI_BUDGET_AI_BATTLE_MS : AI_BUDGET_HUMAN_VS_AI_MS;
-                Move aiMove = null;
-                try {
-                    // 传入重复局面计数，让 AI 规避长将自判负。
-                    aiMove = aiBot.selectMove(game.getBoard(), aiColor, budget, game.getRepetitionCount());
-                } catch (Exception ex) {
-                    System.err.println("[WS] JieqiAgent 异常，降级到 RuleBasedBot: " + ex);
-                }
-                if (aiMove == null) {
-                    aiMove = fallbackBot.selectMove(game.getBoard(), aiColor);
-                }
+                AiLevel level = room.isAiBattle() ? AiLevel.MEDIUM : AiLevel.fromId(room.aiLevel());
+                AiBot bot = AiBotFactory.create(level, budget);
+                Move aiMove = AiBotFactory.selectWithFallback(
+                        bot, game.getBoard(), aiColor, budget, game.getRepetitionCount());
                 if (aiMove == null) {
                     int winnerColor = aiColor == ChessPiece.RED ? ChessPiece.BLACK : ChessPiece.RED;
                     game.setStatus(winnerColor == ChessPiece.RED
@@ -699,6 +698,7 @@ public class WsGameServer extends WebSocketServer {
         Game game = room.game();
         game.setStatus(Game.GameStatus.PLAYING);
         game.setTurnStartTime(System.currentTimeMillis());
+        room.resetTimeBonusForTurn(game.getCurrentTurn());
         broadcastGameStart(room);
         System.out.println("[WS] 开局 roomId=" + room.roomId());
         scheduleAiMoveIfNeeded(room);
@@ -954,6 +954,49 @@ public class WsGameServer extends WebSocketServer {
         scheduleAiMoveIfNeeded(room);
     }
 
+    private static final int TIME_BONUS_SECONDS = 30;
+
+    /** 真人对局：当前走子方手动加时（每步最多 2 次，每次 +30s）。 */
+    private void handleAddTime(WsPlayerContext ctx, JsonObject json) {
+        if (!ctx.isLoggedIn()) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.LOGIN_FAILED, "请先登录"));
+            return;
+        }
+        WsRoom room = roomOf(ctx);
+        if (room == null || !room.isStarted()) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "当前不在对局中"));
+            return;
+        }
+        if (room.hasAiOpponent() || room.isAiBattle()) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "人机对局不支持手动加时"));
+            return;
+        }
+        Game game = room.game();
+        if (game.getStatus() != Game.GameStatus.PLAYING) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "对局已结束"));
+            return;
+        }
+        if (game.getCurrentTurn() != ctx.color()) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.NOT_YOUR_TURN, "仅当前走子方可加时"));
+            return;
+        }
+        if (!room.canRequestTimeBonus(ctx.color())) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "本步加时次数已用完（每步最多 2 次）"));
+            return;
+        }
+        int seconds = TIME_BONUS_SECONDS;
+        if (json != null && json.has("seconds")) {
+            seconds = Math.min(60, Math.max(10, json.get("seconds").getAsInt()));
+        }
+        if (!game.addBonusTimeMs(seconds * 1000L)) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "加时失败"));
+            return;
+        }
+        room.recordTimeBonus(ctx.color());
+        String forColor = PieceJsonMapper.colorToString(ctx.color());
+        broadcastRoom(room, JsonMessages.timeBonus(forColor, seconds, game.getTurnStartTime()));
+    }
+
     /** 双方同意后，在同一 room 上启动新一局 Game 并广播 gameStart。 */
     private void startRematchGame(WsRoom room) {
         // 用新的 Game 实例（重新随机暗子分配 + 重置回合）
@@ -981,6 +1024,7 @@ public class WsGameServer extends WebSocketServer {
         newGame.setStatus(Game.GameStatus.PLAYING);
         room.resetForRematch();
         room.setStarted(true);
+        room.resetTimeBonusForTurn(newGame.getCurrentTurn());
 
         if (room.red() != null) {
             send(room.red(), JsonMessages.gameStart(
