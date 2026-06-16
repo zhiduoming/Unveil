@@ -8,10 +8,12 @@ const props = withDefaults(defineProps<{
   isRedView?: boolean
   selectedCoord?: string
   hintCoords?: string[]
+  lastMove?: { from: string; to: string } | null
 }>(), {
   isRedView: true,
   selectedCoord: '',
   hintCoords: () => [],
+  lastMove: null,
 })
 
 defineEmits<{
@@ -47,6 +49,20 @@ function isSelected(row: number, col: number) {
 }
 function isHint(row: number, col: number) {
   return props.hintCoords.includes(`${'abcdefghi'[col]}${row}`)
+}
+function coordToCell(coord: string) {
+  const col = 'abcdefghi'.indexOf(coord[0])
+  const row = Number(coord.slice(1))
+  if (col < 0 || Number.isNaN(row)) return null
+  return { row, col }
+}
+const lastMoveMarks = computed(() => {
+  if (!props.lastMove) return []
+  const from = coordToCell(props.lastMove.from)
+  return from ? [from] : []
+})
+function isLastMoveTarget(row: number, col: number) {
+  return props.lastMove?.to === `${'abcdefghi'[col]}${row}`
 }
 
 // 用于找某格上是否有棋子
@@ -125,9 +141,18 @@ const piecesMap = computed(() => {
             :piece="p"
             :selected="isSelected(p.row, p.col)"
             :hint="isHint(p.row, p.col)"
+            :last-move-target="isLastMoveTarget(p.row, p.col)"
             @click="$emit('cell-click', p.row, p.col)"
           />
         </div>
+
+        <!-- 上一步起点：红色标记，终点由棋子光晕强调 -->
+        <div
+          v-for="mark in lastMoveMarks"
+          :key="`last-from-${mark.row}-${mark.col}`"
+          class="last-move-mark"
+          :style="toScreenPos(mark.row, mark.col)"
+        ></div>
       </div>
     </div>
 
@@ -215,5 +240,19 @@ const piecesMap = computed(() => {
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
+}
+
+.last-move-mark {
+  position: absolute;
+  width: 4.4%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(220, 38, 38, 0.88);
+  border: 2px solid rgba(255, 235, 190, 0.95);
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.22), 0 2px 8px rgba(80, 20, 10, 0.35);
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0.72;
 }
 </style>

@@ -17,20 +17,24 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class WsGameServerIntegrationTest {
 
+    private static final AtomicInteger NEXT_TEST_PORT = new AtomicInteger(19000);
+
     private WsGameServer server;
     private int port;
 
     @BeforeEach
-    void setUp() {
-        port = 18080 + (int) (Math.random() * 1000);
+    void setUp() throws Exception {
+        port = findAvailablePort();
         server = new WsGameServer(port);
         server.start();
         sleep(300);
@@ -150,6 +154,32 @@ class WsGameServerIntegrationTest {
     }
 
     @Test
+    void humanGameBroadcastsChatToBothPlayers() throws Exception {
+        TestWsClient p1 = connect("chat1");
+        TestWsClient p2 = connect("chat2");
+        GameStartSession session = loginMatchReadyStart(p1, p2, "chat1", "chat2");
+        TestWsClient red = session.red();
+        TestWsClient black = session.black();
+
+        red.clearMessages();
+        black.clearMessages();
+        red.sendJson(chat("  你好，准备开局  "));
+
+        JsonObject redMsg = red.awaitTypeObject(JsonMessageTypes.CHAT_MESSAGE, 5);
+        JsonObject blackMsg = black.awaitTypeObject(JsonMessageTypes.CHAT_MESSAGE, 5);
+        assertNotNull(redMsg);
+        assertNotNull(blackMsg);
+        assertEquals(session.redUserId(), redMsg.get("fromUserId").getAsString());
+        assertEquals(session.redUserId(), blackMsg.get("fromUserId").getAsString());
+        assertEquals("red", redMsg.get("fromColor").getAsString());
+        assertEquals("你好，准备开局", blackMsg.get("content").getAsString());
+        assertTrue(redMsg.has("timestamp"));
+
+        p1.close();
+        p2.close();
+    }
+
+    @Test
     void resignEndsGameForBothPlayers() throws Exception {
         TestWsClient p1 = connect("res1");
         TestWsClient p2 = connect("res2");
@@ -191,8 +221,8 @@ class WsGameServerIntegrationTest {
         JsonObject offerForBlack = black.awaitTypeObject(JsonMessageTypes.DRAW_OFFERED, 5);
         assertNotNull(offerForRed);
         assertNotNull(offerForBlack);
-        assertEquals("draw1", offerForRed.get("fromUserId").getAsString());
-        assertEquals("draw1", offerForBlack.get("fromUserId").getAsString());
+        assertEquals(offerForRed.get("fromUserId").getAsString(),
+                offerForBlack.get("fromUserId").getAsString());
 
         black.sendJson(drawAccept());
         JsonObject overRed = red.awaitTypeObject(JsonMessageTypes.GAME_OVER, 5);
@@ -222,7 +252,7 @@ class WsGameServerIntegrationTest {
         black.sendJson(drawDecline());
         JsonObject declined = red.awaitTypeObject(JsonMessageTypes.DRAW_DECLINED, 5);
         assertNotNull(declined);
-        assertEquals("drawDecline2", declined.get("fromUserId").getAsString());
+        assertEquals(session.blackUserId(), declined.get("fromUserId").getAsString());
 
         Move legal = pickNonFlipMove(board, ChessPiece.RED);
         red.sendJson(moveJson(legal, true));
@@ -232,6 +262,109 @@ class WsGameServerIntegrationTest {
 
         p1.close();
         p2.close();
+    }
+
+    @Test
+    void createRoomAndJoinBySixDigitCodeStartsGame() throws Exception {
+        TestWsClient p1 = connect("roomOwner");
+        TestWsClient p2 = connect("roomGuest");
+        login(p1, "roomOwner");
+        login(p2, "roomGuest");
+
+        p1.sendJson(createRoom());
+        JsonObject created = p1.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5);
+        assertNotNull(created);
+        String roomId = created.get("roomId").getAsString();
+        assertTrue(roomId.matches("\\d{6}"));
+        assertTrue(server.hasRoomForTest(roomId));
+
+        p1.clearMessages();
+        p2.sendJson(joinRoom(roomId));
+        JsonObject ownerUpdated = p1.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5);
+        JsonObject guestJoined = p2.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5);
+        assertEquals("roomGuest", ownerUpdated.get("opponentId").getAsString());
+        assertEquals("roomOwner", guestJoined.get("opponentId").getAsString());
+
+        p1.sendJson(ready());
+        p2.sendJson(ready());
+        assertNotNull(p1.awaitTypeObject(JsonMessageTypes.GAME_START, 15));
+        assertNotNull(p2.awaitTypeObject(JsonMessageTypes.GAME_START, 15));
+
+        p1.close();
+        p2.close();
+    }
+
+    @Test
+    void startAiGameLetsServerBotMoveAfterHumanMove() throws Exception {
+        TestWsClient human = connect("humanAi");
+        login(human, "humanAi");
+
+        human.sendJson(startAiGame());
+        JsonObject matched = human.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5);
+        assertNotNull(matched);
+        assertTrue(matched.get("roomId").getAsString().startsWith("ai_"));
+        assertEquals("ai_bot", matched.get("opponentId").getAsString());
+
+        human.sendJson(ready());
+        JsonObject gameStart = human.awaitTypeObject(JsonMessageTypes.GAME_START, 15);
+        assertNotNull(gameStart);
+        assertEquals("red", gameStart.get("yourColor").getAsString());
+        assertBoardCellsIncludeColor(gameStart.getAsJsonArray("initialBoard"));
+        Board board = boardFromGameStart(gameStart);
+
+        Move humanMove = pickNonFlipMove(board, ChessPiece.RED);
+        human.clearMessages();
+        human.sendJson(moveJson(humanMove, true));
+        JsonObject humanResult = human.awaitValidMoveResult(5);
+        assertNotNull(humanResult);
+
+        human.clearMessages();
+        JsonObject aiResult = human.awaitValidMoveResult(10);
+        assertNotNull(aiResult);
+        JsonObject aiMove = aiResult.getAsJsonObject("move");
+        assertNotNull(aiMove);
+
+        human.close();
+    }
+
+    @Test
+    void aiGameRejectsChat() throws Exception {
+        TestWsClient human = connect("humanAiChat");
+        login(human, "humanAiChat");
+
+        human.sendJson(startAiGame());
+        assertNotNull(human.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5));
+        human.sendJson(ready());
+        assertNotNull(human.awaitTypeObject(JsonMessageTypes.GAME_START, 15));
+
+        human.clearMessages();
+        human.sendJson(chat("你好"));
+        JsonObject err = human.awaitError(JsonErrorCodes.MATCH_FAILED, 5);
+        assertNotNull(err);
+        assertEquals("仅真人对局支持聊天", err.get("message").getAsString());
+
+        human.close();
+    }
+
+    @Test
+    void startAiBattleStreamsBotMovesToViewer() throws Exception {
+        TestWsClient viewer = connect("aiBattleViewer");
+        login(viewer, "aiBattleViewer");
+
+        viewer.sendJson(startAiBattle());
+        JsonObject matched = viewer.awaitTypeObject(JsonMessageTypes.MATCH_SUCCESS, 5);
+        assertNotNull(matched);
+        assertTrue(matched.get("roomId").getAsString().startsWith("ai_battle_"));
+
+        JsonObject gameStart = viewer.awaitTypeObject(JsonMessageTypes.GAME_START, 10);
+        assertNotNull(gameStart);
+        assertEquals("ai_red", gameStart.get("redPlayerId").getAsString());
+        assertEquals("ai_black", gameStart.get("blackPlayerId").getAsString());
+
+        assertNotNull(viewer.awaitValidMoveResult(10));
+        assertNotNull(viewer.awaitValidMoveResult(10));
+
+        viewer.close();
     }
 
     @Test
@@ -358,15 +491,21 @@ class WsGameServerIntegrationTest {
         String roomId = ms1.get("roomId").getAsString();
         TestWsClient red;
         TestWsClient black;
+        String redUserId;
+        String blackUserId;
         if ("red".equals(gs1.get("yourColor").getAsString())) {
             red = p1;
             black = p2;
+            redUserId = u1;
+            blackUserId = u2;
         } else {
             red = p2;
             black = p1;
+            redUserId = u2;
+            blackUserId = u1;
         }
         assertTrue(gs1.get("firstHand").getAsBoolean() || gs2.get("firstHand").getAsBoolean());
-        return new GameStartSession(roomId, red, black);
+        return new GameStartSession(roomId, red, black, redUserId, blackUserId);
     }
 
     private void login(TestWsClient c, String user) {
@@ -386,6 +525,22 @@ class WsGameServerIntegrationTest {
 
     private static String startMatch() {
         return "{\"messageType\":\"startMatch\"}";
+    }
+
+    private static String startAiGame() {
+        return "{\"messageType\":\"startAiGame\"}";
+    }
+
+    private static String startAiBattle() {
+        return "{\"messageType\":\"startAiBattle\"}";
+    }
+
+    private static String createRoom() {
+        return "{\"messageType\":\"createRoom\"}";
+    }
+
+    private static String joinRoom(String roomId) {
+        return "{\"messageType\":\"joinRoom\",\"roomId\":\"" + roomId + "\"}";
     }
 
     private static String cancelMatch() {
@@ -412,6 +567,13 @@ class WsGameServerIntegrationTest {
         return "{\"messageType\":\"drawDecline\"}";
     }
 
+    private static String chat(String content) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.CHAT);
+        o.addProperty("content", content);
+        return JsonMessages.toJson(o);
+    }
+
     private static String requestFirstHand(boolean wanna) {
         return "{\"messageType\":\"requestFirstHand\",\"wannaFirst\":" + wanna + "}";
     }
@@ -427,6 +589,17 @@ class WsGameServerIntegrationTest {
         JsonArray cells = gameStart.getAsJsonArray("initialBoard");
         BoardJsonMapper.applyInitialBoard(board, cells);
         return board;
+    }
+
+    private static void assertBoardCellsIncludeColor(JsonArray cells) {
+        assertNotNull(cells);
+        assertFalse(cells.isEmpty());
+        for (int i = 0; i < cells.size(); i++) {
+            JsonObject cell = cells.get(i).getAsJsonObject();
+            assertTrue(cell.has("color"), "cell missing color: " + cell);
+            String color = cell.get("color").getAsString();
+            assertTrue("red".equals(color) || "black".equals(color), "invalid color: " + color);
+        }
     }
 
     private static Move pickNonFlipMove(Board board, int color) {
@@ -458,7 +631,24 @@ class WsGameServerIntegrationTest {
         }
     }
 
-    record GameStartSession(String roomId, TestWsClient red, TestWsClient black) {}
+    private static int findAvailablePort() throws Exception {
+        for (int i = 0; i < 2000; i++) {
+            int candidate = NEXT_TEST_PORT.getAndIncrement();
+            try (ServerSocket socket = new ServerSocket(candidate)) {
+                socket.setReuseAddress(true);
+                return candidate;
+            } catch (java.io.IOException ignored) {
+                // Try the next deterministic low port. Avoid ephemeral ports to prevent client-port races.
+            }
+        }
+        throw new IllegalStateException("no available test port");
+    }
+
+    record GameStartSession(String roomId,
+                            TestWsClient red,
+                            TestWsClient black,
+                            String redUserId,
+                            String blackUserId) {}
 
     static final class TestWsClient extends WebSocketClient {
         private final List<String> messages = new ArrayList<>();

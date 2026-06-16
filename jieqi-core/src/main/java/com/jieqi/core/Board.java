@@ -203,8 +203,8 @@ public class Board {
     }
 
     /**
-     * 撤销走法（悔棋）
-     * @param move 要撤销的走法
+     * 回滚一次已执行走法，供规则校验和 AI 搜索模拟使用。
+     * @param move 要回滚的走法
      * @param captured 该走法吃掉的棋子（如果无吃子则为null）
      */
     public void undoMove(Move move, ChessPiece captured) {

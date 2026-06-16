@@ -9,6 +9,16 @@ public final class WsRoom {
     private Game game;                 // 改为可变：rematch 时重新构造一个新的 Game
     private WsPlayerContext red;
     private WsPlayerContext black;
+    private boolean aiOpponent;
+    private int aiColor = -1;
+    private String aiUserId = "AI";
+    private String aiNickname = "AI";
+    private boolean aiBattle;
+    private WsPlayerContext observer;
+    private String aiRedUserId = "ai_red";
+    private String aiRedNickname = "AI 红方";
+    private String aiBlackUserId = "ai_black";
+    private String aiBlackNickname = "AI 黑方";
     private boolean redReady;
     private boolean blackReady;
     private Boolean redWannaFirst;
@@ -24,6 +34,10 @@ public final class WsRoom {
     private long finishedAtMs;         // 结束时刻，用于超时清理
     private boolean redRematchAsked;   // 红方已请求 rematch
     private boolean blackRematchAsked; // 黑方已请求 rematch
+
+    // ── Pause（本组扩展：AI 对弈暂停） ──
+    private boolean paused;            // true 时 AI 调度线程不下一步
+    private long pauseStartTime;       // 进入暂停的时刻，用于恢复时把回合开始时间往后挪
 
     public WsRoom(String roomId, Game game) {
         this.roomId = roomId;
@@ -52,6 +66,11 @@ public final class WsRoom {
         else blackRematchAsked = asked;
     }
     public boolean bothRematchAsked() { return redRematchAsked && blackRematchAsked; }
+
+    public boolean isPaused() { return paused; }
+    public void setPaused(boolean paused) { this.paused = paused; }
+    public long pauseStartTime() { return pauseStartTime; }
+    public void setPauseStartTime(long t) { this.pauseStartTime = t; }
 
     public int drawOfferedByColor() { return drawOfferedByColor; }
     public void setDrawOfferedByColor(int color) { this.drawOfferedByColor = color; }
@@ -85,6 +104,70 @@ public final class WsRoom {
 
     public WsPlayerContext black() {
         return black;
+    }
+
+    public boolean hasAiOpponent() { return aiOpponent; }
+    public int aiColor() { return aiColor; }
+    public String aiUserId() { return aiUserId; }
+    public String aiNickname() { return aiNickname; }
+    public boolean isAiBattle() { return aiBattle; }
+    public WsPlayerContext observer() { return observer; }
+    public boolean isObserver(WsPlayerContext ctx) { return observer == ctx; }
+    public String aiUserIdForColor(int color) {
+        if (aiBattle) {
+            return color == com.jieqi.core.ChessPiece.RED ? aiRedUserId : aiBlackUserId;
+        }
+        return aiOpponent && aiColor == color ? aiUserId : "";
+    }
+    public String aiNicknameForColor(int color) {
+        if (aiBattle) {
+            return color == com.jieqi.core.ChessPiece.RED ? aiRedNickname : aiBlackNickname;
+        }
+        return aiOpponent && aiColor == color ? aiNickname : "";
+    }
+
+    public void enableAiOpponent(int color, String userId, String nickname) {
+        this.aiOpponent = true;
+        this.aiColor = color;
+        this.aiUserId = userId;
+        this.aiNickname = nickname;
+        if (color == com.jieqi.core.ChessPiece.RED) {
+            game.setRedPlayerName(nickname);
+            if (!game.isRedConnected()) {
+                game.connectPlayer(com.jieqi.core.ChessPiece.RED);
+            }
+        } else {
+            game.setBlackPlayerName(nickname);
+            if (!game.isBlackConnected()) {
+                game.connectPlayer(com.jieqi.core.ChessPiece.BLACK);
+            }
+        }
+        if (!started && game.connectedPlayerCount() == 2) {
+            game.setStatus(Game.GameStatus.WAITING);
+        }
+    }
+
+    public void enableAiBattle(WsPlayerContext observer, String redUserId, String redNickname,
+                               String blackUserId, String blackNickname) {
+        this.aiBattle = true;
+        this.observer = observer;
+        observer.setRoomId(roomId);
+        observer.setColor(-1);
+        this.aiRedUserId = redUserId;
+        this.aiRedNickname = redNickname;
+        this.aiBlackUserId = blackUserId;
+        this.aiBlackNickname = blackNickname;
+        game.setRedPlayerName(redNickname);
+        game.setBlackPlayerName(blackNickname);
+        if (!game.isRedConnected()) {
+            game.connectPlayer(com.jieqi.core.ChessPiece.RED);
+        }
+        if (!game.isBlackConnected()) {
+            game.connectPlayer(com.jieqi.core.ChessPiece.BLACK);
+        }
+        if (!started && game.connectedPlayerCount() == 2) {
+            game.setStatus(Game.GameStatus.WAITING);
+        }
     }
 
     public void bindPlayer(WsPlayerContext ctx, int color) {
@@ -124,6 +207,10 @@ public final class WsRoom {
     }
 
     public WsPlayerContext opponentOf(WsPlayerContext ctx) {
+        if (aiOpponent && ctx.color() == (aiColor == com.jieqi.core.ChessPiece.RED
+                ? com.jieqi.core.ChessPiece.BLACK : com.jieqi.core.ChessPiece.RED)) {
+            return null;
+        }
         if (ctx == red) {
             return black;
         }
@@ -134,6 +221,12 @@ public final class WsRoom {
     }
 
     public boolean bothConnected() {
+        if (aiBattle) {
+            return observer != null;
+        }
+        if (aiOpponent) {
+            return aiColor == com.jieqi.core.ChessPiece.RED ? black != null : red != null;
+        }
         return red != null && black != null;
     }
 
@@ -162,6 +255,12 @@ public final class WsRoom {
     }
 
     public boolean bothReady() {
+        if (aiBattle) {
+            return observer != null;
+        }
+        if (aiOpponent) {
+            return aiColor == com.jieqi.core.ChessPiece.RED ? blackReady : redReady;
+        }
         return redReady && blackReady;
     }
 
