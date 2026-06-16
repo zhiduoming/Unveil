@@ -3,6 +3,7 @@ package com.jieqi.ai;
 import com.jieqi.core.Board;
 import com.jieqi.core.ChessPiece;
 import com.jieqi.core.Move;
+import com.jieqi.core.RuleValidator;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -17,5 +18,7 @@ class JieqiAgentTest {
         assertNotNull(move);
         assertNotNull(move.getSource());
         assertNotNull(move.getDestination());
+        assertTrue(RuleValidator.isValidMove(board, move, ChessPiece.RED));
+        assertTrue(RuleValidator.isMoveLegal(board, move, ChessPiece.RED));
     }
 }

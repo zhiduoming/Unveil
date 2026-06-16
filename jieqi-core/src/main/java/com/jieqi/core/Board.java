@@ -9,6 +9,23 @@ public class Board {
     private List<Move> moveHistory;
     private int moveCount;
     private int noCaptureCount;
+    /** AI 搜索用脱敏棋盘：对手未翻开子不暴露真实 type。 */
+    private boolean aiPublicView;
+    private int aiViewerColor = -1;
+
+    /** {@link #makeMove(Move)} 的快照，供 {@link #unmakeMove(MoveSnapshot)} 回滚。 */
+    public static final class MoveSnapshot {
+        private final Move move;
+        private final ChessPiece captured;
+
+        private MoveSnapshot(Move move, ChessPiece captured) {
+            this.move = move;
+            this.captured = captured;
+        }
+
+        public Move getMove() { return move; }
+        public ChessPiece getCaptured() { return captured; }
+    }
 
     // 每个位置原本应有的棋子类型（用于暗子的virtualType）
     private static final int[][] POSITION_VIRTUAL_TYPES = {
@@ -70,6 +87,8 @@ public class Board {
         this.moveHistory = new ArrayList<>(other.moveHistory);
         this.moveCount = other.moveCount;
         this.noCaptureCount = other.noCaptureCount;
+        this.aiPublicView = other.aiPublicView;
+        this.aiViewerColor = other.aiViewerColor;
         for (int r = 0; r < 10; r++) {
             for (int c = 0; c < 9; c++) {
                 if (other.grid[r][c] != null) {
@@ -165,6 +184,7 @@ public class Board {
             }
             piece.setRevealed(true);
             move.setType(piece.getType());
+            move.setRevealedType(piece.getType());
             moveHistory.add(move);
             moveCount++;
             noCaptureCount++; // 翻子不算吃子，增加无吃子计数
@@ -195,11 +215,64 @@ public class Board {
 
         // 移动暗子后必须翻开
         if (!piece.isRevealed()) {
+            int trueType = piece.getType();
             piece.setRevealed(true);
-            move.setType(piece.getType());
+            int revealType = resolveRevealType(piece);
+            if (!aiPublicView) {
+                move.setRevealedType(trueType);
+            }
+            piece.setType(revealType);
+            move.setType(revealType);
         }
 
         return captured;
+    }
+
+    /**
+     * 试走并返回快照；与 {@link #executeMove(Move)} 等价，供合法走法生成与搜索复用。
+     */
+    public MoveSnapshot makeMove(Move move) {
+        return new MoveSnapshot(move, executeMove(move));
+    }
+
+    public void unmakeMove(MoveSnapshot snapshot) {
+        if (snapshot != null) {
+            undoMove(snapshot.move, snapshot.captured);
+        }
+    }
+
+    /**
+     * 为 AI 构造「公开信息」棋盘：明子保留；己方未翻开子保留真实身份（服务端知悉）；
+     * 对手未翻开子 type 置为 {@link ChessPiece#UNKNOWN}，仅保留 virtualType。
+     */
+    public Board createAiPublicView(int viewerColor) {
+        Board view = new Board(this);
+        view.aiPublicView = true;
+        view.aiViewerColor = viewerColor;
+        maskOpponentUnrevealedTypes(view, viewerColor);
+        return view;
+    }
+
+    public boolean isAiPublicView() { return aiPublicView; }
+    public int getAiViewerColor() { return aiViewerColor; }
+
+    private static void maskOpponentUnrevealedTypes(Board board, int viewerColor) {
+        for (int r = 0; r < 10; r++) {
+            for (int c = 0; c < 9; c++) {
+                ChessPiece p = board.getPiece(r, c);
+                if (p != null && !p.isRevealed() && p.getColor() != viewerColor) {
+                    p.setType(ChessPiece.UNKNOWN);
+                }
+            }
+        }
+    }
+
+    /** 脱敏棋盘上对手暗子翻开时只暴露虚拟身份，避免搜索树透视真实 type。 */
+    private int resolveRevealType(ChessPiece piece) {
+        if (aiPublicView && piece.getColor() != aiViewerColor) {
+            return piece.getVirtualType();
+        }
+        return piece.getType();
     }
 
     /**
@@ -234,6 +307,9 @@ public class Board {
         // 如果这一步翻开了棋子（移动暗子后翻开），恢复为暗子
         if (move.getType() != null && !move.isFlipOnly()) {
             piece.setRevealed(false);
+            if (aiPublicView && piece.getColor() != aiViewerColor) {
+                piece.setType(ChessPiece.UNKNOWN);
+            }
         }
 
         grid[src[0]][src[1]] = piece;

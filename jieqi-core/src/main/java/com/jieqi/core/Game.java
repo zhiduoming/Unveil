@@ -88,6 +88,19 @@ public class Game {
         this.turnStartTime = turnStartTime;
     }
 
+    /**
+     * 本步加时（仅延长当前回合步时，不改变走子方）。
+     * @param bonusMs 增加毫秒数（建议 30_000）
+     * @return false 若对局未进行中
+     */
+    public boolean addBonusTimeMs(long bonusMs) {
+        if (status != GameStatus.PLAYING || bonusMs <= 0) {
+            return false;
+        }
+        turnStartTime += bonusMs;
+        return true;
+    }
+
     public boolean isTimeout() {
         return System.currentTimeMillis() - turnStartTime > 65000;
     }

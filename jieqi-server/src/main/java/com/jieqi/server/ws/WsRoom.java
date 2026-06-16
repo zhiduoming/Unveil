@@ -13,6 +13,7 @@ public final class WsRoom {
     private int aiColor = -1;
     private String aiUserId = "AI";
     private String aiNickname = "AI";
+    private String aiLevel = "medium";
     private boolean aiBattle;
     private WsPlayerContext observer;
     private String aiRedUserId = "ai_red";
@@ -38,6 +39,10 @@ public final class WsRoom {
     // ── Pause（本组扩展：AI 对弈暂停） ──
     private boolean paused;            // true 时 AI 调度线程不下一步
     private long pauseStartTime;       // 进入暂停的时刻，用于恢复时把回合开始时间往后挪
+
+    // ── 手动加时（本组扩展：真人对局每步最多 2 次 +30s） ──
+    private int timeBonusCount;
+    private int timeBonusForColor = -1;
 
     public WsRoom(String roomId, Game game) {
         this.roomId = roomId;
@@ -72,6 +77,25 @@ public final class WsRoom {
     public long pauseStartTime() { return pauseStartTime; }
     public void setPauseStartTime(long t) { this.pauseStartTime = t; }
 
+    public void resetTimeBonusForTurn(int color) {
+        this.timeBonusForColor = color;
+        this.timeBonusCount = 0;
+    }
+
+    public boolean canRequestTimeBonus(int color) {
+        return timeBonusForColor == color && timeBonusCount < 2;
+    }
+
+    public void recordTimeBonus(int color) {
+        if (timeBonusForColor != color) {
+            timeBonusForColor = color;
+            timeBonusCount = 0;
+        }
+        timeBonusCount++;
+    }
+
+    public int timeBonusCount() { return timeBonusCount; }
+
     public int drawOfferedByColor() { return drawOfferedByColor; }
     public void setDrawOfferedByColor(int color) { this.drawOfferedByColor = color; }
     public void clearDrawOffer() { this.drawOfferedByColor = -1; }
@@ -88,6 +112,8 @@ public final class WsRoom {
         this.blackWannaFirst = null;
         this.started = false;
         this.drawOfferedByColor = -1;
+        this.timeBonusForColor = -1;
+        this.timeBonusCount = 0;
     }
 
     public String roomId() {
@@ -110,6 +136,7 @@ public final class WsRoom {
     public int aiColor() { return aiColor; }
     public String aiUserId() { return aiUserId; }
     public String aiNickname() { return aiNickname; }
+    public String aiLevel() { return aiLevel; }
     public boolean isAiBattle() { return aiBattle; }
     public WsPlayerContext observer() { return observer; }
     public boolean isObserver(WsPlayerContext ctx) { return observer == ctx; }
@@ -127,10 +154,15 @@ public final class WsRoom {
     }
 
     public void enableAiOpponent(int color, String userId, String nickname) {
+        enableAiOpponent(color, userId, nickname, "medium");
+    }
+
+    public void enableAiOpponent(int color, String userId, String nickname, String level) {
         this.aiOpponent = true;
         this.aiColor = color;
         this.aiUserId = userId;
         this.aiNickname = nickname;
+        this.aiLevel = level == null || level.isBlank() ? "medium" : level.trim().toLowerCase();
         if (color == com.jieqi.core.ChessPiece.RED) {
             game.setRedPlayerName(nickname);
             if (!game.isRedConnected()) {

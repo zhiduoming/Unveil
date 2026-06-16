@@ -239,6 +239,16 @@ public final class JsonMessages {
         return o;
     }
 
+    /** 步时加时广播（老师协议扩展）。 */
+    public static JsonObject timeBonus(String forColor, int seconds, long turnStartTime) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.TIME_BONUS);
+        o.addProperty("forColor", forColor);
+        o.addProperty("seconds", seconds);
+        o.addProperty("turnStartTime", turnStartTime);
+        return o;
+    }
+
     // ── 解析 C→S ──────────────────────────────────────────
 
     public static Move parseMove(JsonObject obj) {

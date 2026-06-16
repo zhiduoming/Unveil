@@ -1,0 +1,501 @@
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::staticFieldBase has been called by com.google.inject.internal.aop.HiddenClassDefiner (file:/C:/Tools/apache-maven-3.9.10/lib/guice-5.1.0-classes.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.inject.internal.aop.HiddenClassDefiner
+WARNING: sun.misc.Unsafe::staticFieldBase will be removed in a future release
+[INFO] Scanning for projects...
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] Unveil Jieqi Parent                                                [pom]
+[INFO] Jieqi Core                                                         [jar]
+[INFO] Jieqi AI                                                           [jar]
+[INFO] Jieqi Server                                                       [jar]
+[INFO] Jieqi Client                                                       [jar]
+[INFO] Jieqi App                                                          [jar]
+[INFO] 
+[INFO] ----------------------< com.unveil:unveil-parent >----------------------
+[INFO] Building Unveil Jieqi Parent 1.0.0-SNAPSHOT                        [1/6]
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] -----------------------< com.unveil:jieqi-core >------------------------
+[INFO] Building Jieqi Core 1.0.0-SNAPSHOT                                 [2/6]
+[INFO]   from jieqi-core\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ jieqi-core ---
+[INFO] skip non existing resourceDirectory C:\Fullstack_Development\Unveil\jieqi-core\src\main\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ jieqi-core ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ jieqi-core ---
+[INFO] skip non existing resourceDirectory C:\Fullstack_Development\Unveil\jieqi-core\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ jieqi-core ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.2:test (default-test) @ jieqi-core ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.jieqi.core.BoardAiPublicViewTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.055 s -- in com.jieqi.core.BoardAiPublicViewTest
+[INFO] Running com.jieqi.core.BoardExpectedValueTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.jieqi.core.BoardExpectedValueTest
+[INFO] Running com.jieqi.core.BoardMakeMoveTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.013 s -- in com.jieqi.core.BoardMakeMoveTest
+[INFO] Running com.jieqi.core.BoardPositionKeyTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.jieqi.core.BoardPositionKeyTest
+[INFO] Running com.jieqi.core.BoardSyncTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.jieqi.core.BoardSyncTest
+[INFO] Running com.jieqi.core.ChessPieceCoordTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.jieqi.core.ChessPieceCoordTest
+[INFO] Running com.jieqi.core.CoordinateTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.jieqi.core.CoordinateTest
+[INFO] Running com.jieqi.core.DarkPieceRuleTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.013 s -- in com.jieqi.core.DarkPieceRuleTest
+[INFO] Running com.jieqi.core.EndgameJudgeTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.018 s -- in com.jieqi.core.EndgameJudgeTest
+[INFO] Running com.jieqi.core.GameEndgameTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.jieqi.core.GameEndgameTest
+[INFO] Running com.jieqi.core.GameLastCapturedTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in com.jieqi.core.GameLastCapturedTest
+[INFO] Running com.jieqi.core.KingCapturedRuleTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.jieqi.core.KingCapturedRuleTest
+[INFO] Running com.jieqi.core.RandomRevealServiceTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.jieqi.core.RandomRevealServiceTest
+[INFO] Running com.jieqi.protocol.FrameDecoderTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.012 s -- in com.jieqi.protocol.FrameDecoderTest
+[INFO] Running com.jieqi.protocol.json.BoardJsonMapperTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.jieqi.protocol.json.BoardJsonMapperTest
+[INFO] Running com.jieqi.protocol.json.JsonMessagesCapturedTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.036 s -- in com.jieqi.protocol.json.JsonMessagesCapturedTest
+[INFO] Running com.jieqi.protocol.json.PieceJsonMapperTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.jieqi.protocol.json.PieceJsonMapperTest
+[INFO] Running com.jieqi.protocol.ProtocolFrameIntegrationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.jieqi.protocol.ProtocolFrameIntegrationTest
+[INFO] Running com.jieqi.protocol.ProtocolMoveSerializationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.jieqi.protocol.ProtocolMoveSerializationTest
+[INFO] Running com.jieqi.record.GameRecordImportTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.jieqi.record.GameRecordImportTest
+[INFO] Running com.jieqi.record.GameRecordTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.jieqi.record.GameRecordTest
+[INFO] Running com.jieqi.record.MoveNotationParseTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.jieqi.record.MoveNotationParseTest
+[INFO] Running com.jieqi.record.MoveNotationRevealedTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.jieqi.record.MoveNotationRevealedTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 63, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] 
+[INFO] ------------------------< com.unveil:jieqi-ai >-------------------------
+[INFO] Building Jieqi AI 1.0.0-SNAPSHOT                                   [3/6]
+[INFO]   from jieqi-ai\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ jieqi-ai ---
+[INFO] skip non existing resourceDirectory C:\Fullstack_Development\Unveil\jieqi-ai\src\main\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ jieqi-ai ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ jieqi-ai ---
+[INFO] skip non existing resourceDirectory C:\Fullstack_Development\Unveil\jieqi-ai\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ jieqi-ai ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.2:test (default-test) @ jieqi-ai ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.jieqi.ai.agent.AgentOrchestratorTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.065 s -- in com.jieqi.ai.agent.AgentOrchestratorTest
+[INFO] Running com.jieqi.ai.agent.EndgameAgentTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.jieqi.ai.agent.EndgameAgentTest
+[INFO] Running com.jieqi.ai.agent.ProbabilityAgentTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.jieqi.ai.agent.ProbabilityAgentTest
+[INFO] Running com.jieqi.ai.AiFairnessTest
+[AI] 搜索完成: 深度=3, 节点=5278, 分数=1335
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.504 s -- in com.jieqi.ai.AiFairnessTest
+[INFO] Running com.jieqi.ai.bot.AiBotFactoryTest
+[AI] 搜索完成: 深度=2, 节点=1437, 分数=-662
+[AI] 搜索完成: 深度=2, 节点=2405, 分数=-662
+[AI] 搜索完成: 深度=2, 节点=1974, 分数=-560
+[AI] 搜索完成: 深度=2, 节点=2863, 分数=-546
+[AI] 搜索完成: 深度=2, 节点=2844, 分数=-546
+[AI] 搜索完成: 深度=2, 节点=2885, 分数=-56
+[AI] 搜索完成: 深度=3, 节点=2132, 分数=-56
+[AI] 搜索完成: 深度=3, 节点=3009, 分数=-56
+[AI] 搜索完成: 深度=3, 节点=5877, 分数=1347
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.655 s -- in com.jieqi.ai.bot.AiBotFactoryTest
+[INFO] Running com.jieqi.ai.EnhancedEvaluatorTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.jieqi.ai.EnhancedEvaluatorTest
+[INFO] Running com.jieqi.ai.JieqiAgentTest
+[AI] 搜索完成: 深度=4, 节点=37118, 分数=821
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.521 s -- in com.jieqi.ai.JieqiAgentTest
+[INFO] Running com.jieqi.ai.OptimizedAlphaBetaRepetitionTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.jieqi.ai.OptimizedAlphaBetaRepetitionTest
+[INFO] Running com.jieqi.ai.OptimizedAlphaBetaTacticalTest
+[AI] 搜索完成: 深度=5, 节点=12114, 分数=1073741723
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.117 s -- in com.jieqi.ai.OptimizedAlphaBetaTacticalTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 16, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] 
+[INFO] ----------------------< com.unveil:jieqi-server >-----------------------
+[INFO] Building Jieqi Server 1.0.0-SNAPSHOT                               [4/6]
+[INFO]   from jieqi-server\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ jieqi-server ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ jieqi-server ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 9 source files with javac [debug release 21] to target\classes
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ jieqi-server ---
+[INFO] skip non existing resourceDirectory C:\Fullstack_Development\Unveil\jieqi-server\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ jieqi-server ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 12 source files with javac [debug release 21] to target\test-classes
+[INFO] 
+[INFO] --- surefire:3.5.2:test (default-test) @ jieqi-server ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.jieqi.server.GameRecordStoreTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.138 s -- in com.jieqi.server.GameRecordStoreTest
+[INFO] Running com.jieqi.server.GameServerChatIntegrationTest
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=091780f6 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 091780f6
+玩家 Black(黑方) 加入游戏 091780f6
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.055 s -- in com.jieqi.server.GameServerChatIntegrationTest
+[INFO] Running com.jieqi.server.GameServerDrawIntegrationTest
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=bd5189d8 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 bd5189d8
+玩家 Black(黑方) 加入游戏 bd5189d8
+游戏 bd5189d8 结束: DRAW (协议和棋)
+[Match] 已移除结束对局 gameId=bd5189d8 活跃对局数=0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.029 s -- in com.jieqi.server.GameServerDrawIntegrationTest
+[INFO] Running com.jieqi.server.GameServerIllegalMoveIntegrationTest
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=8d2ffa29 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 8d2ffa29
+玩家 Black(黑方) 加入游戏 8d2ffa29
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.034 s -- in com.jieqi.server.GameServerIllegalMoveIntegrationTest
+[INFO] Running com.jieqi.server.GameServerLoginIntegrationTest
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=5decbbca players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 5decbbca
+玩家 Black(黑方) 加入游戏 5decbbca
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.029 s -- in com.jieqi.server.GameServerLoginIntegrationTest
+[INFO] Running com.jieqi.server.GameServerMoveIntegrationTest
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=da9edfb2 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 da9edfb2
+玩家 Black(黑方) 加入游戏 da9edfb2
+游戏 da9edfb2 结束: RED_WIN (将死)
+棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\da9edfb2.jieqi
+[Match] 已移除结束对局 gameId=da9edfb2 活跃对局数=0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.031 s -- in com.jieqi.server.GameServerMoveIntegrationTest
+[INFO] Running com.jieqi.server.GameServerResignIntegrationTest
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=d90eb623 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 d90eb623
+玩家 Black(黑方) 加入游戏 d90eb623
+游戏 d90eb623 结束: BLACK_WIN (认输)
+棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\d90eb623.jieqi
+[Match] 已移除结束对局 gameId=d90eb623 活跃对局数=0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.092 s -- in com.jieqi.server.GameServerResignIntegrationTest
+[INFO] Running com.jieqi.server.GameServerTurnChangeIntegrationTest
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=d0629acb players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 d0629acb
+玩家 Black(黑方) 加入游戏 d0629acb
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.048 s -- in com.jieqi.server.GameServerTurnChangeIntegrationTest
+[INFO] Running com.jieqi.server.GameServerUnknownMsgIntegrationTest
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=8446ef64 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 8446ef64
+玩家 Black(黑方) 加入游戏 8446ef64
+未知消息类型: 99
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.030 s -- in com.jieqi.server.GameServerUnknownMsgIntegrationTest
+客户端断开: Red
+[INFO] Running com.jieqi.server.MatchmakingServiceTest
+[Match] 新建房间（显式 new） gameId=fresh players=0/2 status=WAITING
+[Match] 自动匹配（并入 1/2 房间） gameId=room-a players=1/2 status=WAITING
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.jieqi.server.MatchmakingServiceTest
+[INFO] Running com.jieqi.server.ws.WsGameServerIntegrationTest
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19000
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19000)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53907
+[WS] 新连接: /127.0.0.1:53908
+[WS] 匹配成功 roomId=room_e1902287 chat1 vs chat2
+[WS] 开局 roomId=room_e1902287
+[WS] 对局结束 roomId=room_e1902287 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: chat1 — 
+[WS] 连接关闭: chat2 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19001
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19001)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53912
+[WS] 连接关闭: pinger — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19002
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19002)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53917
+[WS] 新连接: /127.0.0.1:53918
+[WS] 创建房间 roomId=547905 owner=roomOwner
+[WS] 加入房间 roomId=547905 roomOwner vs roomGuest
+[WS] 开局 roomId=547905
+[WS] 对局结束 roomId=547905 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: roomOwner — 
+[WS] 连接关闭: roomGuest — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19003
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19003)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53922
+[WS] 新连接: /127.0.0.1:53923
+[WS] 匹配成功 roomId=room_d0d13bc5 red1 vs blk1
+[WS] 开局 roomId=room_d0d13bc5
+[WS] 棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_d0d13bc5.jieqi
+[WS] 对局结束 roomId=room_d0d13bc5 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: red1 — 
+[WS] 连接关闭: blk1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19004
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19004)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53927
+[WS] 新连接: /127.0.0.1:53928
+[WS] 匹配成功 roomId=room_a788668f fh2 vs fh1
+[WS] 开局 roomId=room_a788668f
+[WS] 对局结束 roomId=room_a788668f BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: fh2 — 
+[WS] 连接关闭: fh1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19005
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19005)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53933
+[WS] 创建 AI 自动对弈 roomId=ai_battle_9f638d2a viewer=aiBattleViewer
+[AI] 搜索完成: 深度=3, 节点=40688, 分数=964
+[WS] 连接关闭: aiBattleViewer — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19006
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19006)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53950
+[WS] 新连接: /127.0.0.1:53951
+[WS] 匹配成功 roomId=room_5e25304a res1 vs res2
+[WS] 开局 roomId=room_5e25304a
+[WS] 对局结束 roomId=room_5e25304a BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: res1 — 
+[WS] 连接关闭: res2 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19007
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19007)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53954
+[WS] 创建人机房间 roomId=ai_8de393d9 human=humanAiChat aiLevel=medium
+[WS] 开局 roomId=ai_8de393d9
+[WS] 对局结束 roomId=ai_8de393d9 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: humanAiChat — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19008
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19008)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53959
+[WS] 新连接: /127.0.0.1:53960
+[WS] 匹配成功 roomId=room_84e2c651 u1 vs u2
+[WS] 开局 roomId=room_84e2c651
+[WS] 对局结束 roomId=room_84e2c651 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: u1 — 
+[WS] 连接关闭: u2 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19009
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19009)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53965
+[WS] 新连接: /127.0.0.1:53966
+[WS] 匹配成功 roomId=room_01a05593 drawDecline1 vs drawDecline2
+[WS] 开局 roomId=room_01a05593
+[WS] 棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_01a05593.jieqi
+[WS] 对局结束 roomId=room_01a05593 RED_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: drawDecline2 — 
+[WS] 连接关闭: drawDecline1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19010
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19010)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53969
+[WS] 新连接: /127.0.0.1:53970
+[WS] 匹配成功 roomId=room_fa646551 draw2 vs draw1
+[WS] 开局 roomId=room_fa646551
+[WS] 对局结束 roomId=room_fa646551 DRAW（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: draw2 — 
+[WS] 连接关闭: draw1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19011
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19011)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53973
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19012
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19012)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53976
+[WS] 新连接: /127.0.0.1:53977
+[WS] 匹配成功 roomId=room_f58aec93 ill1 vs ill2
+[WS] 开局 roomId=room_f58aec93
+[WS] 棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_f58aec93.jieqi
+[WS] 对局结束 roomId=room_f58aec93 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: ill1 — 
+[WS] 连接关闭: ill2 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19013
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19013)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53980
+[WS] 新连接: /127.0.0.1:53981
+[WS] 匹配成功 roomId=room_c8576473 turn1 vs turn2
+[WS] 开局 roomId=room_c8576473
+[WS] 对局结束 roomId=room_c8576473 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: turn1 — 
+[WS] 连接关闭: turn2 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19014
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19014)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53983
+[WS] 新连接: /127.0.0.1:53984
+[WS] 匹配成功 roomId=room_0dd9aea4 dc2 vs dc1
+[WS] 开局 roomId=room_0dd9aea4
+[WS] 对局结束 roomId=room_0dd9aea4 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: dc2 — 
+[WS] 连接关闭: dc1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19015
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19015)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53987
+[WS] 创建人机房间 roomId=ai_2ce78b3a human=humanAi aiLevel=medium
+[WS] 开局 roomId=ai_2ce78b3a
+[AI] 搜索完成: 深度=4, 节点=46246, 分数=645
+[WS] 棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\ai_2ce78b3a.jieqi
+[WS] 对局结束 roomId=ai_2ce78b3a BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: humanAi — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19016
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19016)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53175
+[WS] 连接关闭: unk — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19017
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19017)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53177
+[WS] 新连接: /127.0.0.1:53178
+[WS] 匹配成功 roomId=room_43743504 to1 vs to2
+[WS] 开局 roomId=room_43743504
+[WS] 对局结束 roomId=room_43743504 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: to2 — 
+[WS] 连接关闭: to1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19018
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19018)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:53186
+[WS] 新连接: /127.0.0.1:53187
+[WS] 匹配成功 roomId=room_adae5a6e can2 vs can1
+[WS] 连接关闭: can1 — 
+[WS] 连接关闭: can2 — 
+[INFO] Tests run: 19, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.653 s -- in com.jieqi.server.ws.WsGameServerIntegrationTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 33, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] 
+[INFO] ----------------------< com.unveil:jieqi-client >-----------------------
+[INFO] Building Jieqi Client 1.0.0-SNAPSHOT                               [5/6]
+[INFO]   from jieqi-client\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ jieqi-client ---
+[INFO] skip non existing resourceDirectory C:\Fullstack_Development\Unveil\jieqi-client\src\main\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ jieqi-client ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ jieqi-client ---
+[INFO] skip non existing resourceDirectory C:\Fullstack_Development\Unveil\jieqi-client\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ jieqi-client ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.5.2:test (default-test) @ jieqi-client ---
+[INFO] No tests to run.
+[INFO] 
+[INFO] ------------------------< com.unveil:jieqi-app >------------------------
+[INFO] Building Jieqi App 1.0.0-SNAPSHOT                                  [6/6]
+[INFO]   from jieqi-app\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ jieqi-app ---
+[INFO] skip non existing resourceDirectory C:\Fullstack_Development\Unveil\jieqi-app\src\main\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ jieqi-app ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 1 source file with javac [debug release 21] to target\classes
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ jieqi-app ---
+[INFO] skip non existing resourceDirectory C:\Fullstack_Development\Unveil\jieqi-app\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ jieqi-app ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.5.2:test (default-test) @ jieqi-app ---
+[INFO] No tests to run.
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for Unveil Jieqi Parent 1.0.0-SNAPSHOT:
+[INFO] 
+[INFO] Unveil Jieqi Parent ................................ SUCCESS [  0.002 s]
+[INFO] Jieqi Core ......................................... SUCCESS [  1.990 s]
+[INFO] Jieqi AI ........................................... SUCCESS [  5.723 s]
+[INFO] Jieqi Server ....................................... SUCCESS [ 11.682 s]
+[INFO] Jieqi Client ....................................... SUCCESS [  0.022 s]
+[INFO] Jieqi App .......................................... SUCCESS [  0.188 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  19.778 s
+[INFO] Finished at: 2026-06-17T00:54:18+08:00
+[INFO] ------------------------------------------------------------------------

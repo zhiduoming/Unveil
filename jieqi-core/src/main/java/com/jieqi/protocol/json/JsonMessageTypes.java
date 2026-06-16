@@ -34,6 +34,8 @@ public final class JsonMessageTypes {
     // 本组扩展：AI 对弈暂停 / 继续（仅 AI 对战/人机模式有效）
     public static final String PAUSE_GAME = "pauseGame";
     public static final String RESUME_GAME = "resumeGame";
+    /** 本组扩展：手动加时（每步限次，见服务端） */
+    public static final String ADD_TIME = "addTime";
 
     // S → C
     public static final String LOGIN_RESULT = "loginResult";
@@ -54,4 +56,6 @@ public final class JsonMessageTypes {
     // 本组扩展：AI 对弈暂停状态变化通知
     public static final String GAME_PAUSED = "gamePaused";
     public static final String GAME_RESUMED = "gameResumed";
+    /** 本组扩展：步时加时通知 */
+    public static final String TIME_BONUS = "timeBonus";
 }
