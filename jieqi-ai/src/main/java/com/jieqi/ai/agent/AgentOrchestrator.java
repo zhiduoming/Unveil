@@ -2,6 +2,7 @@ package com.jieqi.ai.agent;
 
 import com.jieqi.core.Board;
 import com.jieqi.core.Move;
+import com.jieqi.core.RuleValidator;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -33,7 +34,8 @@ public class AgentOrchestrator {
     }
 
     public Move selectMove(Board board, int color, long timeLimitMs, Map<String, Integer> repetition) {
-        AgentContext ctx = new AgentContext(board, color, timeLimitMs);
+        Board aiBoard = board.createAiPublicView(color);
+        AgentContext ctx = new AgentContext(aiBoard, color, Math.max(100L, timeLimitMs));
         ctx.setRepetitionCount(repetition);
         for (JieqiSubAgent agent : agents) {
             if (!agent.supports(ctx)) {
@@ -43,6 +45,10 @@ public class AgentOrchestrator {
             if (move != null) {
                 return move;
             }
+        }
+        var legalMoves = RuleValidator.generateLegalMoves(aiBoard, color);
+        if (!legalMoves.isEmpty()) {
+            return legalMoves.get(0);
         }
         return null;
     }

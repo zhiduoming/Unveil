@@ -35,13 +35,13 @@ public class OptimizedAlphaBeta {
     public SearchResult search(Board board, int color, long timeLimitMs, Map<String, Integer> repetition) {
         this.repetition = repetition;
         this.startTime = System.currentTimeMillis();
-        this.timeLimit = timeLimitMs;
+        this.timeLimit = Math.max(50L, timeLimitMs);
         this.nodesSearched = 0;
         this.maxDepthReached = 0;
         this.abortSearch = false;
 
-        List<Move> moves = RuleValidator.generateAllMoves(board, color);
-        if (moves.isEmpty()) return new SearchResult(null, RuleValidator.isInCheck(board, color) ? -INF + 1000 : 0);
+        List<Move> moves = RuleValidator.generateLegalMoves(board, color);
+        if (moves.isEmpty()) return new SearchResult(null, terminalNoLegalMovesScore(board, color));
 
         for (Move m : moves) {
             ChessPiece target = board.getPiece(m.getDestination());
@@ -49,8 +49,8 @@ public class OptimizedAlphaBeta {
                 return new SearchResult(m, INF - 1);
         }
 
-        Move bestMove = null;
-        int bestScore = -INF;
+        Move bestMove = moves.get(0);
+        int bestScore = EnhancedEvaluator.evaluate(afterMove(board, bestMove), color);
         long hash = ZobristHash.computeHash(board);
         orderMoves(board, moves, color, ROOT_TACTICAL_ORDER_DEPTH, hash);
         Move ttBest = tt.getBestMove(hash);
@@ -147,8 +147,8 @@ public class OptimizedAlphaBeta {
             return quiescenceSearch(board, color, alpha, beta, 3);
         }
 
-        List<Move> moves = RuleValidator.generateAllMoves(board, color);
-        if (moves.isEmpty()) return RuleValidator.isInCheck(board, color) ? -INF + 1000 : 0;
+        List<Move> moves = RuleValidator.generateLegalMoves(board, color);
+        if (moves.isEmpty()) return terminalNoLegalMovesScore(board, color);
 
         orderMoves(board, moves, color, depth, hash);
         int bestScore = -INF;
@@ -210,7 +210,7 @@ public class OptimizedAlphaBeta {
         if (standPat > alpha) alpha = standPat;
 
         List<Move> captureMoves = new ArrayList<>();
-        for (Move m : RuleValidator.generateAllMoves(board, color)) {
+        for (Move m : RuleValidator.generateLegalMoves(board, color)) {
             if (board.getPiece(m.getDestination()) != null) captureMoves.add(m);
         }
         if (captureMoves.isEmpty()) return standPat;
@@ -284,7 +284,7 @@ public class OptimizedAlphaBeta {
     private int majorPieceThreatPenalty(Board board, int color) {
         int oppColor = (color == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
         int worstPenalty = 0;
-        for (Move oppMove : RuleValidator.generateAllMoves(board, oppColor)) {
+        for (Move oppMove : RuleValidator.generateLegalMoves(board, oppColor)) {
             int[] src = ChessPiece.fromCoord(oppMove.getSource());
             int[] dst = ChessPiece.fromCoord(oppMove.getDestination());
             ChessPiece attacker = board.getPiece(src[0], src[1]);
@@ -306,6 +306,16 @@ public class OptimizedAlphaBeta {
 
     private boolean isMajorPiece(int type) {
         return type == ChessPiece.ROOK || type == ChessPiece.CANNON || type == ChessPiece.KNIGHT;
+    }
+
+    private int terminalNoLegalMovesScore(Board board, int color) {
+        return RuleValidator.isInCheck(board, color) ? -INF + 1000 : -INF + 2000;
+    }
+
+    private Board afterMove(Board board, Move move) {
+        Board next = new Board(board);
+        next.executeMove(move);
+        return next;
     }
 
     private void orderMoveToFront(List<Move> moves, Move best) {
