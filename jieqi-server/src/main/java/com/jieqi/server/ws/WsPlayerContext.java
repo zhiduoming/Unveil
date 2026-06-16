@@ -9,6 +9,7 @@ public final class WsPlayerContext {
     private final WebSocket connection;
     private String userId;
     private String nickname;
+    private String avatar = "";
     private String roomId;
     private int color = -1;
     private boolean ready;
@@ -31,8 +32,18 @@ public final class WsPlayerContext {
         this.nickname = nickname;
     }
 
+    public void setUser(String userId, String nickname, String avatar) {
+        this.userId = userId;
+        this.nickname = nickname;
+        this.avatar = avatar == null ? "" : avatar;
+    }
+
     public String nickname() {
         return nickname;
+    }
+
+    public String avatar() {
+        return avatar;
     }
 
     public String roomId() {

@@ -8,6 +8,10 @@ public class OptimizedAlphaBeta {
     private static final int MAX_DEPTH = 20;
     private static final int ROOT_TACTICAL_ORDER_DEPTH = MAX_DEPTH - 1;
     private static final int MAJOR_THREAT_PENALTY_LIMIT = 12000;
+    // 长将规避：某根步执行后若使「该局面 + 待走方」重复计数将达此值且仍在将军，
+    // 视为接近长将判负（阈值 6），对该步施加重罚使 AI 改走他步（绝杀步除外）。
+    private static final int REPETITION_DANGER = 5;
+    private static final int REPETITION_PENALTY = 100_000;
     private TranspositionTable tt;
     private HistoryHeuristic history;
     private KillerHeuristic killers;
@@ -16,6 +20,7 @@ public class OptimizedAlphaBeta {
     private int nodesSearched;
     private int maxDepthReached;
     private boolean abortSearch;
+    private Map<String, Integer> repetition;
 
     public OptimizedAlphaBeta() {
         this.tt = new TranspositionTable();
@@ -24,14 +29,19 @@ public class OptimizedAlphaBeta {
     }
 
     public SearchResult search(Board board, int color, long timeLimitMs) {
+        return search(board, color, timeLimitMs, null);
+    }
+
+    public SearchResult search(Board board, int color, long timeLimitMs, Map<String, Integer> repetition) {
+        this.repetition = repetition;
         this.startTime = System.currentTimeMillis();
-        this.timeLimit = timeLimitMs;
+        this.timeLimit = Math.max(50L, timeLimitMs);
         this.nodesSearched = 0;
         this.maxDepthReached = 0;
         this.abortSearch = false;
 
-        List<Move> moves = RuleValidator.generateAllMoves(board, color);
-        if (moves.isEmpty()) return new SearchResult(null, RuleValidator.isInCheck(board, color) ? -INF + 1000 : 0);
+        List<Move> moves = RuleValidator.generateLegalMoves(board, color);
+        if (moves.isEmpty()) return new SearchResult(null, terminalNoLegalMovesScore(board, color));
 
         for (Move m : moves) {
             ChessPiece target = board.getPiece(m.getDestination());
@@ -39,8 +49,8 @@ public class OptimizedAlphaBeta {
                 return new SearchResult(m, INF - 1);
         }
 
-        Move bestMove = null;
-        int bestScore = -INF;
+        Move bestMove = moves.get(0);
+        int bestScore = EnhancedEvaluator.evaluate(afterMove(board, bestMove), color);
         long hash = ZobristHash.computeHash(board);
         orderMoves(board, moves, color, ROOT_TACTICAL_ORDER_DEPTH, hash);
         Move ttBest = tt.getBestMove(hash);
@@ -61,6 +71,8 @@ public class OptimizedAlphaBeta {
                 nodesSearched++;
                 int score;
                 int oppColor = (color == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
+                // 长将规避：执行该步后若局面重复将逼近判负阈值且仍在将军，标记之。
+                boolean repetitionRisk = isRepeatedCheckRisk(board, oppColor, repetition);
                 if (RuleValidator.isCheckmate(board, oppColor)) score = INF - 1;
                 else {
                     if (i == 0) score = -alphaBeta(board, oppColor, depth - 1, -beta, -alpha, true);
@@ -71,6 +83,10 @@ public class OptimizedAlphaBeta {
                     }
                 }
                 board.undoMove(move, captured);
+                // 非绝杀的长将步重罚：宁可改走他步，也别走成重复将军判负。
+                if (repetitionRisk && Math.abs(score) < INF - 1000) {
+                    score -= REPETITION_PENALTY;
+                }
                 if (score > currentBest) { currentBest = score; currentBestMove = move; }
                 if (score > alpha) {
                     // 记录历史启发：本步推高了 alpha
@@ -98,6 +114,21 @@ public class OptimizedAlphaBeta {
         return new SearchResult(bestMove, bestScore);
     }
 
+    /**
+     * 判断「当前(已执行某根步后)局面」是否构成接近长将判负的重复将军：
+     * 仍在将对方军，且该局面 + 待走方的重复计数 +1 将达到危险阈值。
+     *
+     * @param board      已执行候选步之后的棋盘
+     * @param oppColor   候选步执行后轮到走子的一方（对手）
+     * @param repetition 重复局面计数；为 null 时不规避
+     */
+    static boolean isRepeatedCheckRisk(Board board, int oppColor, Map<String, Integer> repetition) {
+        if (repetition == null) return false;
+        if (!RuleValidator.isInCheck(board, oppColor)) return false;
+        String key = Board.positionKey(board, oppColor);
+        return repetition.getOrDefault(key, 0) + 1 >= REPETITION_DANGER;
+    }
+
     private int alphaBeta(Board board, int color, int depth, int alpha, int beta, boolean isPV) {
         if (abortSearch) return 0;
         if (System.currentTimeMillis() - startTime > timeLimit) { abortSearch = true; return 0; }
@@ -116,8 +147,8 @@ public class OptimizedAlphaBeta {
             return quiescenceSearch(board, color, alpha, beta, 3);
         }
 
-        List<Move> moves = RuleValidator.generateAllMoves(board, color);
-        if (moves.isEmpty()) return RuleValidator.isInCheck(board, color) ? -INF + 1000 : 0;
+        List<Move> moves = RuleValidator.generateLegalMoves(board, color);
+        if (moves.isEmpty()) return terminalNoLegalMovesScore(board, color);
 
         orderMoves(board, moves, color, depth, hash);
         int bestScore = -INF;
@@ -126,6 +157,9 @@ public class OptimizedAlphaBeta {
         int searched = 0;
 
         for (Move move : moves) {
+            // 超时后立即停止：避免对剩余走法继续跑昂贵的 isCheckmate/generateAllMoves，
+            // 否则单步思考可能远超预算（这是 AI 偶发超时判负的根因之一）。
+            if (abortSearch) break;
             ChessPiece captured = board.executeMove(move);
             nodesSearched++;
             int oppColor = (color == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
@@ -176,7 +210,7 @@ public class OptimizedAlphaBeta {
         if (standPat > alpha) alpha = standPat;
 
         List<Move> captureMoves = new ArrayList<>();
-        for (Move m : RuleValidator.generateAllMoves(board, color)) {
+        for (Move m : RuleValidator.generateLegalMoves(board, color)) {
             if (board.getPiece(m.getDestination()) != null) captureMoves.add(m);
         }
         if (captureMoves.isEmpty()) return standPat;
@@ -196,6 +230,7 @@ public class OptimizedAlphaBeta {
             }
         }
         for (int i = 0; i < captureMoves.size(); i++) {
+            if (abortSearch) break;
             if (seeScores[i] < 0) break;                    // SEE < 0 → 直接跳过
             Move move = captureMoves.get(i);
             ChessPiece captured = board.executeMove(move);
@@ -249,7 +284,7 @@ public class OptimizedAlphaBeta {
     private int majorPieceThreatPenalty(Board board, int color) {
         int oppColor = (color == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
         int worstPenalty = 0;
-        for (Move oppMove : RuleValidator.generateAllMoves(board, oppColor)) {
+        for (Move oppMove : RuleValidator.generateLegalMoves(board, oppColor)) {
             int[] src = ChessPiece.fromCoord(oppMove.getSource());
             int[] dst = ChessPiece.fromCoord(oppMove.getDestination());
             ChessPiece attacker = board.getPiece(src[0], src[1]);
@@ -271,6 +306,16 @@ public class OptimizedAlphaBeta {
 
     private boolean isMajorPiece(int type) {
         return type == ChessPiece.ROOK || type == ChessPiece.CANNON || type == ChessPiece.KNIGHT;
+    }
+
+    private int terminalNoLegalMovesScore(Board board, int color) {
+        return RuleValidator.isInCheck(board, color) ? -INF + 1000 : -INF + 2000;
+    }
+
+    private Board afterMove(Board board, Move move) {
+        Board next = new Board(board);
+        next.executeMove(move);
+        return next;
     }
 
     private void orderMoveToFront(List<Move> moves, Move best) {

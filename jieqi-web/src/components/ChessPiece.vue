@@ -17,6 +17,10 @@ const isDark = computed(() => !props.piece.revealed)
 const charText = computed(() =>
   isDark.value ? '' : PIECE_CHAR[props.piece.color][props.piece.type],
 )
+// 暗子：按虚拟类型淡显提示（揭棋规则下暗子按所在位走法）
+const virtualHint = computed(() =>
+  isDark.value ? PIECE_CHAR[props.piece.color][props.piece.type] : '',
+)
 
 // 每个棋子实例的唯一 id（避免 SVG defs 冲突）
 const uid = computed(() => `${props.piece.row}-${props.piece.col}`)
@@ -29,7 +33,13 @@ const meanderAngles = Array.from({ length: 24 }, (_, i) => i * 15)
   <button
     @click.stop="$emit('click')"
     class="piece-btn"
-    :class="{ 'piece-selected': selected, 'piece-last-target': lastMoveTarget }"
+    :class="{
+      'piece-selected': selected,
+      'piece-last-target': lastMoveTarget,
+      'piece-dark': isDark,
+      'piece-dark-red': isDark && isRed,
+      'piece-dark-black': isDark && !isRed,
+    }"
   >
     <span v-if="hint" class="capture-hint" aria-hidden="true"></span>
     <svg viewBox="0 0 100 100" class="piece-svg" xmlns="http://www.w3.org/2000/svg">
@@ -124,10 +134,25 @@ const meanderAngles = Array.from({ length: 24 }, (_, i) => i * 15)
         :filter="`url(#engrave-${uid})`"
       >{{ charText }}</text>
 
-      <!-- 暗子：中央雕刻的同心圆，对应参考图右边的空背面 -->
+      <!-- 暗子：背面 + 虚拟类型淡字 + 色边标识 -->
       <g v-else>
+        <circle cx="50" cy="50" r="44"
+          fill="none"
+          :stroke="isRed ? '#b91c1c' : '#1c1917'"
+          stroke-width="2.2"
+          opacity="0.55"
+        />
         <circle cx="50" cy="50" r="12"
           fill="none" stroke="#3d2410" stroke-width="0.8" opacity="0.5"/>
+        <text
+          x="50" y="64"
+          font-family="STKaiti, KaiTi, '楷体', serif"
+          font-size="34"
+          font-weight="700"
+          text-anchor="middle"
+          :fill="isRed ? '#b91c1c' : '#1c1917'"
+          opacity="0.28"
+        >{{ virtualHint }}</text>
       </g>
     </svg>
   </button>
@@ -166,6 +191,24 @@ const meanderAngles = Array.from({ length: 24 }, (_, i) => i * 15)
 .piece-selected {
   transform: translateY(-4px) scale(1.06);
   filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.9));
+}
+
+.piece-dark.piece-selected {
+  filter:
+    drop-shadow(0 0 8px rgba(245, 158, 11, 0.95))
+    drop-shadow(0 0 4px rgba(180, 120, 40, 0.6));
+}
+
+.piece-dark-red.piece-selected {
+  filter:
+    drop-shadow(0 0 8px rgba(245, 158, 11, 0.95))
+    drop-shadow(0 0 5px rgba(185, 28, 28, 0.45));
+}
+
+.piece-dark-black.piece-selected {
+  filter:
+    drop-shadow(0 0 8px rgba(245, 158, 11, 0.95))
+    drop-shadow(0 0 5px rgba(28, 25, 23, 0.5));
 }
 
 .piece-last-target:not(.piece-selected) {

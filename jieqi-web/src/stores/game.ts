@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ws, type WsMessage } from '../services/ws'
-import { initialJieqiBoard, type Piece, type PieceType } from '../types/chess'
+import { initialJieqiBoard, type Piece, type PieceType, type CapturedEntry } from '../types/chess'
 import { getMoveErrorMessage, getValidMoves, isInCheck, isCheckmate, isStalemate } from '../utils/chessRules'
+import { playMessageBeep } from '../utils/sound'
 
 export type Color = 'red' | 'black'
 
@@ -9,6 +10,7 @@ export interface RoomInfo {
   roomId: string
   opponentId: string
   opponentNickname: string
+  opponentAvatar: string
   mode: 'human' | 'humanAi' | 'aiBattle'
 }
 
@@ -119,6 +121,8 @@ export const useGameStore = defineStore('game', {
   state: () => ({
     serverUrl: defaultServerUrl(),
     userId: '' as string,
+    myNickname: '' as string,   // 我的显示昵称（随机生成）
+    myAvatar: '' as string,     // 我的 emoji 头像
     loggedIn: false as boolean,
     matching: false as boolean,
     ready: false as boolean,
@@ -134,6 +138,9 @@ export const useGameStore = defineStore('game', {
     myDrawOffered: false as boolean,
     drawDeclinedBy: '' as string,
     chatMessages: [] as ChatMessage[],
+    chatSoundOn: true as boolean,  // 新消息提示音开关
+    aiLevel: 'medium' as 'easy' | 'medium' | 'hard',
+    aiThinking: false as boolean,
 
     // 棋盘状态
     board: [] as Piece[],
@@ -142,6 +149,12 @@ export const useGameStore = defineStore('game', {
     lastMove: null as { from: string; to: string } | null,
     battleEffect: null as null | { kind: 'move' | 'capture' | 'check'; seq: number },
     battleEffectSeq: 0 as number,
+
+    // 被吃棋子展示（揭棋信息差）：
+    //   capturedByMe   = 我方吃掉对方的子（棋盘左下「战利品」，可见真实身份）
+    //   capturedFromMe = 对方吃掉我方的子（棋盘右上「损失」，暗子被吃不显身份）
+    capturedByMe: [] as CapturedEntry[],
+    capturedFromMe: [] as CapturedEntry[],
 
     // 将军状态
     inCheck: null as Color | null,  // 谁正被将军
@@ -157,6 +170,7 @@ export const useGameStore = defineStore('game', {
     turnStartedAt: 0 as number,     // 当前回合开始时刻（毫秒）
     stepTimeLimitMs: 65000 as number, // 步时上限（与服务端一致）
     nowMs: 0 as number,             // setInterval 推动的当前毫秒（用于响应式计算剩余）
+    timeBonusUsed: 0 as number,     // 本步已手动加时次数（每步最多 2 次）
 
     // AI 对弈暂停（仅 AI 模式下可见）
     paused: false as boolean,
@@ -183,6 +197,12 @@ export const useGameStore = defineStore('game', {
     gameOverReasonText(state): string {
       return gameOverReasonText(state.gameOver?.reason)
     },
+    /** 真人对局：本步是否还能手动加时 */
+    canRequestTimeBonus(state): boolean {
+      if (!state.gameStart || state.gameOver || state.room?.mode !== 'human') return false
+      if (state.currentTurn !== state.gameStart.yourColor) return false
+      return state.timeBonusUsed < 2
+    },
   },
 
   actions: {
@@ -194,9 +214,11 @@ export const useGameStore = defineStore('game', {
       this.serverUrl = url
       await ws.connect(url)
     },
-    login(userId: string, password: string) {
+    login(userId: string, password: string, nickname?: string, avatar?: string) {
       this.userId = userId
-      ws.send({ messageType: 'Login', userId, password })
+      this.myNickname = nickname || userId
+      this.myAvatar = avatar || ''
+      ws.send({ messageType: 'Login', userId, password, nickname, avatar })
     },
     startMatch() {
       this.matching = true
@@ -204,13 +226,14 @@ export const useGameStore = defineStore('game', {
       this.lastError = ''
       ws.send({ messageType: 'startMatch' })
     },
-    startAiGame() {
+    startAiGame(level?: 'easy' | 'medium' | 'hard') {
       this.matching = false
       this.ready = false
       this.opponentReady = true
       this.pendingRoomMode = 'humanAi'
+      this.aiLevel = level || this.aiLevel || 'medium'
       this.lastError = ''
-      ws.send({ messageType: 'startAiGame' })
+      ws.send({ messageType: 'startAiGame', aiLevel: this.aiLevel })
     },
     startAiBattle() {
       this.matching = false
@@ -280,6 +303,9 @@ export const useGameStore = defineStore('game', {
       }
       ws.send({ messageType: 'chat', content: text.slice(0, 120) })
     },
+    toggleChatSound() {
+      this.chatSoundOn = !this.chatSoundOn
+    },
     ping() {
       ws.send({ messageType: 'ping', timestamp: Date.now() })
     },
@@ -312,6 +338,16 @@ export const useGameStore = defineStore('game', {
     /** 恢复 AI 对弈。等服务端 gameResumed 确认。 */
     resumeAi() {
       ws.send({ messageType: 'resumeGame' })
+    },
+
+    /** 真人对局：本步手动加时 +30s（每步最多 2 次） */
+    addTime() {
+      if (!this.canRequestTimeBonus) {
+        this.lastError = '本步加时次数已用完或尚未轮到你'
+        return
+      }
+      this.lastError = ''
+      ws.send({ messageType: 'addTime', seconds: 30 })
     },
 
     // ── 走子相关 ─────────────────────────────────────────
@@ -423,6 +459,9 @@ export const useGameStore = defineStore('game', {
 
     sendMove(fromCol: number, fromRow: number, toCol: number, toRow: number, isFlip: boolean) {
       this.lastError = ''
+      if (this.room?.mode === 'humanAi') {
+        this.aiThinking = true
+      }
       ws.send({
         messageType: 'move',
         fromX: COLS[fromCol],
@@ -464,6 +503,7 @@ export const useGameStore = defineStore('game', {
       this.rematchDeclinedBy = ''
       this.paused = false
       this.pausedAt = 0
+      this.timeBonusUsed = 0
     },
 
     returnToLobby() {
@@ -487,6 +527,7 @@ export const useGameStore = defineStore('game', {
             roomId: msg.roomId,
             opponentId: msg.opponentId,
             opponentNickname: msg.opponentNickname || msg.opponentId,
+            opponentAvatar: msg.opponentAvatar || '',
             mode: this.pendingRoomMode,
           }
           this.matching = false
@@ -522,6 +563,8 @@ export const useGameStore = defineStore('game', {
           this.lastMove = null
           this.battleEffect = null
           this.battleEffectSeq = 0
+          this.capturedByMe = []
+          this.capturedFromMe = []
           this.inCheck = null
           this.endgameVerdict = null
           this.gameOver = null
@@ -532,6 +575,7 @@ export const useGameStore = defineStore('game', {
           this.myRematchAsked = false
           this.rematchOfferFrom = ''
           this.rematchDeclinedBy = ''
+          this.timeBonusUsed = 0
           this.resetTurnClock()
           break
 
@@ -543,6 +587,8 @@ export const useGameStore = defineStore('game', {
             break
           }
           if (msg.move) this.applyMove(msg.move, msg.flipResult)
+          if (msg.captured) this.recordCapture(msg.captured)
+          this.aiThinking = false
           this.lastError = ''
           break
 
@@ -574,6 +620,10 @@ export const useGameStore = defineStore('game', {
           if (this.chatMessages.length > 60) {
             this.chatMessages = this.chatMessages.slice(-60)
           }
+          // 收到对方消息时播放提示音（自己发的不响）
+          if (this.chatSoundOn && msg.fromUserId !== this.userId) {
+            playMessageBeep()
+          }
           break
         }
 
@@ -583,6 +633,13 @@ export const useGameStore = defineStore('game', {
 
         case 'gameOver':
           this.gameOver = { winner: msg.winner, reason: msg.reason, winnerId: msg.winnerId }
+          // 终局揭晓：用 capturedReveal（全部真实身份）重建两个展示区，
+          // 把对局中右上角的「未知暗子」展开为真实棋子（复盘可见）。
+          if (Array.isArray(msg.capturedReveal)) {
+            this.capturedByMe = []
+            this.capturedFromMe = []
+            for (const cap of msg.capturedReveal) this.recordCapture(cap)
+          }
           this.selectedCoord = ''
           this.hintCoords = []
           this.drawOfferFrom = ''
@@ -635,11 +692,41 @@ export const useGameStore = defineStore('game', {
           this.nowMs = Date.now()
           break
 
+        case 'timeBonus': {
+          const ts = Number(msg.turnStartTime)
+          if (ts > 0) {
+            this.turnStartedAt = ts
+            this.nowMs = Date.now()
+          }
+          const forColor = mapColor(msg.forColor)
+          if (forColor && forColor === this.gameStart?.yourColor) {
+            this.timeBonusUsed = Math.min(2, this.timeBonusUsed + 1)
+          }
+          break
+        }
+
         case 'error':
           this.lastError = normalizeServerMessage(msg.message)
           this.matching = false
           this.selectedCoord = ''
           break
+      }
+    },
+
+    // 记录一次吃子（来自 moveResult.captured 或 gameOver.capturedReveal）。
+    // 按被吃子颜色相对「我方」归入左下战利品 / 右上损失区；观战者无 yourColor，
+    // 固定把红方损失视为「我方损失」（红方视角），保证两侧展示稳定。
+    recordCapture(cap: any) {
+      if (!cap) return
+      const color = mapColor(cap.color)
+      if (!color) return
+      const type = cap.piece != null ? (mapType(cap.piece) ?? null) : null
+      const entry: CapturedEntry = { color, type, wasDark: cap.wasDark === true }
+      const myColor = this.gameStart?.yourColor ?? 'red'
+      if (color === myColor) {
+        this.capturedFromMe.push(entry)  // 我方的子被吃 → 右上「损失」
+      } else {
+        this.capturedByMe.push(entry)    // 对方的子被我吃 → 左下「战利品」
       }
     },
 
@@ -686,6 +773,7 @@ export const useGameStore = defineStore('game', {
 
       // 切换回合 + 重置计时器
       this.currentTurn = this.currentTurn === 'red' ? 'black' : 'red'
+      this.timeBonusUsed = 0
       this.resetTurnClock()
 
       // 走完后，新回合方（被走方）的状态：将军 / 将死 / 困毙

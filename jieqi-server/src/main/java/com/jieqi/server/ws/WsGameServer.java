@@ -1,5 +1,6 @@
 package com.jieqi.server.ws;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.jieqi.core.ChessPiece;
 import com.jieqi.core.Game;
@@ -10,6 +11,9 @@ import com.jieqi.protocol.json.JsonErrorCodes;
 import com.jieqi.protocol.json.JsonMessageTypes;
 import com.jieqi.protocol.json.JsonMessages;
 import com.jieqi.protocol.json.PieceJsonMapper;
+import com.jieqi.ai.bot.AiBot;
+import com.jieqi.ai.bot.AiBotFactory;
+import com.jieqi.ai.bot.AiLevel;
 import com.jieqi.server.GameRecordStore;
 import com.jieqi.server.MatchmakingService;
 import org.java_websocket.WebSocket;
@@ -44,10 +48,6 @@ public class WsGameServer extends WebSocketServer {
     private final Queue<String> matchQueue = new ArrayDeque<>();
     private final GameRecordStore recordStore = new GameRecordStore("records");
     private final RandomRevealService revealService = new RandomRevealService();
-    // 真正的 AI：Alpha-Beta + 揭棋评估（含 SEE / KingHunt / 挂子惩罚等）。
-    // RuleBasedBot 留作降级备用（若 JieqiAgent 抛出异常或超时返回 null）。
-    private final com.jieqi.ai.JieqiAgent aiBot = new com.jieqi.ai.JieqiAgent();
-    private final RuleBasedBot fallbackBot = new RuleBasedBot();
     // 时间预算：人机对战每步 5s（响应不卡），AI 自动对弈每步 2.5s（看着不无聊）
     // 评估器一次 evaluate 已优化为 2 次 generateAllMoves，5s 在中盘能搜到 4-5 层
     private static final long AI_BUDGET_HUMAN_VS_AI_MS = 5_000L;
@@ -89,7 +89,7 @@ public class WsGameServer extends WebSocketServer {
                 case JsonMessageTypes.LOGIN -> handleLogin(ctx, json);
                 case JsonMessageTypes.REGISTER -> handleRegister(ctx, json);
                 case JsonMessageTypes.START_MATCH -> handleStartMatch(ctx);
-                case JsonMessageTypes.START_AI_GAME -> handleStartAiGame(ctx);
+                case JsonMessageTypes.START_AI_GAME -> handleStartAiGame(ctx, json);
                 case JsonMessageTypes.START_AI_BATTLE -> handleStartAiBattle(ctx);
                 case JsonMessageTypes.CANCEL_MATCH -> handleCancelMatch(ctx);
                 case JsonMessageTypes.CREATE_ROOM -> handleCreateRoom(ctx);
@@ -109,6 +109,7 @@ public class WsGameServer extends WebSocketServer {
                 case JsonMessageTypes.LEAVE_ROOM -> handleLeaveRoom(ctx);
                 case JsonMessageTypes.PAUSE_GAME -> handlePauseGame(ctx);
                 case JsonMessageTypes.RESUME_GAME -> handleResumeGame(ctx);
+                case JsonMessageTypes.ADD_TIME -> handleAddTime(ctx, json);
                 default -> send(conn, JsonMessages.error(JsonErrorCodes.JSON_FORMAT, "未知消息类型"));
             }
         } catch (Exception e) {
@@ -151,7 +152,9 @@ public class WsGameServer extends WebSocketServer {
     private void handleLogin(WsPlayerContext ctx, JsonObject json) {
         String userId = json.has("userId") ? json.get("userId").getAsString() : null;
         String password = json.has("password") ? json.get("password").getAsString() : "";
-        UserRegistry.UserAccount acc = users.loginOrCreate(userId, password);
+        String nickname = json.has("nickname") ? json.get("nickname").getAsString() : null;
+        String avatar = json.has("avatar") ? json.get("avatar").getAsString() : null;
+        UserRegistry.UserAccount acc = users.loginOrCreate(userId, password, nickname, avatar);
         if (acc == null) {
             send(ctx, JsonMessages.loginResult(false, "登录失败", null));
             return;
@@ -162,7 +165,7 @@ public class WsGameServer extends WebSocketServer {
             send(ctx, JsonMessages.error(JsonErrorCodes.DUPLICATE_LOGIN, "重复登录"));
             return;
         }
-        ctx.setUser(acc.userId(), acc.nickname());
+        ctx.setUser(acc.userId(), acc.nickname(), acc.avatar());
         send(ctx, JsonMessages.loginResult(true, "登录成功", acc.userId()));
     }
 
@@ -215,7 +218,7 @@ public class WsGameServer extends WebSocketServer {
         }
     }
 
-    private void handleStartAiGame(WsPlayerContext ctx) {
+    private void handleStartAiGame(WsPlayerContext ctx, JsonObject json) {
         if (!ctx.isLoggedIn()) {
             send(ctx, JsonMessages.error(JsonErrorCodes.LOGIN_FAILED, "请先登录"));
             return;
@@ -230,9 +233,13 @@ public class WsGameServer extends WebSocketServer {
             WsRoom room = new WsRoom(roomId, game);
             rooms.put(roomId, room);
             room.bindPlayer(ctx, ChessPiece.RED);
-            room.enableAiOpponent(ChessPiece.BLACK, "ai_bot", "规则托管 AI");
+            String aiLevel = json.has("aiLevel") ? json.get("aiLevel").getAsString() : "medium";
+            AiLevel level = AiLevel.fromId(aiLevel);
+            String nick = level.label() + " AI";
+            room.enableAiOpponent(ChessPiece.BLACK, "ai_bot", nick, level.id());
             send(ctx, JsonMessages.matchSuccess(roomId, room.aiUserId(), room.aiNickname()));
-            System.out.println("[WS] 创建人机房间 roomId=" + roomId + " human=" + ctx.userId());
+            System.out.println("[WS] 创建人机房间 roomId=" + roomId + " human=" + ctx.userId()
+                    + " aiLevel=" + level.id());
         }
     }
 
@@ -286,8 +293,8 @@ public class WsGameServer extends WebSocketServer {
                 return;
             }
             room.bindPlayer(ctx, ChessPiece.BLACK);
-            send(room.red(), JsonMessages.matchSuccess(roomId, ctx.userId(), ctx.nickname()));
-            send(ctx, JsonMessages.matchSuccess(roomId, room.red().userId(), room.red().nickname()));
+            send(room.red(), JsonMessages.matchSuccess(roomId, ctx.userId(), ctx.nickname(), ctx.avatar()));
+            send(ctx, JsonMessages.matchSuccess(roomId, room.red().userId(), room.red().nickname(), room.red().avatar()));
             System.out.println("[WS] 加入房间 roomId=" + roomId + " " + room.red().userId() + " vs " + ctx.userId());
         }
     }
@@ -417,13 +424,21 @@ public class WsGameServer extends WebSocketServer {
             if (move.getType() != null) {
                 flipResult = PieceJsonMapper.toJsonName(move.getType());
             }
-            JsonObject result = JsonMessages.moveResult(true, move, true, flipResult);
-            broadcastRoom(room, result);
+            // 揭棋信息差：被吃子身份按接收方视角差异化下发——吃子方/观战者看真实身份，
+            // 被吃方暗子被吃时不显示真实身份（见 INTERFACE.typ Q1 方案 B）。
+            ChessPiece captured = game.getLastCaptured();
+            send(room.red(), JsonMessages.moveResult(true, move, true, flipResult,
+                    JsonMessages.capturedJson(captured, ChessPiece.RED)));
+            send(room.black(), JsonMessages.moveResult(true, move, true, flipResult,
+                    JsonMessages.capturedJson(captured, ChessPiece.BLACK)));
+            send(room.observer(), JsonMessages.moveResult(true, move, true, flipResult,
+                    JsonMessages.capturedJson(captured, -1)));
 
             Game.GameStatus status = game.getStatus();
             if (status != Game.GameStatus.PLAYING) {
                 broadcastGameOver(room, status);
             } else {
+                room.resetTimeBonusForTurn(game.getCurrentTurn());
                 scheduleAiMoveIfNeeded(room);
             }
             return true;
@@ -465,15 +480,10 @@ public class WsGameServer extends WebSocketServer {
                 }
                 int aiColor = game.getCurrentTurn();
                 long budget = room.isAiBattle() ? AI_BUDGET_AI_BATTLE_MS : AI_BUDGET_HUMAN_VS_AI_MS;
-                Move aiMove = null;
-                try {
-                    aiMove = aiBot.selectMove(game.getBoard(), aiColor, budget);
-                } catch (Exception ex) {
-                    System.err.println("[WS] JieqiAgent 异常，降级到 RuleBasedBot: " + ex);
-                }
-                if (aiMove == null) {
-                    aiMove = fallbackBot.selectMove(game.getBoard(), aiColor);
-                }
+                AiLevel level = room.isAiBattle() ? AiLevel.MEDIUM : AiLevel.fromId(room.aiLevel());
+                AiBot bot = AiBotFactory.create(level, budget);
+                Move aiMove = AiBotFactory.selectWithFallback(
+                        bot, game.getBoard(), aiColor, budget, game.getRepetitionCount());
                 if (aiMove == null) {
                     int winnerColor = aiColor == ChessPiece.RED ? ChessPiece.BLACK : ChessPiece.RED;
                     game.setStatus(winnerColor == ChessPiece.RED
@@ -673,8 +683,8 @@ public class WsGameServer extends WebSocketServer {
             rooms.put(roomId, room);
             room.bindPlayer(p1, ChessPiece.RED);
             room.bindPlayer(p2, ChessPiece.BLACK);
-            send(p1, JsonMessages.matchSuccess(roomId, u2, users.nickname(u2)));
-            send(p2, JsonMessages.matchSuccess(roomId, u1, users.nickname(u1)));
+            send(p1, JsonMessages.matchSuccess(roomId, u2, users.nickname(u2), users.avatar(u2)));
+            send(p2, JsonMessages.matchSuccess(roomId, u1, users.nickname(u1), users.avatar(u1)));
             System.out.println("[WS] 匹配成功 roomId=" + roomId + " " + u1 + " vs " + u2);
         }
     }
@@ -688,6 +698,7 @@ public class WsGameServer extends WebSocketServer {
         Game game = room.game();
         game.setStatus(Game.GameStatus.PLAYING);
         game.setTurnStartTime(System.currentTimeMillis());
+        room.resetTimeBonusForTurn(game.getCurrentTurn());
         broadcastGameStart(room);
         System.out.println("[WS] 开局 roomId=" + room.roomId());
         scheduleAiMoveIfNeeded(room);
@@ -774,6 +785,11 @@ public class WsGameServer extends WebSocketServer {
                     if (room.isPaused()) {
                         continue;
                     }
+                    // AI 回合不判超时：AI 是本地计算，思考慢是引擎问题，不应判它负；
+                    // 步时只约束真人玩家（AI 有自己的搜索时间预算 + fallback 兜底）。
+                    if (isAiTurn(room, game.getCurrentTurn())) {
+                        continue;
+                    }
                     if (!game.isTimeout()) {
                         continue;
                     }
@@ -805,7 +821,9 @@ public class WsGameServer extends WebSocketServer {
             reasonCode = Protocol.REASON_CHECKMATE;
         }
         String reason = JsonMessages.reasonFromProtocolCode(reasonCode);
-        broadcastRoom(room, JsonMessages.gameOver(winnerStr, reason, winnerId));
+        // 终局揭晓：把全部被吃子的真实身份发给双方与观战者（复盘可见，含被吃方暗子损失）。
+        JsonArray capturedReveal = JsonMessages.capturedReveal(room.game().getCapturedPieces());
+        broadcastRoom(room, JsonMessages.gameOver(winnerStr, reason, winnerId, capturedReveal));
         persistRecord(room.game());
         // 不立即销毁 room，标记 finished：保留 REMATCH_WINDOW_MS 等待双方决定是否再来一局。
         // 超时由 rematchCleanupLoop 回收。
@@ -936,6 +954,49 @@ public class WsGameServer extends WebSocketServer {
         scheduleAiMoveIfNeeded(room);
     }
 
+    private static final int TIME_BONUS_SECONDS = 30;
+
+    /** 真人对局：当前走子方手动加时（每步最多 2 次，每次 +30s）。 */
+    private void handleAddTime(WsPlayerContext ctx, JsonObject json) {
+        if (!ctx.isLoggedIn()) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.LOGIN_FAILED, "请先登录"));
+            return;
+        }
+        WsRoom room = roomOf(ctx);
+        if (room == null || !room.isStarted()) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "当前不在对局中"));
+            return;
+        }
+        if (room.hasAiOpponent() || room.isAiBattle()) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "人机对局不支持手动加时"));
+            return;
+        }
+        Game game = room.game();
+        if (game.getStatus() != Game.GameStatus.PLAYING) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "对局已结束"));
+            return;
+        }
+        if (game.getCurrentTurn() != ctx.color()) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.NOT_YOUR_TURN, "仅当前走子方可加时"));
+            return;
+        }
+        if (!room.canRequestTimeBonus(ctx.color())) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "本步加时次数已用完（每步最多 2 次）"));
+            return;
+        }
+        int seconds = TIME_BONUS_SECONDS;
+        if (json != null && json.has("seconds")) {
+            seconds = Math.min(60, Math.max(10, json.get("seconds").getAsInt()));
+        }
+        if (!game.addBonusTimeMs(seconds * 1000L)) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "加时失败"));
+            return;
+        }
+        room.recordTimeBonus(ctx.color());
+        String forColor = PieceJsonMapper.colorToString(ctx.color());
+        broadcastRoom(room, JsonMessages.timeBonus(forColor, seconds, game.getTurnStartTime()));
+    }
+
     /** 双方同意后，在同一 room 上启动新一局 Game 并广播 gameStart。 */
     private void startRematchGame(WsRoom room) {
         // 用新的 Game 实例（重新随机暗子分配 + 重置回合）
@@ -963,6 +1024,7 @@ public class WsGameServer extends WebSocketServer {
         newGame.setStatus(Game.GameStatus.PLAYING);
         room.resetForRematch();
         room.setStarted(true);
+        room.resetTimeBonusForTurn(newGame.getCurrentTurn());
 
         if (room.red() != null) {
             send(room.red(), JsonMessages.gameStart(

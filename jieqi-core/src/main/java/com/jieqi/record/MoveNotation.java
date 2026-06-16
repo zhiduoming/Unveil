@@ -22,6 +22,9 @@ public final class MoveNotation {
         if (move.isFlipOnly()) {
             sb.append("[翻]");
         }
+        if (move.hasRevealed()) {
+            sb.append("[揭:").append(move.getRevealedType()).append(']');
+        }
         return sb.toString();
     }
 
@@ -33,6 +36,16 @@ public final class MoveNotation {
             return null;
         }
         String rest = notation.trim();
+        // 解析 [揭:type] 后缀
+        int revealedType = -1;
+        int revealStart = rest.lastIndexOf("[揭:");
+        if (revealStart >= 0) {
+            int revealEnd = rest.indexOf(']', revealStart);
+            if (revealEnd > revealStart) {
+                revealedType = Integer.parseInt(rest.substring(revealStart + 3, revealEnd));
+                rest = rest.substring(0, revealStart) + rest.substring(revealEnd + 1);
+            }
+        }
         boolean flipOnly = rest.endsWith("[翻]");
         if (flipOnly) {
             rest = rest.substring(0, rest.length() - 3);
@@ -62,6 +75,9 @@ public final class MoveNotation {
         }
         if (flipOnly) {
             move.setFlipOnly(true);
+        }
+        if (revealedType >= 0) {
+            move.setRevealedType(revealedType);
         }
         return move;
     }

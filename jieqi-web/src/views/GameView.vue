@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game'
 import { initialJieqiBoard } from '../types/chess'
 import ChessBoard from '../components/ChessBoard.vue'
+import CapturedTray from '../components/CapturedTray.vue'
+import { QUICK_MESSAGES, CHAT_EMOJIS } from '../utils/chatPresets'
 
 const router = useRouter()
 const store = useGameStore()
@@ -26,6 +28,7 @@ let toastTimer: number | undefined
 const pendingConfirm = ref<null | 'draw' | 'resign'>(null)
 const chatDraft = ref('')
 const chatLogRef = ref<HTMLElement | null>(null)
+const chatPanel = ref<'' | 'quick' | 'emoji'>('')  // 快捷消息 / 表情面板（互斥展开）
 type BattleKind = 'move' | 'capture' | 'check'
 const battleBadge = ref<null | { kind: 'capture' | 'check'; key: number }>(null)
 let battleTimer: number | undefined
@@ -184,6 +187,18 @@ function sendChat() {
   if (text.trim()) chatDraft.value = ''
 }
 
+function toggleChatPanel(mode: 'quick' | 'emoji') {
+  chatPanel.value = chatPanel.value === mode ? '' : mode
+}
+function sendQuick(msg: string) {
+  if (store.gameOver) return
+  store.sendChat(msg)
+  chatPanel.value = ''
+}
+function insertEmoji(e: string) {
+  chatDraft.value = (chatDraft.value + e).slice(0, 120)
+}
+
 function backToLobby() {
   store.returnToLobby()
   router.push('/lobby')
@@ -203,11 +218,13 @@ function backToLobby() {
           <div class="card-head">
             <div
               class="avatar"
-              :class="(yourColor === 'red') ? 'avatar-black' : 'avatar-red'"
+              :class="[(yourColor === 'red') ? 'avatar-black' : 'avatar-red',
+                       store.room?.opponentAvatar ? 'avatar-emoji' : '']"
             >
-              {{ ((yourColor === 'red')
-                  ? store.gameStart?.blackPlayerId
-                  : store.gameStart?.redPlayerId)?.[0]?.toUpperCase() || '?' }}
+              {{ store.room?.opponentAvatar
+                  || ((yourColor === 'red')
+                      ? store.gameStart?.blackPlayerId
+                      : store.gameStart?.redPlayerId)?.[0]?.toUpperCase() || '?' }}
             </div>
             <span
               class="side-tag"
@@ -237,7 +254,9 @@ function backToLobby() {
           >
             <span class="clock-text">{{ remainText }}</span>
           </div>
-          <div class="clock-state">{{ isMyTurn ? '轮到你走' : '等待对手' }}</div>
+          <div class="clock-state">
+            {{ store.aiThinking ? 'AI 思考中…' : (isMyTurn ? '轮到你走' : '等待对手') }}
+          </div>
         </div>
 
         <!-- 自己卡片 -->
@@ -248,9 +267,10 @@ function backToLobby() {
           <div class="card-head">
             <div
               class="avatar"
-              :class="yourColor === 'red' ? 'avatar-red' : 'avatar-black'"
+              :class="[yourColor === 'red' ? 'avatar-red' : 'avatar-black',
+                       store.myAvatar ? 'avatar-emoji' : '']"
             >
-              {{ store.userId?.[0]?.toUpperCase() || '?' }}
+              {{ store.myAvatar || store.userId?.[0]?.toUpperCase() || '?' }}
             </div>
             <span
               class="side-tag"
@@ -260,7 +280,7 @@ function backToLobby() {
             </span>
             <span class="side-tag tag-you">你</span>
           </div>
-          <div class="player-name">{{ store.userId }}</div>
+          <div class="player-name">{{ store.myNickname || store.userId }}</div>
           <div class="player-role">
             {{ store.gameStart?.firstHand ? '先手' : '后手' }}
           </div>
@@ -270,6 +290,10 @@ function backToLobby() {
       <!-- ========= 中栏：棋盘 ========= -->
       <main class="board-col">
         <div class="board-stack">
+          <!-- 右上：我方被吃的棋子（损失）。暗子被吃倒扣不显身份。 -->
+          <div class="captured-bar captured-bar-top">
+            <CapturedTray :entries="store.capturedFromMe" variant="loss" />
+          </div>
           <ChessBoard
             :pieces="store.board"
             :is-red-view="isRedView"
@@ -278,6 +302,10 @@ function backToLobby() {
             :last-move="store.lastMove"
             @cell-click="onCellClick"
           />
+          <!-- 左下：我方吃掉对方的棋子（战利品）。暗子被吃可见身份但变暗。 -->
+          <div class="captured-bar captured-bar-bottom">
+            <CapturedTray :entries="store.capturedByMe" variant="trophy" />
+          </div>
           <Transition name="battle-pop">
             <div
               v-if="battleBadge"
@@ -319,6 +347,14 @@ function backToLobby() {
           <template v-else>
             <button @click="onResign" :disabled="!!store.gameOver" class="action-btn btn-resign">🏳️ 认 输</button>
             <button
+              @click="store.addTime()"
+              :disabled="!store.canRequestTimeBonus || !!store.gameOver"
+              class="action-btn btn-draw"
+              :title="store.canRequestTimeBonus ? '本步加时 +30 秒（每步最多 2 次）' : '加时不可用'"
+            >
+              ⏱ 加时 +30s（{{ 2 - store.timeBonusUsed }}/2）
+            </button>
+            <button
               @click="onOfferDraw"
               :disabled="store.myDrawOffered || !!store.drawOfferFrom || !!store.gameOver"
               class="action-btn btn-draw"
@@ -332,6 +368,11 @@ function backToLobby() {
           <div class="chat-head">
             <h3 class="chat-title">局内聊天</h3>
             <span class="chat-count">{{ store.chatMessages.length }}</span>
+            <button
+              class="chat-sound"
+              :title="store.chatSoundOn ? '消息提示音：开' : '消息提示音：关'"
+              @click="store.toggleChatSound()"
+            >{{ store.chatSoundOn ? '🔔' : '🔕' }}</button>
           </div>
           <div ref="chatLogRef" class="chat-log">
             <div v-if="store.chatMessages.length === 0" class="chat-empty">还没有消息</div>
@@ -350,6 +391,39 @@ function backToLobby() {
               <div class="chat-bubble">{{ msg.content }}</div>
             </div>
           </div>
+          <!-- 快捷消息 / 表情 展开面板 -->
+          <div v-if="chatPanel === 'quick'" class="chat-panel">
+            <button
+              v-for="m in QUICK_MESSAGES"
+              :key="m"
+              class="quick-chip"
+              :disabled="!!store.gameOver"
+              @click="sendQuick(m)"
+            >{{ m }}</button>
+          </div>
+          <div v-else-if="chatPanel === 'emoji'" class="chat-panel emoji-panel">
+            <button
+              v-for="e in CHAT_EMOJIS"
+              :key="e"
+              class="emoji-chip"
+              @click="insertEmoji(e)"
+            >{{ e }}</button>
+          </div>
+
+          <div class="chat-tools">
+            <button
+              class="chat-tool"
+              :class="{ active: chatPanel === 'quick' }"
+              :disabled="!!store.gameOver"
+              @click="toggleChatPanel('quick')"
+            >💬 快捷</button>
+            <button
+              class="chat-tool"
+              :class="{ active: chatPanel === 'emoji' }"
+              @click="toggleChatPanel('emoji')"
+            >😀 表情</button>
+          </div>
+
           <div class="chat-input-row">
             <input
               v-model="chatDraft"
@@ -559,6 +633,8 @@ function backToLobby() {
 }
 .avatar-red { background: linear-gradient(135deg, #dc2626, #991b1b); }
 .avatar-black { background: linear-gradient(135deg, #44403c, #1c1917); }
+/* emoji 头像放大些，并去掉文字阴影干扰 */
+.avatar-emoji { font-size: 22px; }
 
 .side-tag {
   font-size: 11px;
@@ -693,6 +769,16 @@ function backToLobby() {
   align-items: center;
   width: 100%;
 }
+
+/* 被吃棋子展示条：上方（损失）靠右、下方（战利品）靠左 */
+.captured-bar {
+  width: 100%;
+  max-width: 880px;
+  padding: 4px 7%;
+  box-sizing: border-box;
+}
+.captured-bar-top { margin-bottom: 4px; }
+.captured-bar-bottom { margin-top: 4px; }
 
 .battle-overlay {
   position: absolute;
@@ -905,9 +991,79 @@ function backToLobby() {
 .chat-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
 }
+.chat-head .chat-title { margin-right: auto; }
+.chat-sound {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: background 0.12s ease;
+}
+.chat-sound:hover { background: rgba(120, 53, 15, 0.12); }
+
+/* 快捷消息 / 表情 面板 */
+.chat-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 132px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  padding: 6px;
+  border: 1px dashed rgba(120, 53, 15, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+.quick-chip {
+  font-size: 12px;
+  color: #5d2f0d;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(120, 53, 15, 0.3);
+  border-radius: 14px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+.quick-chip:hover:not(:disabled) { background: rgba(253, 230, 138, 0.85); }
+.quick-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+.emoji-panel { max-height: 110px; }
+.emoji-chip {
+  font-size: 20px;
+  line-height: 1;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+.emoji-chip:hover { background: rgba(253, 230, 138, 0.7); transform: scale(1.12); }
+
+.chat-tools {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.chat-tool {
+  font-size: 12px;
+  color: #5d2f0d;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(120, 53, 15, 0.3);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.chat-tool:hover:not(:disabled) { background: rgba(253, 230, 138, 0.7); }
+.chat-tool.active { background: rgba(245, 158, 11, 0.35); border-color: rgba(120, 53, 15, 0.5); }
+.chat-tool:disabled { opacity: 0.5; cursor: not-allowed; }
 .chat-title {
   font-size: 14px;
   font-weight: 800;

@@ -19,6 +19,15 @@ export interface Piece {
   col: number       // 0~8, 0=列 a
 }
 
+// 被吃棋子记录（揭棋信息差）：
+//   type = null 表示「未知暗子」——被吃方看不到被吃暗子的真实身份；
+//   wasDark = true 表示被吃前是暗子（用于左下战利品区的"变暗"显示）。
+export interface CapturedEntry {
+  color: Color
+  type: PieceType | null
+  wasDark: boolean
+}
+
 // 红方明子文字 / 黑方明子文字
 export const PIECE_CHAR: Record<Color, Record<PieceType, string>> = {
   red:   { king: '帅', advisor: '仕', bishop: '相', rook: '俥', knight: '傌', cannon: '炮', pawn: '兵' },

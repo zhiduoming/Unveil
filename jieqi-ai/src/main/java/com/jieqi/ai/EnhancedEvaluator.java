@@ -1,11 +1,10 @@
 package com.jieqi.ai;
 
+import com.jieqi.ai.eval.EvaluationConstants;
 import com.jieqi.core.*;
 import java.util.*;
 
 public class EnhancedEvaluator {
-    // 与 ChessPiece.getBaseValue 对齐：调高车马炮、过河兵、士象
-    private static final int[] PIECE_VALUES = {10000, 900, 400, 450, 50, 200, 200};
     private static int[][] ROOK_POS = new int[10][9];
     private static int[][] KNIGHT_POS = new int[10][9];
     private static int[][] CANNON_POS = new int[10][9];
@@ -43,7 +42,7 @@ public class EnhancedEvaluator {
         // 位置
         score += evaluatePosition(board, color);
         // 机动性（直接用预生成列表大小）
-        score += myMoves.size() * 3;
+        score += myMoves.size() * EvaluationConstants.MOBILITY_WEIGHT;
         // 将帅安全
         score += evaluateKingSafety(board, color);
         // 威胁（复用预生成的双方走法）
@@ -61,12 +60,13 @@ public class EnhancedEvaluator {
         int darkCount = 0;
         for (ChessPiece p : board.getPieces(color)) {
             if (p.isRevealed()) {
-                material += PIECE_VALUES[p.getType()];
+                material += EvaluationConstants.pieceValue(p.getType());
                 boolean crossed = (color == ChessPiece.RED) ? p.getRow() <= 4 : p.getRow() >= 5;
                 if (crossed) {
-                    // 过河兵在残局威力陡增（可参与杀王），从 +20 提升到 +100
-                    if (p.getType() == ChessPiece.PAWN) material += 100;
-                    if (p.getType() == ChessPiece.ADVISOR || p.getType() == ChessPiece.BISHOP) material += 30;
+                    if (p.getType() == ChessPiece.PAWN) material += EvaluationConstants.CROSSED_PAWN_BONUS;
+                    if (p.getType() == ChessPiece.ADVISOR || p.getType() == ChessPiece.BISHOP) {
+                        material += EvaluationConstants.CROSSED_MINOR_BONUS;
+                    }
                 }
             } else {
                 darkCount++;
@@ -74,7 +74,7 @@ public class EnhancedEvaluator {
             }
         }
         if (darkCount > 0) material += (int)(darkValueSum / darkCount) * darkCount;
-        material += darkCount * 5;
+        material += darkCount * EvaluationConstants.DARK_PIECE_BONUS;
         return material;
     }
 
@@ -121,7 +121,7 @@ public class EnhancedEvaluator {
             }
         if (color == ChessPiece.RED) score += (9 - kr) * 10;
         else score += kr * 10;
-        if (RuleValidator.isInCheck(board, color)) score -= 150;
+        if (RuleValidator.isInCheck(board, color)) score -= EvaluationConstants.KING_SAFETY_CHECK_PENALTY;
         return score;
     }
 

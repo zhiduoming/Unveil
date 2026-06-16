@@ -9,11 +9,13 @@ const props = withDefaults(defineProps<{
   selectedCoord?: string
   hintCoords?: string[]
   lastMove?: { from: string; to: string } | null
+  showTeacherCoords?: boolean
 }>(), {
   isRedView: true,
   selectedCoord: '',
   hintCoords: () => [],
   lastMove: null,
+  showTeacherCoords: true,
 })
 
 defineEmits<{
@@ -29,10 +31,49 @@ const allCells = computed(() => {
   return cells
 })
 
-const colLabels = computed(() => {
-  // 顶部/底部都显示 1-9，但根据视角左右翻转
-  return props.isRedView ? [1,2,3,4,5,6,7,8,9] : [9,8,7,6,5,4,3,2,1]
+// 传统象棋记谱：每方从自己右手起数 1→9，同一列两端编号之和为 10。
+// 离观看者近的一方（底部）自左向右 9→1；对方（顶部）自左向右 1→9。
+// 与视角无关——翻转视角时整盘转 180°，底部永远是当前看棋方的 9→1。
+const bottomColLabels = [9, 8, 7, 6, 5, 4, 3, 2, 1]
+const topColLabels = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+const teacherLetters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+const teacherColLabels = computed(() =>
+  props.isRedView ? teacherLetters : [...teacherLetters].reverse(),
+)
+const teacherRowLabels = computed(() => {
+  const rows = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+  return props.isRedView ? rows : [...rows].reverse()
 })
+
+// 兵/炮初始点位的传统象棋星位标记（L 形拐角）。
+// 用固定 SVG 坐标（viewBox 800×900，格距 100）；兵炮在上下半场镜像对称，
+// 故红/黑视角都正确，无需翻转。边缘点（x=0 / x=800）只画朝棋盘内侧的角。
+const starMarks = (() => {
+  const gap = 9   // 角点离交叉点的间距
+  const arm = 20  // L 形每条臂的长度
+  const points: { x: number; y: number }[] = []
+  // 炮位：col 1/7（x=100/700），y=200/700
+  for (const x of [100, 700]) for (const y of [200, 700]) points.push({ x, y })
+  // 兵/卒位：col 0/2/4/6/8（x=0/200/400/600/800），y=300/600
+  for (const x of [0, 200, 400, 600, 800]) for (const y of [300, 600]) points.push({ x, y })
+
+  // 每个角 = 一条 3 点折线（竖臂端点 → 角点 → 横臂端点）
+  const lines: string[] = []
+  for (const { x, y } of points) {
+    const left = x > 0      // col0 无左侧角
+    const right = x < 800   // col8 无右侧角
+    if (left) {
+      lines.push(`${x - gap},${y - gap - arm} ${x - gap},${y - gap} ${x - gap - arm},${y - gap}`) // 左上
+      lines.push(`${x - gap},${y + gap + arm} ${x - gap},${y + gap} ${x - gap - arm},${y + gap}`) // 左下
+    }
+    if (right) {
+      lines.push(`${x + gap},${y - gap - arm} ${x + gap},${y - gap} ${x + gap + arm},${y - gap}`) // 右上
+      lines.push(`${x + gap},${y + gap + arm} ${x + gap},${y + gap} ${x + gap + arm},${y + gap}`) // 右下
+    }
+  }
+  return lines
+})()
 
 // 视角换算：把逻辑坐标 (row, col) 转成屏幕显示坐标 (x%, y%)
 function toScreenPos(row: number, col: number) {
@@ -75,13 +116,23 @@ const piecesMap = computed(() => {
 
 <template>
   <div class="board-outer">
-    <!-- 顶部列号 -->
-    <div class="col-labels">
-      <span v-for="n in colLabels" :key="`top-${n}`">{{ n }}</span>
-    </div>
+    <div class="board-grid">
+      <!-- 左侧行号（老师协议 9→0 / 0→9） -->
+      <div v-if="showTeacherCoords" class="row-labels">
+        <span v-for="n in teacherRowLabels" :key="`row-${n}`">{{ n }}</span>
+      </div>
 
-    <!-- 棋盘主体（木纹背景） -->
-    <div class="board">
+      <div class="board-main">
+        <!-- 顶部列号（传统 1→9 + 老师 a→i） -->
+        <div class="col-labels">
+          <span v-for="n in topColLabels" :key="`top-${n}`">{{ n }}</span>
+        </div>
+        <div v-if="showTeacherCoords" class="col-labels col-labels-teacher">
+          <span v-for="l in teacherColLabels" :key="`top-${l}`">{{ l }}</span>
+        </div>
+
+        <!-- 棋盘主体（木纹背景） -->
+        <div class="board">
       <!-- 内部坐标区：四周留 padding 让格点不贴到边框 -->
       <div class="board-inner">
         <!-- 格线 SVG -->
@@ -106,6 +157,11 @@ const piecesMap = computed(() => {
           <line x1="500" y1="0" x2="300" y2="200" stroke="#5d2f0d" stroke-width="2"/>
           <line x1="300" y1="700" x2="500" y2="900" stroke="#5d2f0d" stroke-width="2"/>
           <line x1="500" y1="700" x2="300" y2="900" stroke="#5d2f0d" stroke-width="2"/>
+
+          <!-- 兵/炮初始点位的星位标记（L 形拐角） -->
+          <polyline v-for="(pts, i) in starMarks" :key="`star-${i}`"
+            :points="pts" fill="none" stroke="#5d2f0d" stroke-width="3"
+            stroke-linecap="round" stroke-linejoin="round"/>
 
           <!-- 楚河汉界（左右居中对称） -->
           <text x="200" y="478" font-size="58" fill="#5d2f0d"
@@ -152,13 +208,18 @@ const piecesMap = computed(() => {
           :key="`last-from-${mark.row}-${mark.col}`"
           class="last-move-mark"
           :style="toScreenPos(mark.row, mark.col)"
-        ></div>
+        >        </div>
       </div>
-    </div>
+        </div>
 
-    <!-- 底部列号 -->
-    <div class="col-labels">
-      <span v-for="n in colLabels" :key="`bot-${n}`">{{ n }}</span>
+        <!-- 底部列号（我方一侧 9→1 + 老师列标） -->
+        <div class="col-labels">
+          <span v-for="n in bottomColLabels" :key="`bot-${n}`">{{ n }}</span>
+        </div>
+        <div v-if="showTeacherCoords" class="col-labels col-labels-teacher">
+          <span v-for="l in teacherColLabels" :key="`bot-${l}`">{{ l }}</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -166,7 +227,31 @@ const piecesMap = computed(() => {
 <style scoped>
 .board-outer {
   width: 100%;
-  max-width: 880px;
+  max-width: 920px;
+}
+
+.board-grid {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.board-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-labels {
+  display: grid;
+  grid-template-rows: repeat(10, 1fr);
+  align-items: center;
+  justify-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b4423;
+  padding: calc(7% + 28px) 0 calc(7% + 28px);
+  width: 1.4rem;
+  opacity: 0.9;
 }
 
 .col-labels {
@@ -177,6 +262,15 @@ const piecesMap = computed(() => {
   font-weight: bold;
   color: #4a2410;
   padding: 8px 7%;
+}
+
+.col-labels-teacher {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b4423;
+  padding-top: 0;
+  padding-bottom: 4px;
+  opacity: 0.85;
 }
 
 .board {

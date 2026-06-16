@@ -10,6 +10,8 @@ public class Move {
     private long clientTimestamp;
     private long serverTimestamp;
     private boolean isFlipOnly;
+    /** 暗子揭开后的真实类型；-1 表示未揭开。用于复盘还原。 */
+    private int revealedType = -1;
 
     public Move() {}
 
@@ -40,6 +42,11 @@ public class Move {
     public void setServerTimestamp(long serverTimestamp) { this.serverTimestamp = serverTimestamp; }
     public boolean isFlipOnly() { return isFlipOnly; }
     public void setFlipOnly(boolean flipOnly) { isFlipOnly = flipOnly; }
+    /** 暗子揭开后的真实类型；-1 表示未揭开 */
+    public int getRevealedType() { return revealedType; }
+    public void setRevealedType(int revealedType) { this.revealedType = revealedType; }
+    /** 这一步是否揭开了暗子 */
+    public boolean hasRevealed() { return revealedType >= 0; }
 
     public boolean isTimeout() {
         return System.currentTimeMillis() - turnStartTime > 65000;

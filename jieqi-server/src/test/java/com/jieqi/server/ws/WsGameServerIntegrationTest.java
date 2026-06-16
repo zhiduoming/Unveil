@@ -37,7 +37,9 @@ class WsGameServerIntegrationTest {
         port = findAvailablePort();
         server = new WsGameServer(port);
         server.start();
-        sleep(300);
+        // start() 是异步的，后台线程才真正 bind 端口。全量 mvn test 满载时固定
+        // sleep 不足以等到 bind 完成，客户端会连不上。改为轮询探测端口直到就绪。
+        awaitServerListening(port, 10_000);
     }
 
     @AfterEach
@@ -515,7 +517,9 @@ class WsGameServerIntegrationTest {
 
     private TestWsClient connect(String name) throws Exception {
         TestWsClient c = new TestWsClient(new URI("ws://127.0.0.1:" + port), name);
-        c.connectBlocking(3, TimeUnit.SECONDS);
+        // 必须等握手真正完成再返回：全量 mvn test 满载时 3s 可能不够，
+        // 握手未完成就 send 会抛 WebsocketNotConnected 导致整批用例偶发失败。
+        assertTrue(c.connectBlocking(10, TimeUnit.SECONDS), "WS 连接握手超时: " + name);
         return c;
     }
 
@@ -629,6 +633,20 @@ class WsGameServerIntegrationTest {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /** 轮询裸 TCP 连接，直到 WebSocket 服务端口真正 bind（start() 异步，固定 sleep 在满载下不可靠）。 */
+    private static void awaitServerListening(int port, long timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            try (java.net.Socket s = new java.net.Socket()) {
+                s.connect(new java.net.InetSocketAddress("127.0.0.1", port), 200);
+                return; // 能连上即说明 ServerSocket 已 bind
+            } catch (java.io.IOException ignore) {
+                sleep(50);
+            }
+        }
+        throw new IllegalStateException("WS 服务器端口未在 " + timeoutMs + "ms 内就绪: " + port);
     }
 
     private static int findAvailablePort() throws Exception {
