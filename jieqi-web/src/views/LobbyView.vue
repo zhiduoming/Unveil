@@ -63,9 +63,12 @@ function onReady() {
 
 <template>
   <div class="min-h-screen relative flex items-center justify-center p-4">
-    <div class="absolute left-6 top-6 bg-amber-50/80 border border-amber-900/30 rounded-lg shadow-md px-5 py-4">
-      <div class="text-xs text-amber-800/60 mb-1">用户</div>
-      <div class="text-xl text-amber-950">{{ store.userId }}</div>
+    <div class="absolute left-6 top-6 bg-amber-50/80 border border-amber-900/30 rounded-lg shadow-md px-5 py-4 flex items-center gap-3">
+      <span class="text-4xl leading-none">{{ store.myAvatar || '👤' }}</span>
+      <div>
+        <div class="text-xs text-amber-800/60 mb-1">用户</div>
+        <div class="text-xl text-amber-950">{{ store.myNickname || store.userId }}</div>
+      </div>
     </div>
 
     <div class="w-full max-w-xl bg-amber-50/80 border-2 border-amber-900/40 rounded-lg shadow-xl p-8">
