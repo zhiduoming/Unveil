@@ -12,15 +12,16 @@ import java.util.concurrent.ThreadLocalRandom;
 final class RuleBasedBot {
 
     Move selectMove(Board board, int color) {
-        List<Move> moves = RuleValidator.generateLegalMoves(board, color);
+        Board aiBoard = board.createAiPublicView(color);
+        List<Move> moves = RuleValidator.generateLegalMoves(aiBoard, color);
         if (moves.isEmpty()) {
             return null;
         }
 
         List<Move> captures = moves.stream()
-                .filter(m -> board.getPiece(m.getDestination()) != null)
+                .filter(m -> aiBoard.getPiece(m.getDestination()) != null)
                 .sorted(Comparator.comparingInt((Move m) ->
-                        board.getPiece(m.getDestination()).getValue()).reversed())
+                        aiBoard.getPiece(m.getDestination()).getValue()).reversed())
                 .toList();
         if (!captures.isEmpty()) {
             return captures.get(0);

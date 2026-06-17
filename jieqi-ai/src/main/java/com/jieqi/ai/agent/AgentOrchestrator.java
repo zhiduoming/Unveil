@@ -2,10 +2,12 @@ package com.jieqi.ai.agent;
 
 import com.jieqi.core.Board;
 import com.jieqi.core.Move;
+import com.jieqi.core.RuleValidator;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 串行编排：Probability → Endgame（若适用）→ Search。
@@ -28,7 +30,13 @@ public class AgentOrchestrator {
     }
 
     public Move selectMove(Board board, int color, long timeLimitMs) {
-        AgentContext ctx = new AgentContext(board, color, timeLimitMs);
+        return selectMove(board, color, timeLimitMs, null);
+    }
+
+    public Move selectMove(Board board, int color, long timeLimitMs, Map<String, Integer> repetition) {
+        Board aiBoard = board.createAiPublicView(color);
+        AgentContext ctx = new AgentContext(aiBoard, color, Math.max(100L, timeLimitMs));
+        ctx.setRepetitionCount(repetition);
         for (JieqiSubAgent agent : agents) {
             if (!agent.supports(ctx)) {
                 continue;
@@ -37,6 +45,10 @@ public class AgentOrchestrator {
             if (move != null) {
                 return move;
             }
+        }
+        var legalMoves = RuleValidator.generateLegalMoves(aiBoard, color);
+        if (!legalMoves.isEmpty()) {
+            return legalMoves.get(0);
         }
         return null;
     }

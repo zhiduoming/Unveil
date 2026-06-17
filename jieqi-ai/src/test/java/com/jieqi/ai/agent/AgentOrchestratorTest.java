@@ -40,6 +40,33 @@ class AgentOrchestratorTest {
         assertEquals(stubMove.getDestination(), chosen.getDestination());
     }
 
+    @Test
+    void fallsBackToAnyLegalMoveWhenAgentsReturnNull() {
+        JieqiSubAgent nullAgent = new JieqiSubAgent() {
+            @Override
+            public int priority() {
+                return 100;
+            }
+
+            @Override
+            public boolean supports(AgentContext ctx) {
+                return true;
+            }
+
+            @Override
+            public Move contribute(AgentContext ctx) {
+                return null;
+            }
+        };
+
+        Board board = new Board();
+        AgentOrchestrator orchestrator = new AgentOrchestrator(List.of(nullAgent));
+        Move chosen = orchestrator.selectMove(board, ChessPiece.RED, 1);
+        assertNotNull(chosen);
+        assertTrue(RuleValidator.isValidMove(board, chosen, ChessPiece.RED));
+        assertTrue(RuleValidator.isMoveLegal(board, chosen, ChessPiece.RED));
+    }
+
     private static Move findAnyLegalMove(Board board, int color) {
         for (int r = 0; r < 10; r++) {
             for (int c = 0; c < 9; c++) {

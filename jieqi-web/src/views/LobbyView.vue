@@ -9,6 +9,7 @@ const roomCode = ref('')
 const panel = ref<'main' | 'human' | 'room'>('main')
 // 二次确认弹窗：进入人机/AI 对弈前给用户一次反悔机会
 const pendingConfirm = ref<null | 'aiGame' | 'aiBattle'>(null)
+const aiLevel = ref<'easy' | 'medium' | 'hard'>('medium')
 const shouldShowReady = computed(() =>
   store.room?.mode === 'human' && !!store.room.opponentId && !store.gameStart
 )
@@ -43,7 +44,7 @@ function onStartAiBattle() {
   pendingConfirm.value = 'aiBattle'
 }
 function confirmStart() {
-  if (pendingConfirm.value === 'aiGame') store.startAiGame()
+  if (pendingConfirm.value === 'aiGame') store.startAiGame(aiLevel.value)
   else if (pendingConfirm.value === 'aiBattle') store.startAiBattle()
   pendingConfirm.value = null
 }
@@ -63,9 +64,12 @@ function onReady() {
 
 <template>
   <div class="min-h-screen relative flex items-center justify-center p-4">
-    <div class="absolute left-6 top-6 bg-amber-50/80 border border-amber-900/30 rounded-lg shadow-md px-5 py-4">
-      <div class="text-xs text-amber-800/60 mb-1">用户</div>
-      <div class="text-xl text-amber-950">{{ store.userId }}</div>
+    <div class="absolute left-6 top-6 bg-amber-50/80 border border-amber-900/30 rounded-lg shadow-md px-5 py-4 flex items-center gap-3">
+      <span class="text-4xl leading-none">{{ store.myAvatar || '👤' }}</span>
+      <div>
+        <div class="text-xs text-amber-800/60 mb-1">用户</div>
+        <div class="text-xl text-amber-950">{{ store.myNickname || store.userId }}</div>
+      </div>
     </div>
 
     <div class="w-full max-w-xl bg-amber-50/80 border-2 border-amber-900/40 rounded-lg shadow-xl p-8">
@@ -157,11 +161,25 @@ function onReady() {
         <h3 class="text-xl text-amber-900 mb-3 text-center">
           {{ pendingConfirm === 'aiGame' ? '确认进行人机对战？' : '确认开启 AI 自动对弈？' }}
         </h3>
-        <p class="text-sm text-amber-800/80 text-center mb-5">
+        <p class="text-sm text-amber-800/80 text-center mb-4">
           {{ pendingConfirm === 'aiGame'
             ? '你将作为红方与本机 AI 进行揭棋对局。'
             : '观战两位 AI 自动对弈，全程可暂停 / 结束。' }}
         </p>
+        <div v-if="pendingConfirm === 'aiGame'" class="mb-5">
+          <label class="block text-sm text-amber-900 mb-2 text-center">AI 难度</label>
+          <div class="flex gap-2 justify-center">
+            <button type="button" @click="aiLevel = 'easy'"
+              :class="aiLevel === 'easy' ? 'bg-amber-800 text-amber-50' : 'bg-white/60 text-amber-900'"
+              class="px-3 py-1.5 rounded border border-amber-900/25 text-sm">入门</button>
+            <button type="button" @click="aiLevel = 'medium'"
+              :class="aiLevel === 'medium' ? 'bg-amber-800 text-amber-50' : 'bg-white/60 text-amber-900'"
+              class="px-3 py-1.5 rounded border border-amber-900/25 text-sm">标准</button>
+            <button type="button" @click="aiLevel = 'hard'"
+              :class="aiLevel === 'hard' ? 'bg-amber-800 text-amber-50' : 'bg-white/60 text-amber-900'"
+              class="px-3 py-1.5 rounded border border-amber-900/25 text-sm">挑战</button>
+          </div>
+        </div>
         <div class="flex gap-3">
           <button @click="confirmStart"
             class="flex-1 py-2.5 bg-amber-800 text-amber-50 rounded hover:bg-amber-900">

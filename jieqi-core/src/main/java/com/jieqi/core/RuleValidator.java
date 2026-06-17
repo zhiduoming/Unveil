@@ -154,13 +154,29 @@ public class RuleValidator {
     }
 
     public static List<Move> generateLegalMoves(Board board, int color) {
+        return generateStrictLegalMoves(board, color);
+    }
+
+    /**
+     * 严格合法走法：几何合法 + 试走后己方不被将军（原地 make/unmake，避免整盘拷贝）。
+     */
+    public static List<Move> generateStrictLegalMoves(Board board, int color) {
         List<Move> legalMoves = new ArrayList<>();
         for (Move move : generateAllMoves(board, color)) {
-            if (isMoveLegal(board, move, color)) {
+            Board.MoveSnapshot snapshot = board.makeMove(move);
+            if (!isInCheck(board, color)) {
                 legalMoves.add(move);
             }
+            board.unmakeMove(snapshot);
         }
         return legalMoves;
+    }
+
+    public static boolean isMoveLegal(Board board, Move move, int color) {
+        Board.MoveSnapshot snapshot = board.makeMove(move);
+        boolean legal = !isInCheck(board, color);
+        board.unmakeMove(snapshot);
+        return legal;
     }
 
     public static boolean isInCheck(Board board, int color) {
@@ -202,15 +218,6 @@ public class RuleValidator {
             if (!blocked) return true;
         }
         return false;
-    }
-
-    /**
-     * 走子后己方是否仍被将军。服务器用本检查拒绝送将。
-     */
-    public static boolean isMoveLegal(Board board, Move move, int color) {
-        Board simulated = new Board(board);
-        simulated.executeMove(move);
-        return !isInCheck(simulated, color);
     }
 
     public static boolean isCheckmate(Board board, int color) {
