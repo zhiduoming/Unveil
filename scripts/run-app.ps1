@@ -15,9 +15,27 @@ if (-not (Test-Path $jar)) {
     Write-Error "未找到 $jar，请先执行 mvn package -pl jieqi-app -am"
 }
 
+function Resolve-Java21Plus {
+    if ($env:JAVA_HOME -and (Test-Path (Join-Path $env:JAVA_HOME "bin\java.exe"))) {
+        return (Join-Path $env:JAVA_HOME "bin\java.exe")
+    }
+    $candidates = @(
+        "C:\Program Files\Java\jdk-24\bin\java.exe",
+        "C:\Program Files\Java\jdk-21\bin\java.exe",
+        "$env:LOCALAPPDATA\Programs\Eclipse Adoptium\jdk-25.0.3.9-hotspot\bin\java.exe"
+    )
+    foreach ($c in $candidates) {
+        if (Test-Path $c) { return $c }
+    }
+    return "java"
+}
+
+$javaExe = Resolve-Java21Plus
+Write-Host "==> java: $javaExe"
+
 if ($args.Count -gt 0) {
-    & java -jar $jar @args
+    & $javaExe -jar $jar @args
 } else {
-    & java -jar $jar
+    & $javaExe -jar $jar
 }
 exit $LASTEXITCODE
