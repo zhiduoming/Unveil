@@ -45,8 +45,15 @@ java -jar jieqi-app/target/unveil-jieqi.jar server-ws 8887
 ### WebSocket + JSON（课程公共接口，默认）
 
 ```bash
-# 服务器（端口 8887）
-mvn exec:java -f jieqi-app/pom.xml -am -Dexec.args="server-ws 8887"
+# 服务器（端口 8887）——推荐用 Fat JAR，避免 mvn exec 加载 ~/.m2 旧 SNAPSHOT
+powershell -File scripts/dev-server.ps1 8887
+# 或
+mvn package -pl jieqi-app -am -DskipTests
+java -jar jieqi-app/target/unveil-jieqi.jar server-ws 8887
+
+# 若坚持用 exec:java，须先 install 刷新本地仓库
+mvn install -pl jieqi-app -am -DskipTests
+mvn exec:java -f jieqi-app/pom.xml -am "-Dexec.args=server-ws 8887"
 
 # 人机客户端
 mvn exec:java -f jieqi-app/pom.xml -am -Dexec.args="client-ws ws://127.0.0.1:8887 player1 123456"
