@@ -17,10 +17,6 @@ const isDark = computed(() => !props.piece.revealed)
 const charText = computed(() =>
   isDark.value ? '' : PIECE_CHAR[props.piece.color][props.piece.type],
 )
-// 暗子：按虚拟类型淡显提示（揭棋规则下暗子按所在位走法）
-const virtualHint = computed(() =>
-  isDark.value ? PIECE_CHAR[props.piece.color][props.piece.type] : '',
-)
 
 // 每个棋子实例的唯一 id（避免 SVG defs 冲突）
 const uid = computed(() => `${props.piece.row}-${props.piece.col}`)
@@ -134,26 +130,8 @@ const meanderAngles = Array.from({ length: 24 }, (_, i) => i * 15)
         :filter="`url(#engrave-${uid})`"
       >{{ charText }}</text>
 
-      <!-- 暗子：背面 + 虚拟类型淡字 + 色边标识 -->
-      <g v-else>
-        <circle cx="50" cy="50" r="44"
-          fill="none"
-          :stroke="isRed ? '#b91c1c' : '#1c1917'"
-          stroke-width="2.2"
-          opacity="0.55"
-        />
-        <circle cx="50" cy="50" r="12"
-          fill="none" stroke="#3d2410" stroke-width="0.8" opacity="0.5"/>
-        <text
-          x="50" y="64"
-          font-family="STKaiti, KaiTi, '楷体', serif"
-          font-size="34"
-          font-weight="700"
-          text-anchor="middle"
-          :fill="isRed ? '#b91c1c' : '#1c1917'"
-          opacity="0.28"
-        >{{ virtualHint }}</text>
-      </g>
+      <!-- 暗子：仅显示背面木色盘面 -->
+      <g v-else></g>
     </svg>
   </button>
 </template>

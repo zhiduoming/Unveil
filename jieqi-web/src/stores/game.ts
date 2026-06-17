@@ -37,10 +37,8 @@ const COLS = ['a','b','c','d','e','f','g','h','i']
 function defaultServerUrl(): string {
   const configured = import.meta.env.VITE_WS_URL
   if (configured) return configured
-  if (typeof window === 'undefined') return 'ws://127.0.0.1:8887'
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const host = window.location.hostname || '127.0.0.1'
-  return `${protocol}//${host}:8887`
+  // 开发环境固定连本机，避免 hostname 解析到错误后端
+  return 'ws://127.0.0.1:8887'
 }
 
 // 把老师协议里的英文 type 转成内部 PieceType
@@ -227,6 +225,12 @@ export const useGameStore = defineStore('game', {
       ws.send({ messageType: 'startMatch' })
     },
     startAiGame(level?: 'easy' | 'medium' | 'hard') {
+      if (this.room) {
+        this.leaveRoom()
+        this.room = null
+        this.ready = false
+        this.opponentReady = false
+      }
       this.matching = false
       this.ready = false
       this.opponentReady = true
@@ -236,6 +240,12 @@ export const useGameStore = defineStore('game', {
       ws.send({ messageType: 'startAiGame', aiLevel: this.aiLevel })
     },
     startAiBattle() {
+      if (this.room) {
+        this.leaveRoom()
+        this.room = null
+        this.ready = false
+        this.opponentReady = false
+      }
       this.matching = false
       this.ready = true
       this.opponentReady = true
