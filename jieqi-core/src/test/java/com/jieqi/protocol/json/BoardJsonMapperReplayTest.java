@@ -10,6 +10,22 @@ import static org.junit.jupiter.api.Assertions.*;
 class BoardJsonMapperReplayTest {
 
     @Test
+    void toReplayBoard_withoutRevealOmitsRealPiece() {
+        Board board = new Board();
+        board.clearAllPieces();
+        ChessPiece dark = new ChessPiece(ChessPiece.KNIGHT, ChessPiece.BLACK, false, 0, 0);
+        dark.setVirtualType(ChessPiece.ROOK);
+        board.placePiece(dark, 0, 0);
+
+        JsonArray cells = BoardJsonMapper.toReplayBoard(board, false);
+        var cell = cells.get(0).getAsJsonObject();
+        assertFalse(cell.get("visible").getAsBoolean());
+        assertFalse(cell.has("realPiece"));
+        assertFalse(cell.has("virtualPiece"));
+        assertEquals("rook", cell.get("piece").getAsString());
+    }
+
+    @Test
     void toReplayBoard_includesRealAndVirtualPieceForDark() {
         Board board = new Board();
         board.clearAllPieces();

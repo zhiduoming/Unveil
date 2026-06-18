@@ -1149,7 +1149,13 @@ public class WsGameServer extends WebSocketServer {
             send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "当前不在房间中"));
             return;
         }
-        var timeline = room.game().getReplayTimeline();
+        Game game = room.game();
+        if (!isReplayAllowed(room, game)) {
+            System.out.println("[WS] handleReplayRequest: rejected (game still active)");
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "对局进行中不能复盘，请在终局后查看"));
+            return;
+        }
+        var timeline = game.getReplayTimeline();
         if (timeline.isEmpty()) {
             System.out.println("[WS] handleReplayRequest: timeline is empty");
             send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "暂无复盘数据"));
@@ -1172,7 +1178,17 @@ public class WsGameServer extends WebSocketServer {
         }
         var frame = timeline.getFrame(stepIndex);
         System.out.println("[WS] handleReplayRequest: sending replayFrame step=" + stepIndex + " total=" + totalSteps);
-        send(ctx, JsonMessages.replayFrame(room.roomId(), stepIndex, totalSteps, frame));
+        send(ctx, JsonMessages.replayFrame(room.roomId(), stepIndex, totalSteps, frame, true));
+    }
+
+    private boolean isReplayAllowed(WsRoom room, Game game) {
+        if (room.isFinished()) {
+            return true;
+        }
+        return switch (game.getStatus()) {
+            case RED_WIN, BLACK_WIN, DRAW, TIMEOUT -> true;
+            default -> false;
+        };
     }
 
     // ── 工具 ────────────────────────────────────────────────

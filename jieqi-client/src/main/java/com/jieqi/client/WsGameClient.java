@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 public class WsGameClient extends WebSocketClient {
 
     private final ConsoleUI ui = new ConsoleUI();
-    private final Board board = new Board();
+    private Board board = new Board();
     private final Board replayBoard = new Board();
     private final BufferedReader console = new BufferedReader(new InputStreamReader(System.in));
 
@@ -302,7 +302,7 @@ public class WsGameClient extends WebSocketClient {
         redPlayerId = json.get("redPlayerId").getAsString();
         blackPlayerId = json.get("blackPlayerId").getAsString();
         JsonArray cells = json.getAsJsonArray("initialBoard");
-        BoardJsonMapper.applyInitialBoard(board, cells);
+        board = BoardJsonMapper.fromInitialBoard(cells);
         System.out.println("[WS Client] 开局 yourColor=" + json.get("yourColor").getAsString()
                 + " firstHand=" + firstHand
                 + " 红方=" + redPlayerId

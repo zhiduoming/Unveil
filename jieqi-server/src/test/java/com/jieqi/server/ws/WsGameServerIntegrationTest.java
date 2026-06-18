@@ -234,6 +234,27 @@ class WsGameServerIntegrationTest {
     }
 
     @Test
+    void replayRequestRejectedDuringLiveGame() throws Exception {
+        TestWsClient p1 = connect("liveReplay1");
+        TestWsClient p2 = connect("liveReplay2");
+        GameStartSession session = loginMatchReadyStart(p1, p2, "liveReplay1", "liveReplay2");
+        TestWsClient red = session.red();
+
+        JsonObject req = new JsonObject();
+        req.addProperty("messageType", JsonMessageTypes.REPLAY_REQUEST);
+        req.addProperty("stepIndex", 0);
+        red.sendJson(JsonMessages.toJson(req));
+
+        JsonObject err = red.awaitError(JsonErrorCodes.MATCH_FAILED, 5);
+        assertNotNull(err);
+        assertTrue(err.get("message").getAsString().contains("进行中"));
+        assertNull(red.findLastOfType(JsonMessageTypes.REPLAY_FRAME));
+
+        p1.close();
+        p2.close();
+    }
+
+    @Test
     void replayRequestReturnsFramesAfterResign() throws Exception {
         TestWsClient p1 = connect("replay1");
         TestWsClient p2 = connect("replay2");

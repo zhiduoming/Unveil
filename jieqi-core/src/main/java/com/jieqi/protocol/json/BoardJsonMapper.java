@@ -15,12 +15,16 @@ public final class BoardJsonMapper {
         return toBoardCells(board, false);
     }
 
-    /** 复盘用棋盘 JSON：暗子额外携带真实类型与虚拟移动类型。 */
+    /** 复盘用棋盘 JSON：暗子可选携带真实类型（仅终局复盘应开启）。 */
     public static JsonArray toReplayBoard(Board board) {
-        return toBoardCells(board, true);
+        return toReplayBoard(board, true);
     }
 
-    private static JsonArray toBoardCells(Board board, boolean replayDetail) {
+    public static JsonArray toReplayBoard(Board board, boolean revealRealPieces) {
+        return toBoardCells(board, revealRealPieces);
+    }
+
+    private static JsonArray toBoardCells(Board board, boolean revealRealPieces) {
         JsonArray cells = new JsonArray();
         for (int r = 0; r < 10; r++) {
             for (int c = 0; c < 9; c++) {
@@ -38,7 +42,7 @@ public final class BoardJsonMapper {
                 } else {
                     cell.addProperty("piece", PieceJsonMapper.toJsonName(p.getVirtualType()));
                     cell.addProperty("visible", false);
-                    if (replayDetail) {
+                    if (revealRealPieces) {
                         cell.addProperty("realPiece", PieceJsonMapper.toJsonName(p.getType()));
                         cell.addProperty("virtualPiece", PieceJsonMapper.toJsonName(p.getVirtualType()));
                     }
@@ -85,6 +89,34 @@ public final class BoardJsonMapper {
                 piece.setVirtualType(virtualType);
             } else {
                 piece.setVirtualType(type);
+            }
+            board.placePiece(piece, row, col);
+        }
+        return board;
+    }
+
+    /** 从 gameStart 的 initialBoard 完整重建客户端棋盘（rematch 安全）。 */
+    public static Board fromInitialBoard(JsonArray cells) {
+        Board board = new Board();
+        board.clearAllPieces();
+        if (cells == null) {
+            return board;
+        }
+        for (int i = 0; i < cells.size(); i++) {
+            JsonObject cell = cells.get(i).getAsJsonObject();
+            String x = cell.get("x").getAsString();
+            int y = cell.get("y").getAsInt();
+            int[] rc = Coordinate.toRowCol(x + y);
+            int row = rc[0];
+            int col = rc[1];
+            int color = PieceJsonMapper.colorFromString(cell.get("color").getAsString());
+            boolean visible = cell.has("visible") && cell.get("visible").getAsBoolean();
+            int pieceType = PieceJsonMapper.fromJsonName(cell.get("piece").getAsString());
+            ChessPiece piece = new ChessPiece(pieceType, color, visible, row, col);
+            if (!visible) {
+                piece.setVirtualType(pieceType);
+            } else {
+                piece.setVirtualType(pieceType);
             }
             board.placePiece(piece, row, col);
         }

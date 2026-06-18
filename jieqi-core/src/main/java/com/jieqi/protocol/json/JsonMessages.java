@@ -250,8 +250,13 @@ public final class JsonMessages {
         return o;
     }
 
-    /** 复盘帧（服务器权威快照）。 */
+    /** 复盘帧（服务器权威快照）；终局复盘应 {@code revealRealPieces=true}。 */
     public static JsonObject replayFrame(String roomId, int stepIndex, int totalSteps, ReplayFrame frame) {
+        return replayFrame(roomId, stepIndex, totalSteps, frame, true);
+    }
+
+    public static JsonObject replayFrame(String roomId, int stepIndex, int totalSteps, ReplayFrame frame,
+                                         boolean revealRealPieces) {
         JsonObject o = new JsonObject();
         o.addProperty("messageType", JsonMessageTypes.REPLAY_FRAME);
         o.addProperty("roomId", roomId);
@@ -275,7 +280,7 @@ public final class JsonMessages {
             c.addProperty("piece", PieceJsonMapper.toJsonName(captured.getType()));
             o.add("captured", c);
         }
-        o.add("board", BoardJsonMapper.toReplayBoard(frame.getBoardSnapshot()));
+        o.add("board", BoardJsonMapper.toReplayBoard(frame.getBoardSnapshot(), revealRealPieces));
         return o;
     }
 
