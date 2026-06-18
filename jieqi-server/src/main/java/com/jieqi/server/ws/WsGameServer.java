@@ -15,6 +15,7 @@ import com.jieqi.ai.bot.AiBot;
 import com.jieqi.ai.bot.AiBotFactory;
 import com.jieqi.ai.bot.AiLevel;
 import com.jieqi.server.GameRecordStore;
+import com.jieqi.server.ReplayRecordStore;
 import com.jieqi.server.MatchmakingService;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
@@ -47,6 +48,7 @@ public class WsGameServer extends WebSocketServer {
     private final Map<String, WsRoom> rooms = new ConcurrentHashMap<>();
     private final Queue<String> matchQueue = new ArrayDeque<>();
     private final GameRecordStore recordStore = new GameRecordStore("records");
+    private final ReplayRecordStore replayRecordStore = new ReplayRecordStore("records");
     private final RandomRevealService revealService = new RandomRevealService();
     // 时间预算：人机对战每步 5s（响应不卡），AI 自动对弈每步 2.5s（看着不无聊）
     // 评估器一次 evaluate 已优化为 2 次 generateAllMoves，5s 在中盘能搜到 4-5 层
@@ -85,6 +87,7 @@ public class WsGameServer extends WebSocketServer {
         try {
             JsonObject json = JsonMessages.parse(message);
             String type = JsonMessages.messageType(json);
+            System.out.println("[WS] received: " + type);
             switch (type) {
                 case JsonMessageTypes.LOGIN -> handleLogin(ctx, json);
                 case JsonMessageTypes.REGISTER -> handleRegister(ctx, json);
@@ -110,6 +113,8 @@ public class WsGameServer extends WebSocketServer {
                 case JsonMessageTypes.PAUSE_GAME -> handlePauseGame(ctx);
                 case JsonMessageTypes.RESUME_GAME -> handleResumeGame(ctx);
                 case JsonMessageTypes.ADD_TIME -> handleAddTime(ctx, json);
+                case JsonMessageTypes.REPLAY_REQUEST -> handleReplayRequest(ctx, json);
+                case JsonMessageTypes.WATCH -> handleWatch(ctx, json);
                 default -> send(conn, JsonMessages.error(JsonErrorCodes.JSON_FORMAT, "未知消息类型"));
             }
         } catch (Exception e) {
@@ -698,6 +703,7 @@ public class WsGameServer extends WebSocketServer {
         Game game = room.game();
         game.setStatus(Game.GameStatus.PLAYING);
         game.setTurnStartTime(System.currentTimeMillis());
+        game.recordReplayInitialIfNeeded();
         room.resetTimeBonusForTurn(game.getCurrentTurn());
         broadcastGameStart(room);
         System.out.println("[WS] 开局 roomId=" + room.roomId());
@@ -748,6 +754,7 @@ public class WsGameServer extends WebSocketServer {
         Game game = room.game();
         game.setStatus(Game.GameStatus.PLAYING);
         game.setTurnStartTime(System.currentTimeMillis());
+        game.recordReplayInitialIfNeeded();
         broadcastGameStart(room);
         scheduleAiMoveIfNeeded(room);
     }
@@ -823,11 +830,12 @@ public class WsGameServer extends WebSocketServer {
         String reason = JsonMessages.reasonFromProtocolCode(reasonCode);
         // 终局揭晓：把全部被吃子的真实身份发给双方与观战者（复盘可见，含被吃方暗子损失）。
         JsonArray capturedReveal = JsonMessages.capturedReveal(room.game().getCapturedPieces());
+        room.markFinished();
         broadcastRoom(room, JsonMessages.gameOver(winnerStr, reason, winnerId, capturedReveal));
         persistRecord(room.game());
-        // 不立即销毁 room，标记 finished：保留 REMATCH_WINDOW_MS 等待双方决定是否再来一局。
+        persistReplay(room.game());
+        // 不立即销毁 room：保留 REMATCH_WINDOW_MS 等待双方决定是否再来一局。
         // 超时由 rematchCleanupLoop 回收。
-        room.markFinished();
         System.out.println("[WS] 对局结束 roomId=" + room.roomId() + " " + status
                 + "（等待 rematch 决定，" + REMATCH_WINDOW_MS / 1000 + "s 后自动清理）");
     }
@@ -1022,6 +1030,7 @@ public class WsGameServer extends WebSocketServer {
             newGame.connectPlayer(ChessPiece.BLACK);
         }
         newGame.setStatus(Game.GameStatus.PLAYING);
+        newGame.recordReplayInitialIfNeeded();
         room.resetForRematch();
         room.setStarted(true);
         room.resetTimeBonusForTurn(newGame.getCurrentTurn());
@@ -1073,6 +1082,113 @@ public class WsGameServer extends WebSocketServer {
         } catch (IOException e) {
             System.err.println("[WS] 棋谱保存失败: " + e.getMessage());
         }
+    }
+
+    private void persistReplay(Game game) {
+        if (game.getReplayTimeline().isEmpty()) {
+            return;
+        }
+        try {
+            Path path = replayRecordStore.save(game);
+            if (path != null) {
+                System.out.println("[WS] 复盘已保存: " + path);
+            }
+        } catch (IOException e) {
+            System.err.println("[WS] 复盘保存失败: " + e.getMessage());
+        }
+    }
+
+    private void handleWatch(WsPlayerContext ctx, JsonObject json) {
+        if (!ctx.isLoggedIn()) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.LOGIN_FAILED, "请先登录"));
+            return;
+        }
+        String roomId = json.has("roomId") ? json.get("roomId").getAsString().trim() : "";
+        if (roomId.isBlank()) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "缺少 roomId"));
+            return;
+        }
+        synchronized (this) {
+            matchQueue.remove(ctx.userId());
+            WsRoom existing = ctx.roomId() != null ? rooms.get(ctx.roomId()) : null;
+            if (existing != null && existing.isParticipant(ctx) && !roomId.equals(ctx.roomId())) {
+                send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "已在房间对局中，无法观战其他房间"));
+                return;
+            }
+            if (existing != null && existing.isObserver(ctx) && !roomId.equals(ctx.roomId())) {
+                existing.detachObserver(ctx);
+                ctx.setRoomId(null);
+            }
+            WsRoom room = rooms.get(roomId);
+            if (room == null) {
+                send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "房间不存在"));
+                return;
+            }
+            if (!room.isStarted() || room.isFinished()) {
+                send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "房间未开局或已结束"));
+                return;
+            }
+            if (room.isParticipant(ctx)) {
+                send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "对局参与者不能观战"));
+                return;
+            }
+            room.attachObserver(ctx);
+            Game game = room.game();
+            String redId = userIdForColor(room, ChessPiece.RED);
+            String blackId = userIdForColor(room, ChessPiece.BLACK);
+            send(ctx, JsonMessages.gameStart(redId, blackId, "red", false, game.getBoard()));
+            System.out.println("[WS] 观战 roomId=" + roomId + " user=" + ctx.userId());
+        }
+    }
+
+    private void handleReplayRequest(WsPlayerContext ctx, JsonObject json) {
+        System.out.println("[WS] handleReplayRequest roomId=" + ctx.roomId() + " stepIndex=" + (json.has("stepIndex") ? json.get("stepIndex").getAsInt() : "latest"));
+        WsRoom room = roomOf(ctx);
+        if (room == null) {
+            System.out.println("[WS] handleReplayRequest: room is null");
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "当前不在房间中"));
+            return;
+        }
+        Game game = room.game();
+        if (!isReplayAllowed(room, game)) {
+            System.out.println("[WS] handleReplayRequest: rejected (game still active)");
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "对局进行中不能复盘，请在终局后查看"));
+            return;
+        }
+        var timeline = game.getReplayTimeline();
+        if (timeline.isEmpty()) {
+            System.out.println("[WS] handleReplayRequest: timeline is empty");
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED, "暂无复盘数据"));
+            return;
+        }
+        int totalSteps = timeline.size();
+        int stepIndex;
+        if (!json.has("stepIndex")) {
+            stepIndex = totalSteps - 1;
+        } else {
+            stepIndex = json.get("stepIndex").getAsInt();
+            if (stepIndex < 0) {
+                stepIndex = totalSteps - 1;
+            }
+        }
+        if (stepIndex < 0 || stepIndex >= totalSteps) {
+            send(ctx, JsonMessages.error(JsonErrorCodes.MATCH_FAILED,
+                    "复盘步数越界: " + stepIndex + " (共 " + totalSteps + " 帧)"));
+            return;
+        }
+        var frame = timeline.getFrame(stepIndex);
+        System.out.println("[WS] handleReplayRequest: sending replayFrame step=" + stepIndex + " total=" + totalSteps);
+        send(ctx, JsonMessages.replayFrame(room.roomId(), stepIndex, totalSteps, frame, true));
+    }
+
+    private boolean isReplayAllowed(WsRoom room, Game game) {
+        if (room.isFinished()) {
+            return true;
+        }
+        return switch (game.getStatus()) {
+            case RED_WIN, BLACK_WIN, DRAW, TIMEOUT -> true;
+            default -> false;
+        };
     }
 
     // ── 工具 ────────────────────────────────────────────────

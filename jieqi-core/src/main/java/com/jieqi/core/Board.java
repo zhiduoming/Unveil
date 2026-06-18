@@ -17,10 +17,22 @@ public class Board {
     public static final class MoveSnapshot {
         private final Move move;
         private final ChessPiece captured;
+        private final int moveCountBefore;
+        private final int noCaptureCountBefore;
+        private final boolean movedPieceRevealedBefore;
+        private final int movedPieceTypeBefore;
+        private final int movedPieceVirtualTypeBefore;
 
-        private MoveSnapshot(Move move, ChessPiece captured) {
+        private MoveSnapshot(Move move, ChessPiece captured, int moveCountBefore, int noCaptureCountBefore,
+                             boolean movedPieceRevealedBefore, int movedPieceTypeBefore,
+                             int movedPieceVirtualTypeBefore) {
             this.move = move;
-            this.captured = captured;
+            this.captured = captured == null ? null : new ChessPiece(captured);
+            this.moveCountBefore = moveCountBefore;
+            this.noCaptureCountBefore = noCaptureCountBefore;
+            this.movedPieceRevealedBefore = movedPieceRevealedBefore;
+            this.movedPieceTypeBefore = movedPieceTypeBefore;
+            this.movedPieceVirtualTypeBefore = movedPieceVirtualTypeBefore;
         }
 
         public Move getMove() { return move; }
@@ -173,6 +185,7 @@ public class Board {
      * 执行走法（正确处理翻子、移动、吃子）
      */
     public ChessPiece executeMove(Move move) {
+        recordUndoState(move);
         int[] src = ChessPiece.fromCoord(move.getSource());
         int[] dst = ChessPiece.fromCoord(move.getDestination());
 
@@ -232,12 +245,64 @@ public class Board {
      * 试走并返回快照；与 {@link #executeMove(Move)} 等价，供合法走法生成与搜索复用。
      */
     public MoveSnapshot makeMove(Move move) {
-        return new MoveSnapshot(move, executeMove(move));
+        recordUndoState(move);
+        ChessPiece captured = executeMove(move);
+        return new MoveSnapshot(move, captured, move.undoMoveCountBefore, move.undoNoCaptureCountBefore,
+                move.undoPieceRevealedBefore, move.undoPieceTypeBefore, move.undoPieceVirtualTypeBefore);
     }
 
     public void unmakeMove(MoveSnapshot snapshot) {
-        if (snapshot != null) {
-            undoMove(snapshot.move, snapshot.captured);
+        if (snapshot == null) {
+            return;
+        }
+        Move move = snapshot.move;
+        if (move.isFlipOnly()) {
+            int[] pos = ChessPiece.fromCoord(move.getSource());
+            ChessPiece piece = grid[pos[0]][pos[1]];
+            if (piece != null) {
+                piece.setRevealed(snapshot.movedPieceRevealedBefore);
+                if (!snapshot.movedPieceRevealedBefore) {
+                    piece.setType(snapshot.movedPieceTypeBefore);
+                    piece.setVirtualType(snapshot.movedPieceVirtualTypeBefore);
+                }
+            }
+        } else {
+            int[] src = ChessPiece.fromCoord(move.getSource());
+            int[] dst = ChessPiece.fromCoord(move.getDestination());
+            ChessPiece piece = grid[dst[0]][dst[1]];
+            if (piece != null) {
+                piece.setRevealed(snapshot.movedPieceRevealedBefore);
+                piece.setType(snapshot.movedPieceTypeBefore);
+                piece.setVirtualType(snapshot.movedPieceVirtualTypeBefore);
+                grid[src[0]][src[1]] = piece;
+                piece.setRow(src[0]);
+                piece.setCol(src[1]);
+            }
+            grid[dst[0]][dst[1]] = snapshot.captured;
+            if (snapshot.captured != null) {
+                if (snapshot.captured.getColor() == ChessPiece.RED) {
+                    redPieces.add(snapshot.captured);
+                } else {
+                    blackPieces.add(snapshot.captured);
+                }
+            }
+        }
+        moveCount = snapshot.moveCountBefore;
+        noCaptureCount = snapshot.noCaptureCountBefore;
+        if (!moveHistory.isEmpty()) {
+            moveHistory.remove(moveHistory.size() - 1);
+        }
+    }
+
+    private void recordUndoState(Move move) {
+        move.undoMoveCountBefore = moveCount;
+        move.undoNoCaptureCountBefore = noCaptureCount;
+        int[] src = ChessPiece.fromCoord(move.getSource());
+        ChessPiece piece = grid[src[0]][src[1]];
+        if (piece != null) {
+            move.undoPieceRevealedBefore = piece.isRevealed();
+            move.undoPieceTypeBefore = piece.getType();
+            move.undoPieceVirtualTypeBefore = piece.getVirtualType();
         }
     }
 
@@ -281,53 +346,8 @@ public class Board {
      * @param captured 该走法吃掉的棋子（如果无吃子则为null）
      */
     public void undoMove(Move move, ChessPiece captured) {
-        // 翻子操作的撤销
-        if (move.isFlipOnly()) {
-            int[] pos = ChessPiece.fromCoord(move.getSource());
-            ChessPiece piece = grid[pos[0]][pos[1]];
-            if (piece != null && piece.isRevealed()) {
-                piece.setRevealed(false);
-            }
-            moveHistory.remove(moveHistory.size() - 1);
-            moveCount--;
-            if (noCaptureCount > 0) noCaptureCount--;
-            return;
-        }
-
-        // 正常移动的撤销
-        int[] src = ChessPiece.fromCoord(move.getSource());
-        int[] dst = ChessPiece.fromCoord(move.getDestination());
-        ChessPiece piece = grid[dst[0]][dst[1]];
-
-        if (piece == null) {
-            System.err.println("undoMove error: piece is null at " + move.getDestination());
-            return;
-        }
-
-        // 如果这一步翻开了棋子（移动暗子后翻开），恢复为暗子
-        if (move.getType() != null && !move.isFlipOnly()) {
-            piece.setRevealed(false);
-            if (aiPublicView && piece.getColor() != aiViewerColor) {
-                piece.setType(ChessPiece.UNKNOWN);
-            }
-        }
-
-        grid[src[0]][src[1]] = piece;
-        grid[dst[0]][dst[1]] = captured;
-        piece.setRow(src[0]);
-        piece.setCol(src[1]);
-
-        if (captured != null) {
-            if (captured.getColor() == ChessPiece.RED) redPieces.add(captured);
-            else blackPieces.add(captured);
-            // 撤销吃子后，无吃子计数需要回退，但准确值较复杂，这里简单重置为0（最安全）
-            noCaptureCount = 0;
-        } else {
-            if (noCaptureCount > 0) noCaptureCount--;
-        }
-
-        moveHistory.remove(moveHistory.size() - 1);
-        moveCount--;
+        unmakeMove(new MoveSnapshot(move, captured, move.undoMoveCountBefore, move.undoNoCaptureCountBefore,
+                move.undoPieceRevealedBefore, move.undoPieceTypeBefore, move.undoPieceVirtualTypeBefore));
     }
 
     public List<ChessPiece> getPieces(int color) {
@@ -467,6 +487,12 @@ public class Board {
     }
 
     public int getNoCaptureCount() { return noCaptureCount; }
+
+    /** 测试用：设置无吃子半回合计数。 */
+    void setNoCaptureCount(int count) {
+        this.noCaptureCount = count;
+    }
+
     public List<Move> getMoveHistory() { return new ArrayList<>(moveHistory); }
     public int getMoveCount() { return moveCount; }
     public ChessPiece[][] getGrid() { return grid; }

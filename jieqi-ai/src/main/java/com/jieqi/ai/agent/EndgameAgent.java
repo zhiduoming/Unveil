@@ -24,7 +24,8 @@ public class EndgameAgent implements JieqiSubAgent {
     @Override
     public Move contribute(AgentContext ctx) {
         long limit = Math.min(ctx.getTimeLimitMs(), 30_000L);
-        OptimizedAlphaBeta.SearchResult result = search.search(ctx.getBoard(), ctx.getColor(), limit);
+        OptimizedAlphaBeta.SearchResult result = search.search(
+                ctx.getBoard(), ctx.getColor(), limit, ctx.getRepetitionCount(), ctx.getProbabilityBias());
         return result.bestMove;
     }
 }

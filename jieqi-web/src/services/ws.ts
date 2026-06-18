@@ -1,5 +1,5 @@
 // WebSocket 服务：封装与揭棋服务端的连接、消息收发
-// 协议参考：docs/_teacher_interface.md (老师公共接口 JSON)
+// 协议参考：docs/INTERFACE.typ v3.0（WebSocket JSON）
 
 export type MessageType =
   | 'Login' | 'loginResult'
@@ -12,6 +12,7 @@ export type MessageType =
   | 'drawOffer' | 'drawAccept' | 'drawDecline'
   | 'drawOffered' | 'drawDeclined'
   | 'rematchRequest' | 'rematchDecline' | 'rematchOffer' | 'rematchDeclined'
+  | 'replayRequest' | 'replayFrame'
   | 'ping' | 'pong'
   | 'error'
 

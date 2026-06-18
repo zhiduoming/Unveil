@@ -1,11 +1,16 @@
 package com.jieqi.app;
 
-import com.jieqi.ai.AIVsAIEnhanced;
-import com.jieqi.ai.EnhancedAIEngine;
-import com.jieqi.ai.PerformanceTest;
+import com.jieqi.ai.bot.AiBot;
+import com.jieqi.ai.bot.AiBotFactory;
+import com.jieqi.ai.bot.AiConfig;
+import com.jieqi.ai.bot.AiLevel;
 import com.jieqi.client.GameClient;
+import com.jieqi.ai.AIVsAIEnhanced;
+import com.jieqi.ai.PerformanceTest;
 import com.jieqi.core.Board;
 import com.jieqi.core.ChessPiece;
+import com.jieqi.core.Game;
+import com.jieqi.core.GameSummary;
 import com.jieqi.core.Move;
 import com.jieqi.core.RuleValidator;
 import com.jieqi.server.GameServer;
@@ -113,69 +118,118 @@ public class Main {
     }
 
     private static void playVsAI(Scanner scanner) {
-        Board board = new Board();
+        AiLevel level = promptAiLevel(scanner);
+        long budget = AiConfig.forLevel(level, 5000L).timeLimitMs();
+        AiBot ai = AiBotFactory.create(level, budget);
+        Game game = new Game("local-ai");
+        Board board = game.getBoard();
+        game.setRedPlayerName("你");
+        game.setBlackPlayerName("AI-" + level.id());
+        game.connectPlayer(ChessPiece.RED);
+        game.connectPlayer(ChessPiece.BLACK);
+
         ConsoleUI ui = new ConsoleUI();
-        EnhancedAIEngine ai = new EnhancedAIEngine("AI", ChessPiece.BLACK);
         final int humanColor = ChessPiece.RED;
         Move lastMove = null;
-        System.out.println("你执红方（先手），AI执黑方（后手）");
-        System.out.println("棋盘固定红方视角；带 * 的格子是上一步走子的源/目标");
+        System.out.println("===== 人机对局 =====");
+        System.out.println("你: 红方  vs  AI (" + level.label() + ")");
+        System.out.println("算法: " + aiLevelDescription(level));
+        System.out.println("时间预算: " + budget + "ms");
+        System.out.println("====================");
         while (true) {
             ui.displayBoard(board, humanColor, lastMove);
-            System.out.print("你的走法 (源 目标 / flip coord / quit): ");
+            System.out.print("你的走法 (源 目标 / quit): ");
             String input = scanner.nextLine().trim();
             if (input.equalsIgnoreCase("quit")) {
                 break;
             }
             if (input.isEmpty()) {
-                System.out.println("请输入走法，例如: a3 a4  或  flip e0");
+                System.out.println("请输入走法，例如: a3 a4");
                 continue;
             }
             if (input.equalsIgnoreCase("board")) {
                 continue;
             }
-            Move move;
-            if (input.startsWith("flip ")) {
-                String coord = input.substring(5).trim();
-                move = new Move(coord, coord);
-                move.setFlipOnly(true);
-            } else {
-                String[] parts = input.split("\\s+");
-                if (parts.length < 2) {
-                    System.out.println("格式错误：需要「源 目标」，例如 a3 a4");
-                    continue;
-                }
-                move = new Move(parts[0], parts[1]);
+            String[] parts = input.split("\\s+");
+            if (parts.length < 2) {
+                System.out.println("格式错误：需要「源 目标」，例如 a3 a4");
+                continue;
             }
+            if (parts[0].equals(parts[1])) {
+                System.out.println("揭棋规则：禁止原地翻子，请输入移动走法（起点≠终点）。");
+                continue;
+            }
+            Move move = new Move(parts[0], parts[1]);
             if (!RuleValidator.isValidMove(board, move, humanColor)) {
                 System.out.println("非法走法！");
                 continue;
             }
-            ChessPiece captured = board.executeMove(move);
+            if (!RuleValidator.isMoveLegal(board, move, humanColor)) {
+                System.out.println("不能送将！");
+                continue;
+            }
+            String err = game.processMove(move, humanColor);
+            if (err != null) {
+                System.out.println(err);
+                continue;
+            }
             lastMove = move;
-            if (checkGameEnd(board, captured, "红方")) {
+            if (game.isFinished()) {
                 ui.displayBoard(board, humanColor, lastMove);
+                printLocalSummary(game);
                 break;
             }
 
             System.out.println("\n>>> AI 思考中...");
-            Move aiMove = ai.calculateMove(board);
+            Move aiMove = AiBotFactory.selectWithFallback(ai, board, ChessPiece.BLACK, budget,
+                    game.getRepetitionCount());
             if (aiMove == null) {
-                System.out.println("AI无步，你获胜");
+                game.setStatus(Game.GameStatus.RED_WIN);
+                game.setGameOverReason(com.jieqi.core.EndgameJudge.ProtocolReason.STALEMATE);
+                printLocalSummary(game);
                 break;
             }
-            if (!RuleValidator.isValidMove(board, aiMove, ChessPiece.BLACK)) {
-                System.out.println("AI非法走法，你获胜");
+            err = game.processMove(aiMove, ChessPiece.BLACK);
+            if (err != null) {
+                game.setStatus(Game.GameStatus.RED_WIN);
+                printLocalSummary(game);
                 break;
             }
-            ChessPiece aiCaptured = board.executeMove(aiMove);
             lastMove = aiMove;
             System.out.println(">>> AI 走: " + describeMove(board, aiMove));
             ui.displayBoard(board, humanColor, lastMove);
-            if (checkGameEnd(board, aiCaptured, "黑方")) {
+            if (game.isFinished()) {
+                printLocalSummary(game);
                 break;
             }
         }
+    }
+
+    private static AiLevel promptAiLevel(Scanner scanner) {
+        System.out.println("请选择 AI 难度：");
+        System.out.println("1. 入门 Easy   - 启发式随机 + TopK 选子，适合新手练棋");
+        System.out.println("2. 标准 Medium - Alpha-Beta 搜索 + 置换表 + 静态搜索");
+        System.out.println("3. 挑战 Hard   - Belief Sampling 暗子采样 + Alpha-Beta");
+        System.out.print("请选择 (1-3): ");
+        int choice = scanner.nextInt();
+        scanner.nextLine();
+        return switch (choice) {
+            case 1 -> AiLevel.EASY;
+            case 3 -> AiLevel.HARD;
+            default -> AiLevel.MEDIUM;
+        };
+    }
+
+    private static String aiLevelDescription(AiLevel level) {
+        return switch (level) {
+            case EASY -> "启发式随机 + TopK 选子";
+            case HARD -> "Belief Sampling + Alpha-Beta";
+            default -> "Alpha-Beta 搜索 + 置换表";
+        };
+    }
+
+    private static void printLocalSummary(Game game) {
+        GameSummary.fromGame(game, null, null).print();
     }
 
     private static String describeMove(Board board, Move move) {
@@ -244,13 +298,19 @@ public class Main {
     }
 
     private static void runLocalTest(Scanner scanner) {
-        Board board = new Board();
+        Game game = new Game("local-test");
+        Board board = game.getBoard();
+        game.setRedPlayerName("红方");
+        game.setBlackPlayerName("黑方");
+        game.connectPlayer(ChessPiece.RED);
+        game.connectPlayer(ChessPiece.BLACK);
         ConsoleUI ui = new ConsoleUI();
         int current = ChessPiece.RED;
+        Move lastMove = null;
         while (true) {
-            ui.displayBoard(board, current);
+            ui.displayBoard(board, current, lastMove);
             System.out.println("轮到: " + (current == ChessPiece.RED ? "红方" : "黑方"));
-            System.out.print("走法 (源 目标 / flip coord / quit): ");
+            System.out.print("走法 (源 目标 / quit): ");
             String input = scanner.nextLine().trim();
             if (input.equalsIgnoreCase("quit")) {
                 break;
@@ -258,34 +318,28 @@ public class Main {
             if (input.equalsIgnoreCase("board")) {
                 continue;
             }
-            Move move;
-            if (input.startsWith("flip ")) {
-                String coord = input.substring(5).trim();
-                move = new Move(coord, coord);
-                move.setFlipOnly(true);
-            } else {
-                String[] parts = input.split("\\s+");
-                if (parts.length < 2) {
-                    System.out.println("格式错误");
-                    continue;
-                }
-                move = new Move(parts[0], parts[1]);
-            }
-            if (!RuleValidator.isValidMove(board, move, current)) {
-                System.out.println("非法");
+            String[] parts = input.split("\\s+");
+            if (parts.length < 2) {
+                System.out.println("格式错误");
                 continue;
             }
-            ChessPiece captured = board.executeMove(move);
-            if (captured != null && captured.isRevealed() && captured.getType() == ChessPiece.KING) {
-                System.out.println((current == ChessPiece.RED ? "红方" : "黑方") + "获胜");
+            if (parts[0].equals(parts[1])) {
+                System.out.println("揭棋规则：禁止原地翻子，请输入移动走法（起点≠终点）。");
+                continue;
+            }
+            Move move = new Move(parts[0], parts[1]);
+            String err = game.processMove(move, current);
+            if (err != null) {
+                System.out.println(err);
+                continue;
+            }
+            lastMove = move;
+            if (game.isFinished()) {
+                ui.displayBoard(board, current, lastMove);
+                printLocalSummary(game);
                 break;
             }
-            int opp = (current == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
-            if (RuleValidator.isCheckmate(board, opp)) {
-                System.out.println((current == ChessPiece.RED ? "红方" : "黑方") + "将死获胜");
-                break;
-            }
-            current = opp;
+            current = (current == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
         }
     }
 }

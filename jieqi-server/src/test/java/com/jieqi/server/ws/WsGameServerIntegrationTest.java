@@ -18,6 +18,9 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.net.ServerSocket;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -205,6 +208,80 @@ class WsGameServerIntegrationTest {
         red.sendJson(move("a", 3, "a", 4, true));
         JsonObject mr = red.awaitTypeObject(JsonMessageTypes.MOVE_RESULT, 3);
         assertFalse(mr.get("valid").getAsBoolean());
+
+        p1.close();
+        p2.close();
+    }
+
+    @Test
+    void watchJoinsActiveGameAsObserver() throws Exception {
+        TestWsClient p1 = connect("w_red");
+        TestWsClient p2 = connect("w_blk");
+        TestWsClient spectator = connect("w_spec");
+        GameStartSession session = loginMatchReadyStart(p1, p2, "w_red", "w_blk");
+        login(spectator, "w_spec");
+        JsonObject watch = new JsonObject();
+        watch.addProperty("messageType", JsonMessageTypes.WATCH);
+        watch.addProperty("roomId", session.roomId());
+        spectator.sendJson(JsonMessages.toJson(watch));
+        JsonObject gs = spectator.awaitTypeObject(JsonMessageTypes.GAME_START, 5);
+        assertNotNull(gs, "观战应收到 gameStart");
+        assertEquals("red", gs.get("yourColor").getAsString());
+        assertFalse(gs.get("firstHand").getAsBoolean());
+        p1.close();
+        p2.close();
+        spectator.close();
+    }
+
+    @Test
+    void replayRequestRejectedDuringLiveGame() throws Exception {
+        TestWsClient p1 = connect("liveReplay1");
+        TestWsClient p2 = connect("liveReplay2");
+        GameStartSession session = loginMatchReadyStart(p1, p2, "liveReplay1", "liveReplay2");
+        TestWsClient red = session.red();
+
+        JsonObject req = new JsonObject();
+        req.addProperty("messageType", JsonMessageTypes.REPLAY_REQUEST);
+        req.addProperty("stepIndex", 0);
+        red.sendJson(JsonMessages.toJson(req));
+
+        JsonObject err = red.awaitError(JsonErrorCodes.MATCH_FAILED, 5);
+        assertNotNull(err);
+        assertTrue(err.get("message").getAsString().contains("进行中"));
+        assertNull(red.findLastOfType(JsonMessageTypes.REPLAY_FRAME));
+
+        p1.close();
+        p2.close();
+    }
+
+    @Test
+    void replayRequestReturnsFramesAfterResign() throws Exception {
+        TestWsClient p1 = connect("replay1");
+        TestWsClient p2 = connect("replay2");
+        GameStartSession session = loginMatchReadyStart(p1, p2, "replay1", "replay2");
+        TestWsClient red = session.red();
+
+        red.sendJson(resign());
+        assertTrue(red.awaitType(JsonMessageTypes.GAME_OVER, 5));
+        assertTrue(server.isFinishedRoomForTest(session.roomId()));
+
+        JsonObject req0 = new JsonObject();
+        req0.addProperty("messageType", JsonMessageTypes.REPLAY_REQUEST);
+        req0.addProperty("stepIndex", 0);
+        red.sendJson(JsonMessages.toJson(req0));
+        JsonObject frame0 = red.awaitTypeObject(JsonMessageTypes.REPLAY_FRAME, 5);
+        assertEquals(0, frame0.get("stepIndex").getAsInt());
+        assertTrue(frame0.get("totalSteps").getAsInt() >= 1);
+        assertTrue(frame0.has("board"));
+
+        JsonObject reqLast = new JsonObject();
+        reqLast.addProperty("messageType", JsonMessageTypes.REPLAY_REQUEST);
+        red.sendJson(JsonMessages.toJson(reqLast));
+        JsonObject frameLast = red.awaitTypeObject(JsonMessageTypes.REPLAY_FRAME, 5);
+        assertEquals(frame0.get("totalSteps").getAsInt() - 1, frameLast.get("stepIndex").getAsInt());
+
+        Path replayFile = Paths.get("records", session.roomId() + ".replay.json");
+        assertTrue(Files.exists(replayFile), "终局后应生成 .replay.json");
 
         p1.close();
         p2.close();

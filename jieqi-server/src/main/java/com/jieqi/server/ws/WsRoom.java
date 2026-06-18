@@ -328,6 +328,26 @@ public final class WsRoom {
         return started;
     }
 
+    /** 将连接设为观战者（只读，不能走子）。 */
+    public void attachObserver(WsPlayerContext ctx) {
+        if (observer != null && observer != ctx) {
+            observer.setRoomId(null);
+        }
+        this.observer = ctx;
+        ctx.setRoomId(roomId);
+        ctx.setColor(-1);
+    }
+
+    public void detachObserver(WsPlayerContext ctx) {
+        if (observer == ctx) {
+            observer = null;
+        }
+    }
+
+    public boolean isParticipant(WsPlayerContext ctx) {
+        return ctx == red || ctx == black;
+    }
+
     public void setStarted(boolean started) {
         this.started = started;
     }

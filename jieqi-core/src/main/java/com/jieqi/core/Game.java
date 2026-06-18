@@ -1,6 +1,7 @@
 package com.jieqi.core;
 
 import com.jieqi.record.GameRecord;
+import com.jieqi.record.ReplayTimeline;
 
 import java.util.*;
 
@@ -18,6 +19,7 @@ public class Game {
     private long turnStartTime;
     private boolean redConnected, blackConnected;
     private final GameRecord record = new GameRecord();
+    private final ReplayTimeline replayTimeline = new ReplayTimeline();
     private Map<String, Integer> repetitionCount;
 
     // 被吃棋子记录（揭棋信息差用）：lastCaptured 供本步 moveResult 差异化广播；
@@ -65,12 +67,14 @@ public class Game {
         if (verdict != null) {
             status = verdict.status();
             gameOverReason = verdict.reasonCode();
+            replayTimeline.recordAfterMove(move, board, nextTurn, status, captured);
             return null;
         }
 
         int oppColor = (playerColor == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
         currentTurn = oppColor;
         turnStartTime = System.currentTimeMillis();
+        replayTimeline.recordAfterMove(move, board, currentTurn, status, captured);
         return null;
     }
 
@@ -164,6 +168,13 @@ public class Game {
     public String getRedPlayerName() { return redPlayerName; }
     public String getBlackPlayerName() { return blackPlayerName; }
     public GameRecord getRecord() { return record; }
+
+    public ReplayTimeline getReplayTimeline() { return replayTimeline; }
+
+    /** 记录复盘开局帧（仅首次有效）。 */
+    public void recordReplayInitialIfNeeded() {
+        replayTimeline.recordInitial(board, currentTurn, status);
+    }
 
     /** 上一步被吃的棋子（含真实 type/color/revealed），无吃子时为 null。供差异化广播使用。 */
     public ChessPiece getLastCaptured() { return lastCaptured; }

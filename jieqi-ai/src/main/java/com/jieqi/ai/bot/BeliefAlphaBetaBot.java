@@ -17,7 +17,6 @@ import java.util.Random;
 public final class BeliefAlphaBetaBot implements AiBot {
 
     private final AiConfig config;
-    private final OptimizedAlphaBeta search = new OptimizedAlphaBeta();
     private final Random rng = new Random(0xBE11EF01L);
 
     public BeliefAlphaBetaBot(AiConfig config) {
@@ -38,17 +37,26 @@ public final class BeliefAlphaBetaBot implements AiBot {
             return null;
         }
         MoveOrderer.sortByHeuristic(publicView, candidates, color);
-        int limit = Math.min(config.maxCandidatesForBelief(), candidates.size());
+
+        long budget = Math.min(timeLimitMs, config.timeLimitMs());
+        int samples = Math.max(1, config.beliefSamples());
+        int candidateLimit = config.maxCandidatesForBelief();
+        if (budget < 3000) {
+            samples = Math.min(samples, 2);
+            candidateLimit = Math.min(candidateLimit, 4);
+        }
+
+        int limit = Math.min(candidateLimit, candidates.size());
         candidates = candidates.subList(0, limit);
 
-        long deadline = System.currentTimeMillis() + Math.min(timeLimitMs, config.timeLimitMs());
+        long deadline = System.currentTimeMillis() + budget;
         Map<String, Double> scores = new HashMap<>();
-        int samples = Math.max(1, config.beliefSamples());
 
-        for (Move candidate : candidates) {
+        for (int candidateIndex = 0; candidateIndex < candidates.size(); candidateIndex++) {
             if (System.currentTimeMillis() >= deadline) {
                 break;
             }
+            Move candidate = candidates.get(candidateIndex);
             double sum = 0;
             int used = 0;
             for (int s = 0; s < samples; s++) {
@@ -57,9 +65,14 @@ public final class BeliefAlphaBetaBot implements AiBot {
                 }
                 Board sample = BoardSampler.fromPublicView(publicView, color, rng);
                 Board.MoveSnapshot snap = sample.makeMove(candidate);
-                long perSample = Math.max(30L, (deadline - System.currentTimeMillis()) / Math.max(1, samples - s));
+
+                long remaining = deadline - System.currentTimeMillis();
+                int remainingSlots = samples - s + (candidates.size() - candidateIndex - 1) * samples;
+                long perSample = Math.max(30L, remaining / Math.max(1, remainingSlots));
+
+                OptimizedAlphaBeta localSearch = new OptimizedAlphaBeta();
                 OptimizedAlphaBeta.SearchResult result =
-                        search.search(sample, opp(color), perSample, repetition);
+                        localSearch.search(sample, opp(color), perSample, repetition);
                 sample.unmakeMove(snap);
                 sum -= result.score;
                 used++;

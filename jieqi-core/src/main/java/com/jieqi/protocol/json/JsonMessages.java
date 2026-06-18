@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import com.jieqi.core.Board;
 import com.jieqi.core.ChessPiece;
 import com.jieqi.core.Move;
+import com.jieqi.record.ReplayFrame;
 
 import java.util.List;
 
@@ -246,6 +247,40 @@ public final class JsonMessages {
         o.addProperty("forColor", forColor);
         o.addProperty("seconds", seconds);
         o.addProperty("turnStartTime", turnStartTime);
+        return o;
+    }
+
+    /** 复盘帧（服务器权威快照）；终局复盘应 {@code revealRealPieces=true}。 */
+    public static JsonObject replayFrame(String roomId, int stepIndex, int totalSteps, ReplayFrame frame) {
+        return replayFrame(roomId, stepIndex, totalSteps, frame, true);
+    }
+
+    public static JsonObject replayFrame(String roomId, int stepIndex, int totalSteps, ReplayFrame frame,
+                                         boolean revealRealPieces) {
+        JsonObject o = new JsonObject();
+        o.addProperty("messageType", JsonMessageTypes.REPLAY_FRAME);
+        o.addProperty("roomId", roomId);
+        o.addProperty("stepIndex", stepIndex);
+        o.addProperty("totalSteps", totalSteps);
+        o.addProperty("currentTurn", PieceJsonMapper.colorToString(frame.getCurrentTurn()));
+        o.addProperty("status", frame.getStatus().name());
+        o.addProperty("timestamp", frame.getTimestamp());
+        Move move = frame.getMove();
+        if (move != null) {
+            JsonObject m = new JsonObject();
+            m.addProperty("from", move.getSource());
+            m.addProperty("to", move.getDestination());
+            o.add("move", m);
+        }
+        ChessPiece captured = frame.getCaptured();
+        if (captured != null) {
+            JsonObject c = new JsonObject();
+            c.addProperty("color", PieceJsonMapper.colorToString(captured.getColor()));
+            c.addProperty("wasDark", !captured.isRevealed());
+            c.addProperty("piece", PieceJsonMapper.toJsonName(captured.getType()));
+            o.add("captured", c);
+        }
+        o.add("board", BoardJsonMapper.toReplayBoard(frame.getBoardSnapshot(), revealRealPieces));
         return o;
     }
 

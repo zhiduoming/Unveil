@@ -9,6 +9,28 @@ import static org.junit.jupiter.api.Assertions.*;
 class BoardJsonMapperTest {
 
     @Test
+    void fromInitialBoard_rebuildsFullBoardFromServerSnapshot() {
+        Board serverBoard = new Board();
+        var cells = BoardJsonMapper.toInitialBoard(serverBoard);
+        Board clientBoard = BoardJsonMapper.fromInitialBoard(cells);
+
+        int serverCount = 0;
+        int clientCount = 0;
+        for (int r = 0; r < 10; r++) {
+            for (int c = 0; c < 9; c++) {
+                if (serverBoard.getPiece(r, c) != null) {
+                    serverCount++;
+                }
+                if (clientBoard.getPiece(r, c) != null) {
+                    clientCount++;
+                }
+            }
+        }
+        assertEquals(serverCount, clientCount);
+        assertTrue(serverCount >= 32);
+    }
+
+    @Test
     void initialBoardContainsKingsAndHiddenPieces() {
         Board board = new Board();
         var cells = BoardJsonMapper.toInitialBoard(board);
