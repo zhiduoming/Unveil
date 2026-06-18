@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game'
-import { initialJieqiBoard } from '../types/chess'
+import { initialJieqiBoard, type ReplayMove } from '../types/chess'
 import ChessBoard from '../components/ChessBoard.vue'
 import CapturedTray from '../components/CapturedTray.vue'
 import { QUICK_MESSAGES, CHAT_EMOJIS } from '../utils/chatPresets'
@@ -19,6 +19,78 @@ const viewingFinishedBoard = ref(false)
 watch(() => store.gameOver, (v) => {
   if (!v) viewingFinishedBoard.value = false
 })
+
+// ── 复盘模式 ──
+// 当前展示的棋盘：复盘模式下用 replayBoard，否则用真实 board
+const displayBoard = computed(() => {
+  return store.replayMode ? store.replayBoard : store.board
+})
+
+const replayTitle = computed(() => {
+  if (store.replayMode && store.replayTotalSteps > 0) {
+    return `复盘模式 · 第 ${store.replayStepIndex} / ${Math.max(0, store.replayTotalSteps - 1)} 手`
+  }
+  return '终局查看'
+})
+
+function formatReplayMove(move: ReplayMove) {
+  return `${move.fromX}${move.fromY} → ${move.toX}${move.toY}`
+}
+
+function enterReplayMode() {
+  console.log('[Replay] enterReplayMode clicked')
+  viewingFinishedBoard.value = true
+  store.replayMode = true
+  store.sendReplayRequest()
+}
+
+function exitReplayMode() {
+  console.log('[Replay] exitReplayMode')
+  store.replayMode = false
+  store.replayBoard = []
+  store.replayMove = null
+  store.replayStepIndex = 0
+  store.replayTotalSteps = 0
+}
+
+function backToSettlement() {
+  console.log('[Replay] backToSettlement')
+  store.replayMode = false
+  viewingFinishedBoard.value = false
+}
+
+function replayPrev() {
+  console.log('[Replay] prev clicked, stepIndex:', store.replayStepIndex)
+  if (store.replayStepIndex <= 0) return
+  store.sendReplayRequest(store.replayStepIndex - 1)
+}
+
+function replayNext() {
+  console.log('[Replay] next clicked, stepIndex:', store.replayStepIndex, 'total:', store.replayTotalSteps)
+  if (store.replayStepIndex >= store.replayTotalSteps - 1) return
+  store.sendReplayRequest(store.replayStepIndex + 1)
+}
+
+function replayFirst() {
+  console.log('[Replay] first clicked')
+  store.sendReplayRequest(0)
+}
+
+function replayLast() {
+  console.log('[Replay] last clicked, total:', store.replayTotalSteps)
+  if (store.replayTotalSteps > 0) {
+    store.sendReplayRequest(store.replayTotalSteps - 1)
+  } else {
+    store.sendReplayRequest()
+  }
+}
+
+function replayGoto(step: number) {
+  console.log('[Replay] goto clicked, target:', step)
+  if (Number.isNaN(step)) return
+  const target = Math.max(0, Math.min(step, Math.max(0, store.replayTotalSteps - 1)))
+  store.sendReplayRequest(target)
+}
 
 // ── 屏幕中央浮动 toast（3 秒淡化，半透明，不挡棋盘） ──
 type ToastKind = 'check' | 'error' | 'info'
@@ -295,11 +367,11 @@ function backToLobby() {
             <CapturedTray :entries="store.capturedFromMe" variant="loss" />
           </div>
           <ChessBoard
-            :pieces="store.board"
+            :pieces="displayBoard"
             :is-red-view="isRedView"
-            :selected-coord="store.selectedCoord"
-            :hint-coords="store.hintCoords"
-            :last-move="store.lastMove"
+            :selected-coord="store.replayMode ? '' : store.selectedCoord"
+            :hint-coords="store.replayMode ? [] : store.hintCoords"
+            :last-move="store.replayMode ? null : store.lastMove"
             @cell-click="onCellClick"
           />
           <!-- 左下：我方吃掉对方的棋子（战利品）。暗子被吃可见身份但变暗。 -->
@@ -506,27 +578,69 @@ function backToLobby() {
           <!-- 场景 2：还未邀请，正常按钮 -->
           <template v-else-if="!store.myRematchAsked">
             <button @click="store.requestRematch()" class="modal-btn modal-btn-primary">🔁 再来一局</button>
-            <button @click="viewingFinishedBoard = true" class="modal-btn modal-btn-secondary">🔍 查看棋局</button>
+            <button @click="enterReplayMode" class="modal-btn modal-btn-secondary">🔍 查看棋局</button>
             <button @click="backToLobby" class="modal-btn modal-btn-secondary">返回大厅</button>
           </template>
           <!-- 场景 3：已邀请等待 / 被拒 -->
           <template v-else>
-            <button @click="viewingFinishedBoard = true" class="modal-btn modal-btn-secondary">🔍 查看棋局</button>
+            <button @click="enterReplayMode" class="modal-btn modal-btn-secondary">🔍 查看棋局</button>
             <button @click="backToLobby" class="modal-btn modal-btn-secondary">返回大厅</button>
           </template>
         </div>
       </div>
     </div>
 
-    <!-- 查看棋局模式：右下角悬浮"返回结算"按钮，点击重新打开结算弹窗 -->
+    <!-- 查看棋局 / 复盘模式：底部控制条 -->
     <div v-if="store.gameOver && viewingFinishedBoard" class="finished-bar">
-      <span class="finished-bar-text">
-        {{ store.gameOver.winner === yourColor ? '✓ 你赢了' : (store.gameOver.winner === 'draw' ? '⚖ 和棋' : '✗ 你输了') }}
-        · 原因：{{ store.gameOverReasonText }}
-        · 复盘模式
-      </span>
-      <button @click="viewingFinishedBoard = false" class="finished-bar-btn">返回结算</button>
-      <button @click="backToLobby" class="finished-bar-btn finished-bar-btn-secondary">返回大厅</button>
+      <div class="replay-info">
+        <span class="result-text">
+          {{ store.gameOver.winner === yourColor ? '✓ 你赢了' : (store.gameOver.winner === 'draw' ? '⚖ 和棋' : '✗ 你输了') }}
+          · 原因：{{ store.gameOverReasonText }}
+        </span>
+        <span class="step-text">{{ replayTitle }}</span>
+        <span v-if="store.replayMove && store.replayMode" class="move-text">
+          上一手：{{ formatReplayMove(store.replayMove) }}
+        </span>
+        <span v-if="store.replayLoading" class="loading-text">加载中…</span>
+        <span v-if="store.replayError" class="error-text">{{ store.replayError }}</span>
+      </div>
+
+      <div v-if="store.replayMode" class="replay-controls">
+        <button class="replay-btn" title="开局"
+          :disabled="store.replayLoading || store.replayTotalSteps === 0"
+          @click="replayFirst">
+          ⏮
+        </button>
+        <button class="replay-btn" title="上一步"
+          :disabled="store.replayLoading || store.replayStepIndex <= 0"
+          @click="replayPrev">
+          ◀
+        </button>
+        <input
+          type="range"
+          class="replay-slider"
+          min="0"
+          :max="Math.max(0, store.replayTotalSteps - 1)"
+          :value="store.replayStepIndex"
+          :disabled="store.replayLoading || store.replayTotalSteps <= 0"
+          @input="(e) => replayGoto(Number((e.target as HTMLInputElement).value))"
+        />
+        <button class="replay-btn" title="下一步"
+          :disabled="store.replayLoading || store.replayTotalSteps === 0 || store.replayStepIndex >= store.replayTotalSteps - 1"
+          @click="replayNext">
+          ▶
+        </button>
+        <button class="replay-btn" title="终局"
+          :disabled="store.replayLoading || store.replayTotalSteps === 0 || store.replayStepIndex >= store.replayTotalSteps - 1"
+          @click="replayLast">
+          ⏭
+        </button>
+      </div>
+
+      <div class="replay-actions">
+        <button @click="backToSettlement" class="finished-bar-btn">返回结算</button>
+        <button @click="backToLobby" class="finished-bar-btn finished-bar-btn-secondary">返回大厅</button>
+      </div>
     </div>
 
     <div v-if="pendingConfirm" class="modal">
@@ -1274,14 +1388,91 @@ function backToLobby() {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 10px 18px;
   background: rgba(28, 25, 23, 0.92);
   border: 1px solid rgba(217, 119, 6, 0.5);
-  border-radius: 999px;
+  border-radius: 16px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 50;
+  min-width: 420px;
+}
+.replay-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.result-text {
+  color: #fef3c7;
+  font-size: 14px;
+  font-weight: 500;
+}
+.step-text {
+  color: #f59e0b;
+  font-size: 13px;
+  font-weight: 600;
+}
+.move-text {
+  color: #d6d3d1;
+  font-size: 12px;
+}
+.loading-text {
+  color: #f59e0b;
+  font-size: 12px;
+  animation: pulse 1s infinite;
+}
+.error-text {
+  color: #ef4444;
+  font-size: 12px;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.replay-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.replay-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #44403c;
+  color: #fef3c7;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  flex-shrink: 0;
+}
+.replay-btn:hover:not(:disabled) {
+  background: #d97706;
+}
+.replay-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.replay-slider {
+  flex: 1;
+  height: 6px;
+  accent-color: #d97706;
+  cursor: pointer;
+}
+.replay-slider:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.replay-actions {
+  display: flex;
+  gap: 8px;
 }
 .finished-bar-text {
   color: #fef3c7;

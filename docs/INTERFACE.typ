@@ -985,7 +985,20 @@ public class Move {
 
 == 本组扩展消息
 
-在不影响与老师客户端互操作的前提下，本组保留以下扩展能力（见附录 B TCP 层）：
+在不影响与老师客户端互操作的前提下，本组在 WebSocket JSON 层保留以下扩展（与老师公共接口并列时须标注归属）：
+
+#table(
+  columns: (1.8fr, 1fr, 2.2fr),
+  [*messageType*], [*归属*], [*说明*],
+  [`match` / `ready` / `first` / `move` / `moveResult` / `gameStart` / `gameOver` / `chat`], [课程公共接口], [正文 §6 必做互操作],
+  [`replayRequest` / `replayFrame`], [本组扩展], [复盘时间线拉取与帧推送],
+  [`rematchRequest` / `rematchResponse` / `rematchOffer` / `rematchDeclined`], [本组扩展], [终局后再来一局],
+  [`pauseGame` / `resumeGame` / `gamePaused` / `gameResumed`], [本组扩展], [AI 对局暂停],
+  [`addTime` / `timeBonus`], [本组扩展], [步时手动加时],
+  [`leaveRoom`], [本组扩展], [主动离开房间],
+)
+
+TCP 附录 B 另保留：
 
 - 提和 / 聊天 / 多盘 `gameId` — 仅 TCP 扩展
 - 步时 65s、长将/长捉、吃将获胜等*规则扩展*在服务器逻辑中实现，通过扩展 `gameOver.reason` 表达

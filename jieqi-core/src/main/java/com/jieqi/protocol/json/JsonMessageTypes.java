@@ -36,6 +36,10 @@ public final class JsonMessageTypes {
     public static final String RESUME_GAME = "resumeGame";
     /** 本组扩展：手动加时（每步限次，见服务端） */
     public static final String ADD_TIME = "addTime";
+    /** 本组扩展：复盘请求与帧推送 */
+    public static final String REPLAY_REQUEST = "replayRequest";
+    /** 本组扩展：观战房间（只读） */
+    public static final String WATCH = "watch";
 
     // S → C
     public static final String LOGIN_RESULT = "loginResult";
@@ -58,4 +62,6 @@ public final class JsonMessageTypes {
     public static final String GAME_RESUMED = "gameResumed";
     /** 本组扩展：步时加时通知 */
     public static final String TIME_BONUS = "timeBonus";
+    /** 本组扩展：复盘帧（含完整棋盘快照） */
+    public static final String REPLAY_FRAME = "replayFrame";
 }

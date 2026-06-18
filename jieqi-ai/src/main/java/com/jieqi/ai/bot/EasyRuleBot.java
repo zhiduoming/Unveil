@@ -32,6 +32,9 @@ public final class EasyRuleBot implements AiBot {
             return null;
         }
         MoveOrderer.sortByHeuristic(aiBoard, moves, color);
+        if (ThreadLocalRandom.current().nextDouble() < 0.30) {
+            return moves.get(ThreadLocalRandom.current().nextInt(moves.size()));
+        }
         int k = Math.min(config.topKRandom(), moves.size());
         List<Move> top = new ArrayList<>(moves.subList(0, k));
         return top.get(ThreadLocalRandom.current().nextInt(top.size()));

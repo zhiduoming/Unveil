@@ -19,6 +19,38 @@ export interface Piece {
   col: number       // 0~8, 0=列 a
 }
 
+// ── 复盘相关类型 ──
+
+export interface ReplayMove {
+  fromX: string
+  fromY: number
+  toX: string
+  toY: number
+  isFlip?: boolean
+}
+
+export interface ReplayBoardCell {
+  x: string
+  y: number
+  color: 'red' | 'black'
+  piece: string
+  visible: boolean
+  realPiece?: string
+  virtualPiece?: string
+}
+
+export interface ReplayFrameMessage {
+  messageType: 'replayFrame'
+  roomId?: string
+  stepIndex: number
+  totalSteps: number
+  currentTurn: 'red' | 'black'
+  status: string
+  move?: ReplayMove
+  board: ReplayBoardCell[]
+  captured?: unknown
+}
+
 // 被吃棋子记录（揭棋信息差）：
 //   type = null 表示「未知暗子」——被吃方看不到被吃暗子的真实身份；
 //   wasDark = true 表示被吃前是暗子（用于左下战利品区的"变暗"显示）。

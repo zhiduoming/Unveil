@@ -20,8 +20,8 @@ public final class AiConfig {
 
     public static AiConfig forLevel(AiLevel level, long humanBudgetMs) {
         return switch (level) {
-            case EASY -> new AiConfig(level, Math.min(800L, humanBudgetMs), 5, 0, 0);
-            case HARD -> new AiConfig(level, humanBudgetMs, 1, 8, 15);
+            case EASY -> new AiConfig(level, Math.min(500L, humanBudgetMs), 8, 0, 0);
+            case HARD -> new AiConfig(level, humanBudgetMs, 1, 4, 6);
             default -> new AiConfig(level, humanBudgetMs, 1, 0, 0);
         };
     }

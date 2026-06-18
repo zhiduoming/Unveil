@@ -9,13 +9,11 @@ const props = withDefaults(defineProps<{
   selectedCoord?: string
   hintCoords?: string[]
   lastMove?: { from: string; to: string } | null
-  showTeacherCoords?: boolean
 }>(), {
   isRedView: true,
   selectedCoord: '',
   hintCoords: () => [],
   lastMove: null,
-  showTeacherCoords: true,
 })
 
 defineEmits<{
@@ -29,21 +27,6 @@ const allCells = computed(() => {
     for (let c = 0; c < 9; c++) cells.push({ row: r, col: c })
   }
   return cells
-})
-
-// 传统象棋记谱：每方从自己右手起数 1→9，同一列两端编号之和为 10。
-// 离观看者近的一方（底部）自左向右 9→1；对方（顶部）自左向右 1→9。
-// 与视角无关——翻转视角时整盘转 180°，底部永远是当前看棋方的 9→1。
-const bottomColLabels = [9, 8, 7, 6, 5, 4, 3, 2, 1]
-const topColLabels = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-
-const teacherLetters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
-const teacherColLabels = computed(() =>
-  props.isRedView ? teacherLetters : [...teacherLetters].reverse(),
-)
-const teacherRowLabels = computed(() => {
-  const rows = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
-  return props.isRedView ? rows : [...rows].reverse()
 })
 
 // 兵/炮初始点位的传统象棋星位标记（L 形拐角）。
@@ -117,19 +100,7 @@ const piecesMap = computed(() => {
 <template>
   <div class="board-outer">
     <div class="board-grid">
-      <!-- 左侧行号（老师协议 9→0 / 0→9） -->
-      <div v-if="showTeacherCoords" class="row-labels">
-        <span v-for="n in teacherRowLabels" :key="`row-${n}`">{{ n }}</span>
-      </div>
-
       <div class="board-main">
-        <!-- 顶部列号（传统 1→9 + 老师 a→i） -->
-        <div class="col-labels">
-          <span v-for="n in topColLabels" :key="`top-${n}`">{{ n }}</span>
-        </div>
-        <div v-if="showTeacherCoords" class="col-labels col-labels-teacher">
-          <span v-for="l in teacherColLabels" :key="`top-${l}`">{{ l }}</span>
-        </div>
 
         <!-- 棋盘主体（木纹背景） -->
         <div class="board">
@@ -212,13 +183,6 @@ const piecesMap = computed(() => {
       </div>
         </div>
 
-        <!-- 底部列号（我方一侧 9→1 + 老师列标） -->
-        <div class="col-labels">
-          <span v-for="n in bottomColLabels" :key="`bot-${n}`">{{ n }}</span>
-        </div>
-        <div v-if="showTeacherCoords" class="col-labels col-labels-teacher">
-          <span v-for="l in teacherColLabels" :key="`bot-${l}`">{{ l }}</span>
-        </div>
       </div>
     </div>
   </div>
@@ -239,38 +203,6 @@ const piecesMap = computed(() => {
 .board-main {
   flex: 1;
   min-width: 0;
-}
-
-.row-labels {
-  display: grid;
-  grid-template-rows: repeat(10, 1fr);
-  align-items: center;
-  justify-items: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: #6b4423;
-  padding: calc(7% + 28px) 0 calc(7% + 28px);
-  width: 1.4rem;
-  opacity: 0.9;
-}
-
-.col-labels {
-  display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  text-align: center;
-  font-size: 16px;
-  font-weight: bold;
-  color: #4a2410;
-  padding: 8px 7%;
-}
-
-.col-labels-teacher {
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b4423;
-  padding-top: 0;
-  padding-bottom: 4px;
-  opacity: 0.85;
 }
 
 .board {

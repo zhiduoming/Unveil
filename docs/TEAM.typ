@@ -1,0 +1,28 @@
+#import "template.typ": *
+#show: doc => [ #cover(title: "小组成员与分工", subtitle: "团队 — 四人分工与协作说明", doc-type: "内部文档") #doc ]
+#setup-doc(title: "Unveil — 小组成员与分工")
+
+= 核心分工
+
+#table(
+  columns: (auto, auto, auto, auto),
+  [*姓名*], [*角色*], [*主要负责模块*], [*贡献度*],
+  [张恒基], [组长], [协调、公共协议（INTERFACE）、集成与联调], [28%],
+  [秦博宇], [组员], [领域 core、规则校验、单元测试], [27%],
+  [陈艺博], [组员], [TCP 服务器、计时、棋谱落盘], [23%],
+  [陈雨飞], [组员], [客户端、控制台 UI、AI 多 Agent], [22%],
+)
+
+*合计贡献度：100%*
+
+= AI 辅助使用说明
+
+本组使用 Cursor AI 辅助完成以下工作（人机协作，非全自动生成）：
+
++ *需求与协议*：整理 REQUIREMENTS.typ、撰写 INTERFACE.typ 开放问题 Q1–Q44，人工审核后编译 PDF。
++ *架构拆分*：Maven 多模块划分、任务看板迭代。
++ *编码*：按最小单元实现 FrameDecoder、RandomRevealService、JieqiAgent 等，人工跑测试与联调。
++ *测试*：由 AI 起草 JUnit 用例，人工补充边界（粘包、暗子士象、坐标）。
++ *文档*：最终报告 FINAL_REPORT.typ、README、Docker 说明。
+
+关键设计决策（超时 65s、服务器权威翻子、BOARD_STATE 行分隔符）由组内确认后写入协议。
