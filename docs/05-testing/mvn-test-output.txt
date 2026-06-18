@@ -1,0 +1,277 @@
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::staticFieldBase has been called by com.google.inject.internal.aop.HiddenClassDefiner (file:/C:/Tools/apache-maven-3.9.10/lib/guice-5.1.0-classes.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.inject.internal.aop.HiddenClassDefiner
+WARNING: sun.misc.Unsafe::staticFieldBase will be removed in a future release
+[AI] 搜索完成: 深度=2, 节点=4322, 分数=441
+[AI] 搜索完成: 深度=2, 节点=1863, 分数=-838
+[AI] 搜索完成: 深度=2, 节点=1829, 分数=-838
+[AI] 搜索完成: 深度=2, 节点=854, 分数=-697
+[AI] 搜索完成: 深度=2, 节点=1221, 分数=-697
+[AI] 搜索完成: 深度=2, 节点=1527, 分数=-1290
+[AI] 搜索完成: 深度=2, 节点=1544, 分数=-1290
+[AI] 搜索完成: 深度=2, 节点=921, 分数=-602
+[AI] 搜索完成: 深度=2, 节点=1173, 分数=-602
+[AI] 搜索完成: 深度=3, 节点=4566, 分数=838
+[AI] 搜索完成: 深度=4, 节点=14879, 分数=864
+[AI] 搜索完成: 深度=5, 节点=7123, 分数=1073741723
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=2bc29423 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 2bc29423
+玩家 Black(黑方) 加入游戏 2bc29423
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=fc0d3e98 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 fc0d3e98
+玩家 Black(黑方) 加入游戏 fc0d3e98
+游戏 fc0d3e98 结束: DRAW (协议和棋)
+[Match] 已移除结束对局 gameId=fc0d3e98 活跃对局数=0
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=b1b12392 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 b1b12392
+玩家 Black(黑方) 加入游戏 b1b12392
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=186d44c0 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 186d44c0
+玩家 Black(黑方) 加入游戏 186d44c0
+客户端断开: Black
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=a4086f39 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 a4086f39
+玩家 Black(黑方) 加入游戏 a4086f39
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=e476c85c players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 e476c85c
+玩家 Black(黑方) 加入游戏 e476c85c
+游戏 e476c85c 结束: BLACK_WIN (认输)
+棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\e476c85c.jieqi
+[Match] 已移除结束对局 gameId=e476c85c 活跃对局数=0
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=63f06f3b players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 63f06f3b
+玩家 Black(黑方) 加入游戏 63f06f3b
+揭棋服务器启动，监听端口: 0
+默认超时阈值: 65000ms (60000ms + 5000ms 网络裕量)
+新客户端连接: /127.0.0.1
+新客户端连接: /127.0.0.1
+[Match] 自动匹配（新建房间） gameId=678065b2 players=0/2 status=WAITING
+玩家 Red(红方) 加入游戏 678065b2
+玩家 Black(黑方) 加入游戏 678065b2
+未知消息类型: 99
+[Match] 新建房间（显式 new） gameId=fresh players=0/2 status=WAITING
+[Match] 自动匹配（并入 1/2 房间） gameId=room-a players=1/2 status=WAITING
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19000
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19000)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63526
+[WS] 新连接: /127.0.0.1:63527
+[WS] 匹配成功 roomId=room_69b8c43b chat2 vs chat1
+[WS] 开局 roomId=room_69b8c43b
+[WS] 连接关闭: chat1 — 
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_69b8c43b.replay.json
+[WS] 对局结束 roomId=room_69b8c43b BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: chat2 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19001
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19001)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63531
+[WS] 连接关闭: pinger — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19002
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19002)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63533
+[WS] 新连接: /127.0.0.1:63534
+[WS] 创建房间 roomId=288666 owner=roomOwner
+[WS] 加入房间 roomId=288666 roomOwner vs roomGuest
+[WS] 开局 roomId=288666
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\288666.replay.json
+[WS] 对局结束 roomId=288666 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: roomOwner — 
+[WS] 连接关闭: roomGuest — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19003
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19003)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63536
+[WS] 新连接: /127.0.0.1:63537
+[WS] 匹配成功 roomId=room_50402876 red1 vs blk1
+[WS] 开局 roomId=room_50402876
+[WS] 连接关闭: red1 — 
+[WS] 棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_50402876.jieqi
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_50402876.replay.json
+[WS] 对局结束 roomId=room_50402876 RED_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: blk1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19004
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19004)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63539
+[WS] 新连接: /127.0.0.1:63540
+[WS] 匹配成功 roomId=room_ac821519 fh1 vs fh2
+[WS] 开局 roomId=room_ac821519
+[WS] 连接关闭: fh2 — 
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_ac821519.replay.json
+[WS] 对局结束 roomId=room_ac821519 RED_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: fh1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19005
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19005)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63542
+[WS] 创建 AI 自动对弈 roomId=ai_battle_632d166c viewer=aiBattleViewer
+[AI] 搜索完成: 深度=3, 节点=29632, 分数=854
+[WS] 连接关闭: aiBattleViewer — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19006
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19006)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63578
+[WS] 新连接: /127.0.0.1:63579
+[WS] 匹配成功 roomId=room_685f3789 res1 vs res2
+[WS] 开局 roomId=room_685f3789
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_685f3789.replay.json
+[WS] 对局结束 roomId=room_685f3789 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: res1 — 
+[WS] 连接关闭: res2 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19007
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19007)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63581
+[WS] 创建人机房间 roomId=ai_e0ced42d human=humanAiChat aiLevel=medium
+[WS] 开局 roomId=ai_e0ced42d
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\ai_e0ced42d.replay.json
+[WS] 对局结束 roomId=ai_e0ced42d BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: humanAiChat — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19008
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19008)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63583
+[WS] 新连接: /127.0.0.1:63584
+[WS] 匹配成功 roomId=room_6b3b8e3a u1 vs u2
+[WS] 开局 roomId=room_6b3b8e3a
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_6b3b8e3a.replay.json
+[WS] 对局结束 roomId=room_6b3b8e3a BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: u1 — 
+[WS] 连接关闭: u2 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19009
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19009)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63588
+[WS] 新连接: /127.0.0.1:63589
+[WS] 匹配成功 roomId=room_4d5ade47 drawDecline1 vs drawDecline2
+[WS] 开局 roomId=room_4d5ade47
+[WS] 棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_4d5ade47.jieqi
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_4d5ade47.replay.json
+[WS] 对局结束 roomId=room_4d5ade47 RED_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: drawDecline2 — 
+[WS] 连接关闭: drawDecline1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19010
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19010)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63592
+[WS] 新连接: /127.0.0.1:63593
+[WS] 匹配成功 roomId=room_03996d5c draw1 vs draw2
+[WS] 开局 roomId=room_03996d5c
+[WS] 连接关闭: draw2 — 
+[WS] 连接关闭: draw1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19011
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19011)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63595
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_03996d5c.replay.json
+[WS] 对局结束 roomId=room_03996d5c DRAW（等待 rematch 决定，600s 后自动清理）
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19012
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19012)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63597
+[WS] 新连接: /127.0.0.1:63598
+[WS] 匹配成功 roomId=room_3fada8c7 ill2 vs ill1
+[WS] 开局 roomId=room_3fada8c7
+[WS] 棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_3fada8c7.jieqi
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_3fada8c7.replay.json
+[WS] 对局结束 roomId=room_3fada8c7 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: ill2 — 
+[WS] 连接关闭: ill1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19013
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19013)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63600
+[WS] 新连接: /127.0.0.1:63601
+[WS] 匹配成功 roomId=room_678daa5f turn2 vs turn1
+[WS] 开局 roomId=room_678daa5f
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_678daa5f.replay.json
+[WS] 对局结束 roomId=room_678daa5f BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: turn2 — 
+[WS] 连接关闭: turn1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19014
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19014)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63603
+[WS] 新连接: /127.0.0.1:63604
+[WS] 匹配成功 roomId=room_cd05fd3b dc2 vs dc1
+[WS] 开局 roomId=room_cd05fd3b
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_cd05fd3b.replay.json
+[WS] 对局结束 roomId=room_cd05fd3b BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: dc2 — 
+[WS] 连接关闭: dc1 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19015
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19015)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63614
+[WS] 新连接: /127.0.0.1:63615
+[WS] 匹配成功 roomId=room_e0efa28b replay2 vs replay1
+[WS] 开局 roomId=room_e0efa28b
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_e0efa28b.replay.json
+[WS] 对局结束 roomId=room_e0efa28b BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: replay1 — 
+[WS] 连接关闭: replay2 — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19016
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19016)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:63618
+[WS] 创建人机房间 roomId=ai_f5cafe86 human=humanAi aiLevel=medium
+[WS] 开局 roomId=ai_f5cafe86
+[AI] 搜索完成: 深度=4, 节点=42969, 分数=472
+[WS] 棋谱已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\ai_f5cafe86.jieqi
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\ai_f5cafe86.replay.json
+[WS] 对局结束 roomId=ai_f5cafe86 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 连接关闭: humanAi — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19017
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19017)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:50169
+[WS] 连接关闭: unk — 
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19018
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19018)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:50172
+[WS] 新连接: /127.0.0.1:50173
+[WS] 匹配成功 roomId=room_d9747f37 to1 vs to2
+[WS] 开局 roomId=room_d9747f37
+[WS] 连接关闭: to1 — 
+[WS] 连接关闭: to2 — 
+[WS] 复盘已保存: C:\Fullstack_Development\Unveil\jieqi-server\records\room_d9747f37.replay.json
+[WS] 对局结束 roomId=room_d9747f37 BLACK_WIN（等待 rematch 决定，600s 后自动清理）
+[WS] 揭棋 WebSocket 服务器已启动，端口: 19019
+[WS] 协议: 老师公共接口 JSON (ws://localhost:19019)
+[WS] 步时上限: 65000ms
+[WS] 新连接: /127.0.0.1:50184
+[WS] 新连接: /127.0.0.1:50185
+[WS] 匹配成功 roomId=room_baf338e2 can2 vs can1
+[WS] 连接关闭: can1 — 
+[WS] 连接关闭: can2 — 

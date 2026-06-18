@@ -89,26 +89,20 @@ public class GameClient {
                     }
                     continue;
                 }
-                if (input.startsWith("flip ") || input.startsWith("f ")) {
-                    int spaceIdx = input.indexOf(' ');
-                    String coord = input.substring(spaceIdx + 1).trim();
-                    Move move = new Move(coord, coord);
-                    move.setFlipOnly(true);
-                    if (!sendMoveIfLegal(move)) {
-                        continue;
-                    }
-                    continue;
-                }
 
                 // 默认解析为走法：source destination
                 String[] parts = input.split("\\s+");
                 if (parts.length >= 2) {
+                    if (parts[0].equals(parts[1])) {
+                        System.out.println("揭棋规则：禁止原地翻子，请输入移动走法（起点≠终点）。");
+                        continue;
+                    }
                     Move move = new Move(parts[0], parts[1]);
                     if (!sendMoveIfLegal(move)) {
                         continue;
                     }
                 } else {
-                    System.out.println("格式错误。用法: <source> <destination>  或 flip <coord>  或 draw/resign/board/help/quit");
+                    System.out.println("格式错误。用法: <source> <destination>  或 draw/resign/board/help/quit");
                 }
             }
         } catch (IOException e) {
@@ -121,7 +115,6 @@ public class GameClient {
     private void printHelp() {
         System.out.println("\n命令列表:");
         System.out.println("  <src> <dst>    走子，如 b1 b3");
-        System.out.println("  flip <coord>   原地翻子，如 flip a0");
         System.out.println("  draw / d       提和");
         System.out.println("  resign / r     认输");
         System.out.println("  board / b      显示棋盘");

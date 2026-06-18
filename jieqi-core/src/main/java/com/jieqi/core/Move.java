@@ -13,6 +13,13 @@ public class Move {
     /** 暗子揭开后的真实类型；-1 表示未揭开。用于复盘还原。 */
     private int revealedType = -1;
 
+    /** 供 {@link Board#undoMove} / {@link Board.MoveSnapshot} 精确回滚（仅搜索路径写入）。 */
+    int undoMoveCountBefore;
+    int undoNoCaptureCountBefore;
+    boolean undoPieceRevealedBefore;
+    int undoPieceTypeBefore = ChessPiece.UNKNOWN;
+    int undoPieceVirtualTypeBefore = ChessPiece.UNKNOWN;
+
     public Move() {}
 
     public Move(String source, String destination) {

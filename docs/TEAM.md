@@ -17,6 +17,6 @@
 2. **架构拆分**：Maven 多模块划分、任务看板 `TASKS.md` 迭代。  
 3. **编码**：按最小单元实现 `FrameDecoder`、`RandomRevealService`、`JieqiAgent` 等，人工跑测试与联调。  
 4. **测试**：由 AI 起草 JUnit 用例，人工补充边界（粘包、暗子士象、坐标）。  
-5. **文档**：实验报告草稿 `REPORT.md`、README、Docker 说明。
+5. **文档**：最终报告 `07-presentation/FINAL_REPORT.md`、README、Docker 说明。
 
 关键设计决策（超时 65s、服务器权威翻子、BOARD_STATE 行分隔符）由组内确认后写入协议。

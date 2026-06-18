@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ws, type WsMessage } from '../services/ws'
-import { initialJieqiBoard, type Piece, type PieceType, type CapturedEntry } from '../types/chess'
+import { initialJieqiBoard, type Piece, type PieceType, type CapturedEntry, type ReplayMove, type ReplayBoardCell, type ReplayFrameMessage } from '../types/chess'
 import { getMoveErrorMessage, getValidMoves, isInCheck, isCheckmate, isStalemate } from '../utils/chessRules'
 import { playMessageBeep } from '../utils/sound'
 
@@ -173,6 +173,18 @@ export const useGameStore = defineStore('game', {
     // AI 对弈暂停（仅 AI 模式下可见）
     paused: false as boolean,
     pausedAt: 0 as number,          // 进入暂停的时刻，用于恢复时把回合起点同步往后挪
+
+    // 逐步复盘模式
+    replayMode: false as boolean,
+    replayLoading: false as boolean,
+    replayStepIndex: 0 as number,
+    replayTotalSteps: 0 as number,
+    replayBoard: [] as Piece[],
+    replayMove: null as ReplayMove | null,
+    replayCurrentTurn: '' as string,
+    replayStatus: '' as string,
+    replayError: '' as string,
+    replayTimer: null as number | null,
   }),
 
   getters: {
@@ -525,6 +537,7 @@ export const useGameStore = defineStore('game', {
 
     // ── 消息处理 ─────────────────────────────────────────
     handleMessage(msg: WsMessage) {
+      console.log('[WS] received:', msg.messageType, msg)
       switch (msg.messageType) {
         case 'loginResult':
           this.loggedIn = msg.success === true
@@ -587,6 +600,14 @@ export const useGameStore = defineStore('game', {
           this.rematchDeclinedBy = ''
           this.timeBonusUsed = 0
           this.resetTurnClock()
+          // 新局开始，重置复盘状态
+          this.replayMode = false
+          this.replayLoading = false
+          this.replayBoard = []
+          this.replayMove = null
+          this.replayStepIndex = 0
+          this.replayTotalSteps = 0
+          this.replayError = ''
           break
 
         case 'moveResult':
@@ -659,6 +680,18 @@ export const useGameStore = defineStore('game', {
           this.myRematchAsked = false
           this.rematchOfferFrom = ''
           this.rematchDeclinedBy = ''
+          // 重置复盘状态，等待新一轮
+          this.replayMode = false
+          this.replayLoading = false
+          this.replayBoard = []
+          this.replayMove = null
+          this.replayStepIndex = 0
+          this.replayTotalSteps = 0
+          this.replayError = ''
+          break
+
+        case 'replayFrame':
+          this.handleReplayFrame(msg as unknown as ReplayFrameMessage)
           break
 
         case 'drawOffered':
@@ -716,11 +749,76 @@ export const useGameStore = defineStore('game', {
         }
 
         case 'error':
+          console.warn('[WS] error received:', msg.message)
           this.lastError = normalizeServerMessage(msg.message)
           this.matching = false
           this.selectedCoord = ''
+          // 复盘相关错误也复位 loading 和 timer
+          this.replayLoading = false
+          if (this.replayTimer) {
+            window.clearTimeout(this.replayTimer)
+            this.replayTimer = null
+          }
+          if (msg.message && (msg.message as string).includes('复盘')) {
+            this.replayError = normalizeServerMessage(msg.message)
+          }
           break
       }
+    },
+
+    // ── 复盘：向后端请求某一帧 ──
+    sendReplayRequest(stepIndex?: number) {
+      console.log('[Replay] sendReplayRequest called', stepIndex)
+
+      if (!this.gameOver) {
+        this.replayError = '对局尚未结束'
+        console.warn('[Replay] game not over, abort')
+        return
+      }
+
+      const payload: WsMessage = { messageType: 'replayRequest' }
+      if (typeof stepIndex === 'number') {
+        ;(payload as any).stepIndex = stepIndex
+      }
+
+      this.replayLoading = true
+      this.replayError = ''
+
+      if (this.replayTimer) {
+        window.clearTimeout(this.replayTimer)
+      }
+
+      this.replayTimer = window.setTimeout(() => {
+        if (this.replayLoading) {
+          this.replayLoading = false
+          this.replayError = '复盘请求超时：后端未返回 replayFrame'
+          console.warn('[Replay] request timeout')
+        }
+      }, 3000)
+
+      console.log('[Replay] WS send:', payload)
+      ws.send(payload)
+    },
+
+    // ── 处理后端回复的复盘帧 ──
+    handleReplayFrame(msg: ReplayFrameMessage) {
+      console.log('[Replay] handleReplayFrame', msg)
+
+      if (this.replayTimer) {
+        window.clearTimeout(this.replayTimer)
+        this.replayTimer = null
+      }
+
+      this.replayLoading = false
+      this.replayError = ''
+      this.replayMode = true
+      this.replayStepIndex = msg.stepIndex
+      this.replayTotalSteps = msg.totalSteps
+      // 服务端 move 格式为 { from: "a0", to: "a1" }，转为前端 ReplayMove 格式
+      this.replayMove = normalizeReplayMove(msg.move)
+      this.replayCurrentTurn = msg.currentTurn
+      this.replayStatus = msg.status
+      this.replayBoard = mapReplayBoard(msg.board)
     },
 
     // 记录一次吃子（来自 moveResult.captured 或 gameOver.capturedReveal）。
@@ -815,8 +913,29 @@ export const useGameStore = defineStore('game', {
 // 老师 JSON 协议：
 //   { x: 'a'-'i', y: 0-9, piece: 'king'/'rook'/..., visible: bool }
 // 这里的 y 与前端内部 row 都采用棋盘显示行号：0=红方底线，9=黑方底线。
+// 服务端 replayFrame.move 格式为 { from: "a0", to: "a1" }
+// 转为前端 ReplayMove: { fromX: "a", fromY: 0, toX: "a", toY: 1 }
+function normalizeReplayMove(raw: any): ReplayMove | null {
+  if (!raw) return null
+  const from = raw.from ?? ''
+  const to = raw.to ?? ''
+  const isFlip = raw.isFlip === true || (from === to && from.length === 2)
+  return {
+    fromX: from.charAt(0),
+    fromY: Number(from.charAt(1)) || 0,
+    toX: to.charAt(0),
+    toY: Number(to.charAt(1)) || 0,
+    isFlip,
+  }
+}
+
 // 服务端新版会发 color；兼容旧服务端时才按初始半区推断。
 // 注意：棋子可能已经跨河，不能长期依赖行号推断颜色。
+// 复盘帧棋盘 → Piece[]：格式与 gameStart.initialBoard 相同
+function mapReplayBoard(cells: ReplayBoardCell[]): Piece[] {
+  return parseInitialBoard(cells as any[])
+}
+
 function parseInitialBoard(cells: any[]): Piece[] {
   const result: Piece[] = []
   for (const cell of cells) {

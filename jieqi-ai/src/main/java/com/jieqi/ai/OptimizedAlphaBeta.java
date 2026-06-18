@@ -12,6 +12,7 @@ public class OptimizedAlphaBeta {
     // 视为接近长将判负（阈值 6），对该步施加重罚使 AI 改走他步（绝杀步除外）。
     private static final int REPETITION_DANGER = 5;
     private static final int REPETITION_PENALTY = 100_000;
+    private static final int ASPIRATION_WINDOW = 80;
     private TranspositionTable tt;
     private HistoryHeuristic history;
     private KillerHeuristic killers;
@@ -21,6 +22,7 @@ public class OptimizedAlphaBeta {
     private int maxDepthReached;
     private boolean abortSearch;
     private Map<String, Integer> repetition;
+    private int evalBias;
 
     public OptimizedAlphaBeta() {
         this.tt = new TranspositionTable();
@@ -33,7 +35,13 @@ public class OptimizedAlphaBeta {
     }
 
     public SearchResult search(Board board, int color, long timeLimitMs, Map<String, Integer> repetition) {
+        return search(board, color, timeLimitMs, repetition, 0);
+    }
+
+    public SearchResult search(Board board, int color, long timeLimitMs,
+                               Map<String, Integer> repetition, int evalBias) {
         this.repetition = repetition;
+        this.evalBias = evalBias;
         this.startTime = System.currentTimeMillis();
         this.timeLimit = Math.max(50L, timeLimitMs);
         this.nodesSearched = 0;
@@ -60,45 +68,25 @@ public class OptimizedAlphaBeta {
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
             if (abortSearch) break;
             long depthStart = System.currentTimeMillis();
-            int alpha = -INF, beta = INF;
-            int currentBest = -INF;
-            Move currentBestMove = null;
+            int alpha;
+            int beta;
+            if (depth <= 1) {
+                alpha = -INF;
+                beta = INF;
+            } else {
+                alpha = Math.max(-INF, bestScore - ASPIRATION_WINDOW);
+                beta = Math.min(INF, bestScore + ASPIRATION_WINDOW);
+            }
 
-            for (int i = 0; i < moves.size(); i++) {
-                if (abortSearch) break;
-                Move move = moves.get(i);
-                ChessPiece captured = board.executeMove(move);
-                nodesSearched++;
-                int score;
-                int oppColor = (color == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
-                // 长将规避：执行该步后若局面重复将逼近判负阈值且仍在将军，标记之。
-                boolean repetitionRisk = isRepeatedCheckRisk(board, oppColor, repetition);
-                if (RuleValidator.isCheckmate(board, oppColor)) score = INF - 1;
-                else {
-                    if (i == 0) score = -alphaBeta(board, oppColor, depth - 1, -beta, -alpha, true);
-                    else {
-                        score = -alphaBeta(board, oppColor, depth - 1, -alpha - 1, -alpha, false);
-                        if (score > alpha && score < beta)
-                            score = -alphaBeta(board, oppColor, depth - 1, -beta, -alpha, true);
-                    }
-                }
-                board.undoMove(move, captured);
-                // 非绝杀的长将步重罚：宁可改走他步，也别走成重复将军判负。
-                if (repetitionRisk && Math.abs(score) < INF - 1000) {
-                    score -= REPETITION_PENALTY;
-                }
-                if (score > currentBest) { currentBest = score; currentBestMove = move; }
-                if (score > alpha) {
-                    // 记录历史启发：本步推高了 alpha
-                    history.recordMove(move, color, depth);
-                    alpha = score;
-                }
+            DepthResult depthResult = searchAtDepth(board, color, depth, moves, alpha, beta);
+            if (!abortSearch && (depthResult.bestScore <= alpha || depthResult.bestScore >= beta)) {
+                depthResult = searchAtDepth(board, color, depth, moves, -INF, INF);
             }
 
             if (!abortSearch) {
                 maxDepthReached = depth;
-                bestMove = currentBestMove;
-                bestScore = currentBest;
+                bestMove = depthResult.bestMove;
+                bestScore = depthResult.bestScore;
                 if (bestMove != null) tt.put(hash, depth, bestScore, TranspositionTable.EXACT, bestMove);
                 if (Math.abs(bestScore) > INF - 1000) break;
                 if (depth % 4 == 0) history.age();
@@ -112,6 +100,47 @@ public class OptimizedAlphaBeta {
         }
         System.out.println("[AI] 搜索完成: 深度=" + maxDepthReached + ", 节点=" + nodesSearched + ", 分数=" + bestScore);
         return new SearchResult(bestMove, bestScore);
+    }
+
+    private record DepthResult(int bestScore, Move bestMove) {}
+
+    private DepthResult searchAtDepth(Board board, int color, int depth, List<Move> moves,
+                                      int alpha, int beta) {
+        int currentBest = -INF;
+        Move currentBestMove = null;
+        int alphaLocal = alpha;
+
+        for (int i = 0; i < moves.size(); i++) {
+            if (abortSearch) break;
+            Move move = moves.get(i);
+            ChessPiece captured = board.executeMove(move);
+            nodesSearched++;
+            int score;
+            int oppColor = (color == ChessPiece.RED) ? ChessPiece.BLACK : ChessPiece.RED;
+            boolean repetitionRisk = isRepeatedCheckRisk(board, oppColor, repetition);
+            if (RuleValidator.isCheckmate(board, oppColor)) score = INF - 1;
+            else {
+                if (i == 0) score = -alphaBeta(board, oppColor, depth - 1, -beta, -alphaLocal, true);
+                else {
+                    score = -alphaBeta(board, oppColor, depth - 1, -alphaLocal - 1, -alphaLocal, false);
+                    if (score > alphaLocal && score < beta)
+                        score = -alphaBeta(board, oppColor, depth - 1, -beta, -alphaLocal, true);
+                }
+            }
+            board.undoMove(move, captured);
+            if (repetitionRisk && Math.abs(score) < INF - 1000) {
+                score -= REPETITION_PENALTY;
+            }
+            if (score > currentBest) {
+                currentBest = score;
+                currentBestMove = move;
+            }
+            if (score > alphaLocal) {
+                history.recordMove(move, color, depth);
+                alphaLocal = score;
+            }
+        }
+        return new DepthResult(currentBest, currentBestMove);
     }
 
     /**
@@ -176,11 +205,18 @@ public class OptimizedAlphaBeta {
                 bestScore = score; bestMove = move;
                 break;
             }
-            if (searched == 0) score = -alphaBeta(board, oppColor, depth - 1, -beta, -alpha, isPV);
-            else {
-                score = -alphaBeta(board, oppColor, depth - 1, -alpha - 1, -alpha, false);
-                if (score > alpha && score < beta)
+            boolean captureOrCheck = captured != null || RuleValidator.isInCheck(board, oppColor);
+            int reduction = 0;
+            if (!captureOrCheck && searched >= 4 && depth >= 3 && !isPV) {
+                reduction = 1;
+            }
+            if (searched == 0) {
+                score = -alphaBeta(board, oppColor, depth - 1, -beta, -alpha, isPV);
+            } else {
+                score = -alphaBeta(board, oppColor, depth - 1 - reduction, -alpha - 1, -alpha, false);
+                if (score > alpha && score < beta) {
                     score = -alphaBeta(board, oppColor, depth - 1, -beta, -alpha, true);
+                }
             }
             board.undoMove(move, captured);
             searched++;
@@ -204,8 +240,8 @@ public class OptimizedAlphaBeta {
 
     private int quiescenceSearch(Board board, int color, int alpha, int beta, int depth) {
         if (abortSearch) return 0;
-        if (depth <= 0) return EnhancedEvaluator.evaluate(board, color);
-        int standPat = EnhancedEvaluator.evaluate(board, color);
+        if (depth <= 0) return EnhancedEvaluator.evaluate(board, color) + evalBias;
+        int standPat = EnhancedEvaluator.evaluate(board, color) + evalBias;
         if (standPat >= beta) return beta;
         if (standPat > alpha) alpha = standPat;
 
